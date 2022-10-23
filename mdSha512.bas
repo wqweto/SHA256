@@ -359,7 +359,7 @@ Public Function CryptoSha512Text(ByVal lBitSize As Long, sText As String) As Str
         baInput = vbNullString
     End If
     CryptoSha512Init uCtx, lBitSize
-    CryptoSha512Update uCtx, baInput
+    CryptoSha512Update uCtx, baInput, 0, lSize
     CryptoSha512Finalize uCtx, baOutput
     ReDim aSplit(0 To UBound(baOutput)) As String
     For lSize = 0 To UBound(aSplit)

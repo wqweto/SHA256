@@ -212,7 +212,7 @@ Public Function CryptoSha1Text(sText As String) As String
         baInput = vbNullString
     End If
     CryptoSha1Init uCtx
-    CryptoSha1Update uCtx, baInput
+    CryptoSha1Update uCtx, baInput, 0, lSize
     CryptoSha1Finalize uCtx, baOutput
     For lSize = 0 To UBound(aSplit)
         aSplit(lSize) = Right$("0" & Hex$(baOutput(lSize)), 2)

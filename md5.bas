@@ -206,7 +206,7 @@ Public Function CryptoMd5Text(sText As String) As String
         baInput = vbNullString
     End If
     CryptoMd5Init uCtx
-    CryptoMd5Update uCtx, baInput
+    CryptoMd5Update uCtx, baInput, 0, lSize
     CryptoMd5Finalize uCtx, baOutput
     For lSize = 0 To UBound(aSplit)
         aSplit(lSize) = Right$("0" & Hex$(baOutput(lSize)), 2)

@@ -302,7 +302,7 @@ Public Function CryptoSha2Text(ByVal lBitSize As Long, sText As String) As Strin
 #End If
     Case Else
         CryptoSha2Init uCtx, lBitSize
-        CryptoSha2Update uCtx, baInput
+        CryptoSha2Update uCtx, baInput, 0, lSize
         CryptoSha2Finalize uCtx, baOutput
     End Select
     ReDim aSplit(0 To UBound(baOutput)) As String
