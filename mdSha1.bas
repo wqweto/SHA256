@@ -171,19 +171,17 @@ Public Sub CryptoSha1Finalize(uCtx As CryptoSha1Context, baOutput() As Byte)
     Dim lSize           As Long
     
     With uCtx
-        If .NPartial > 0 Or .NInput = 0 Then
-            lSize = LNG_BLOCKSZ - .NPartial
-            If lSize < 9 Then
-                lSize = lSize + LNG_BLOCKSZ
-            End If
-            P(0) = &H80
-            .NInput = .NInput / 10000@ * 8
-            Call CopyMemory(B(0), .NInput, 8)
-            Call CopyMemory(P(lSize - 4), ByteSwap(B(0)), 4)
-            Call CopyMemory(P(lSize - 8), ByteSwap(B(1)), 4)
-            CryptoSha1Update uCtx, P, Size:=lSize
-            Debug.Assert .NPartial = 0
+        lSize = LNG_BLOCKSZ - .NPartial
+        If lSize < 9 Then
+            lSize = lSize + LNG_BLOCKSZ
         End If
+        P(0) = &H80
+        .NInput = .NInput / 10000@ * 8
+        Call CopyMemory(B(0), .NInput, 8)
+        Call CopyMemory(P(lSize - 4), ByteSwap(B(0)), 4)
+        Call CopyMemory(P(lSize - 8), ByteSwap(B(1)), 4)
+        CryptoSha1Update uCtx, P, Size:=lSize
+        Debug.Assert .NPartial = 0
         B(0) = ByteSwap(.H0): B(1) = ByteSwap(.H1): B(2) = ByteSwap(.H2): B(3) = ByteSwap(.H3): B(4) = ByteSwap(.H4)
         ReDim baOutput(0 To 19) As Byte
         Call CopyMemory(baOutput(0), B(0), UBound(baOutput) + 1)
