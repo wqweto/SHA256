@@ -152,7 +152,7 @@ Private Sub pvTestHmacSha3(oJson As Object, ByVal lBitSize As Long)
             baKey = FromHex(JsonValue(oTest, "key"))
             baMsg = FromHex(JsonValue(oTest, "msg"))
             baTag = FromHex(JsonValue(oTest, "tag"))
-            CryptoHmacSha3 lBitSize, baBuffer, baKey, baMsg
+            baBuffer = CryptoHmacSha3ByteArray(lBitSize, baKey, baMsg)
             ReDim Preserve baBuffer(0 To UBound(baTag))
             sResult = "valid"
             If Not pvArrayEqual(baBuffer, baTag) Then
@@ -176,35 +176,36 @@ Private Sub pvTestSha3()
     Dim sMessage        As String
     Dim baInput()       As Byte
     Dim baHash()        As Byte
-    
-    sMessage = "Rosetta code"
-    baHash = CryptoSha2ByteArray(256, StrConv(sMessage, vbFromUnicode))
-    Debug.Assert LCase$(ToHex(baHash)) = "764faf5c61ac315f1497f9dfa542713965b785e5cc2f707d6468d7d1124cdfcf"
-        
-    sMessage = Replace(String(1000, " "), " ", "Rosetta code")
-    baHash = CryptoSha2ByteArray(256, StrConv(sMessage, vbFromUnicode))
-    With New clsSHA256
-        Debug.Assert .SHA256(sMessage) = LCase$(ToHex(baHash))
-    End With
-    Debug.Assert SimplSHA256(sMessage) = LCase$(ToHex(baHash))
+
+'    sMessage = "Rosetta code"
+'    baHash = CryptoSha2ByteArray(256, StrConv(sMessage, vbFromUnicode))
+'    Debug.Assert LCase$(ToHex(baHash)) = "764faf5c61ac315f1497f9dfa542713965b785e5cc2f707d6468d7d1124cdfcf"
+'
+'    sMessage = Replace(String(1000, " "), " ", "Rosetta code")
+'    baHash = CryptoSha2ByteArray(256, StrConv(sMessage, vbFromUnicode))
+'    With New clsSHA256
+'        Debug.Assert .SHA256(sMessage) = LCase$(ToHex(baHash))
+'    End With
+'    Debug.Assert SimplSHA256(sMessage) = LCase$(ToHex(baHash))
     
     baInput = StrConv("abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmnhijklmnoijklmnopjklmnopqklmnopqrlmnopqrsmnopqrstnopqrstu", vbFromUnicode)
-    CryptoSha3 224, baHash, baInput
+    baHash = CryptoSha3ByteArray(224, baInput)
     Debug.Assert ToHex(baHash) = "543e6868e1666c1a643630df77367ae5a62a85070a51c14cbf665cbc"
     
-    CryptoSha3 256, baHash, baInput
+    baHash = CryptoSha3ByteArray(256, baInput)
     Debug.Assert ToHex(baHash) = "916f6061fe879741ca6469b43971dfdb28b1a32dc36cb3254e812be27aad1d18"
+    Debug.Assert CryptoSha3Text(256, "abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmnhijklmnoijklmnopjklmnopqklmnopqrlmnopqrsmnopqrstnopqrstu") = "916f6061fe879741ca6469b43971dfdb28b1a32dc36cb3254e812be27aad1d18"
     
-    CryptoSha3 384, baHash, baInput
+    baHash = CryptoSha3ByteArray(384, baInput)
     Debug.Assert ToHex(baHash) = "79407d3b5916b59c3e30b09822974791c313fb9ecc849e406f23592d04f625dc8c709b98b43b3852b337216179aa7fc7"
     
-    CryptoSha3 512, baHash, baInput
+    baHash = CryptoSha3ByteArray(512, baInput)
     Debug.Assert ToHex(baHash) = "afebb2ef542e6579c50cad06d2e578f9f8dd6881d7dc824d26360feebf18a4fa73e3261122948efcfd492e74e82e2189ed0fb440d187f382270cb455f21dd185"
     
-    CryptoShake 128, baHash, 32, baInput, Size:=0
+    baHash = CryptoShakeByteArray(128, 32, baInput, Size:=0)
     Debug.Assert ToHex(baHash) = "7f9c2ba4e88f827d616045507605853ed73b8093f6efbc88eb1a6eacfa66ef26"
     
-    CryptoShake 256, baHash, 64, baInput, Size:=0
+    baHash = CryptoShakeByteArray(256, 64, baInput, Size:=0)
     Debug.Assert ToHex(baHash) = "46b9dd2b0ba88d13233b3feb743eeb243fcd52ea62b81b82b50c27646ed5762fd75dc4ddd8c0f200cb05019d67b592f6fc821c49479ab48640292eacb3b7c4be"
 End Sub
 
@@ -283,6 +284,7 @@ Private Sub pvTestCryptoEd25519()
 End Sub
 
 Private Sub Form_Load()
+    pvTestSha3
     pvTestSha512
     pvTestCryptoEd25519
     pvTestHmacSha2 JsonParseObject(ReadTextFile("C:\Work\Temp\wycheproof\testvectors\hmac_sha512_test.json")), 512

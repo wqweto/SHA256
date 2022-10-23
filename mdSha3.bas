@@ -8,8 +8,13 @@ DefObj A-Z
 
 #If HasPtrSafe Then
 Private Declare PtrSafe Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" (Destination As Any, Source As Any, ByVal Length As LongPtr)
-Private Declare PtrSafe Function ArrPtr Lib "vbe7" Alias "VarPtr" (Ptr() As Any) As LongPtr
+#If TWINBASIC <> 0 Then
+    Private Declare PtrSafe Function ArrPtr Lib "msvbvm60" Alias "VarPtr" (Ptr() As Any) As LongPtr
+#Else
+    Private Declare PtrSafe Function ArrPtr Lib "vbe7" Alias "VarPtr" (Ptr() As Any) As LongPtr
+#End If
 Private Declare PtrSafe Function VariantChangeType Lib "oleaut32" (Dest As Variant, Src As Variant, ByVal wFlags As Integer, ByVal vt As VbVarType) As Long
+Private Declare PtrSafe Function WideCharToMultiByte Lib "kernel32" (ByVal CodePage As Long, ByVal dwFlags As Long, ByVal lpWideCharStr As LongPtr, ByVal cchWideChar As Long, lpMultiByteStr As Any, ByVal cchMultiByte As Long, ByVal lpDefaultChar As Long, ByVal lpUsedDefaultChar As Long) As Long
 #Else
 Private Enum LongPtr
     [_]
@@ -17,6 +22,7 @@ End Enum
 Private Declare Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" (Destination As Any, Source As Any, ByVal Length As LongPtr)
 Private Declare Function ArrPtr Lib "msvbvm60" Alias "VarPtr" (Ptr() As Any) As LongPtr
 Private Declare Function VariantChangeType Lib "oleaut32" (Dest As Variant, Src As Variant, ByVal wFlags As Integer, ByVal vt As VbVarType) As Long
+Private Declare Function WideCharToMultiByte Lib "kernel32" (ByVal CodePage As Long, ByVal dwFlags As Long, ByVal lpWideCharStr As Long, ByVal cchWideChar As Long, lpMultiByteStr As Any, ByVal cchMultiByte As Long, ByVal lpDefaultChar As Long, ByVal lpUsedDefaultChar As Long) As Long
 #End If
 
 Private Type SAFEARRAY1D
@@ -29,8 +35,8 @@ Private Type SAFEARRAY1D
     lLbound             As Long
 End Type
 
-Private Const LNG_ROUNDS            As Long = 24
-Private Const LNG_SPONGE_WORDS      As Long = 25
+Private Const LNG_ROUNDS                As Long = 24
+Private Const LNG_WORDS                 As Long = 25
 
 #If HasPtrSafe Then
     Private LNG_POW2(0 To 63)       As LongLong
@@ -40,17 +46,17 @@ Private Const LNG_SPONGE_WORDS      As Long = 25
     Private LNG_ROUND_C(0 To 23)    As Variant
 #End If
 
-Private Type HashState
-    DigestSize      As Long
-    Capacity        As Long
-    Absorbed        As Long
+Public Type CryptoSha3Context
+    DigestSize          As Long
+    Capacity            As Long
+    Absorbed            As Long
     #If HasPtrSafe Then
-        Words(0 To LNG_SPONGE_WORDS - 1) As LongLong
+        Words(0 To LNG_WORDS - 1) As LongLong
     #Else
-        Words(0 To LNG_SPONGE_WORDS - 1) As Variant
+        Words(0 To LNG_WORDS - 1) As Variant
     #End If
-    Bytes()         As Byte
-    PeekArray       As SAFEARRAY1D
+    Bytes()             As Byte
+    PeekArray           As SAFEARRAY1D
 End Type
 
 #If HasPtrSafe Then
@@ -64,7 +70,7 @@ Private Function ROTL64(lX As Variant, ByVal lN As Long) As Variant
         ((lX And (LNG_POW2(63) Xor -1)) \ LNG_POW2(64 - lN) Or -(lX < 0) * LNG_POW2(lN - 1))
 End Function
 
-Private Sub Keccak(uState As HashState)
+Private Sub Keccak(uCtx As CryptoSha3Context)
     #If HasPtrSafe Then
         Static C(0 To 4) As LongLong
         Dim vTemp       As LongLong
@@ -78,7 +84,7 @@ Private Sub Keccak(uState As HashState)
     Dim lIdx            As Long
     Dim lJdx            As Long
     
-    With uState
+    With uCtx
     For lRound = 0 To LNG_ROUNDS - 1
         '--- Theta
         For lIdx = 0 To 4
@@ -131,68 +137,29 @@ Private Sub Keccak(uState As HashState)
     End With
 End Sub
 
-Private Sub Absorb(uState As HashState, baBuffer() As Byte, ByVal lPos As Long, ByVal lSize As Long)
-    Dim lIdx            As Long
-    Dim lOffset         As Long
+#If HasPtrSafe Then
+    Private Function PeekByte(uCtx As CryptoSha3Context, ByVal lOffset As Long) As Long
+        #If uCtx Then '--- silence MZ-Tools
+        #End If
+        PeekByte = lOffset Mod 200
+    End Function
+#Else
+    Private Function PeekByte(uCtx As CryptoSha3Context, ByVal lOffset As Long) As Long
+        #If LargeAddressAware Then
+            uCtx.PeekArray.pvData = (VarPtr(uCtx.Words(lOffset \ 8)) Xor &H80000000) + 8 Xor &H80000000
+        #Else
+            uCtx.PeekArray.pvData = VarPtr(uCtx.Words(lOffset \ 8)) + 8
+        #End If
+        PeekByte = lOffset Mod 8
+    End Function
     
-    If lSize < 0 Then
-        lSize = UBound(baBuffer) + 1 - lPos
-    End If
-    With uState
-        lOffset = PeekByte(uState, .Absorbed)
-        For lIdx = lPos To lSize - 1
-            .Bytes(lOffset) = .Bytes(lOffset) Xor baBuffer(lIdx)
-            If .Absorbed = .Capacity - 1 Then
-                Keccak uState
-                .Absorbed = 0
-            Else
-                .Absorbed = .Absorbed + 1
-            End If
-            #If HasPtrSafe Then
-                lOffset = lOffset + 1
-            #Else
-                If lOffset = 7 Then
-                    lOffset = PeekByte(uState, .Absorbed)
-                Else
-                    lOffset = lOffset + 1
-                End If
-            #End If
-        Next
-    End With
-End Sub
+    Private Function CLngLng(vValue As Variant) As Variant
+        Const VT_I8 As Long = &H14
+        Call VariantChangeType(CLngLng, vValue, 0, VT_I8)
+    End Function
+#End If
 
-Private Sub Squeeze(uState As HashState, baOutput() As Byte, ByVal lOutSize As Long, ByVal lLFSR As Long)
-    Dim lIdx            As Long
-    Dim lOffset         As Long
-    Dim uEmpty          As HashState
-    
-    With uState
-        ReDim baOutput(0 To lOutSize - 1) As Byte
-        lOffset = PeekByte(uState, .Absorbed)
-        .Bytes(lOffset) = .Bytes(lOffset) Xor lLFSR
-        lOffset = PeekByte(uState, .Capacity - 1)
-        .Bytes(lOffset) = .Bytes(lOffset) Xor &H80
-        lOffset = PeekByte(uState, 0)
-        For lIdx = 0 To UBound(baOutput)
-            If lIdx Mod .Capacity = 0 Then
-                Keccak uState
-            End If
-            baOutput(lIdx) = .Bytes(lOffset)
-            #If HasPtrSafe Then
-                lOffset = lOffset + 1
-            #Else
-                If lOffset = 7 Then
-                    lOffset = PeekByte(uState, lIdx + 1)
-                Else
-                    lOffset = lOffset + 1
-                End If
-            #End If
-        Next
-    End With
-    uState = uEmpty
-End Sub
-
-Private Sub Init(uState As HashState, ByVal lBitSize As Long)
+Public Sub CryptoSha3Init(uCtx As CryptoSha3Context, ByVal lBitSize As Long)
     Dim lIdx            As Long
     Dim vElem           As Variant
     
@@ -210,9 +177,9 @@ Private Sub Init(uState As HashState, ByVal lBitSize As Long)
             lIdx = lIdx + 1
         Next
     End If
-    With uState
+    With uCtx
         .DigestSize = (lBitSize + 7) \ 8
-        .Capacity = LNG_SPONGE_WORDS * 8 - 2 * .DigestSize
+        .Capacity = LNG_WORDS * 8 - 2 * .DigestSize
         .Words(0) = CLngLng(0)
         For lIdx = 1 To UBound(.Words)
             .Words(lIdx) = .Words(0)
@@ -224,8 +191,8 @@ Private Sub Init(uState As HashState, ByVal lBitSize As Long)
                 .cbElements = 1
                 .cLocks = 1
                 #If HasPtrSafe Then
-                    .pvData = VarPtr(uState.Words(0))
-                    .cElements = LNG_SPONGE_WORDS * 8
+                    .pvData = VarPtr(uCtx.Words(0))
+                    .cElements = LNG_WORDS * 8
                 #Else
                     .cElements = 8
                 #End If
@@ -236,51 +203,116 @@ Private Sub Init(uState As HashState, ByVal lBitSize As Long)
     End With
 End Sub
 
-#If HasPtrSafe Then
-    Private Function PeekByte(uState As HashState, ByVal lOffset As Long) As Long
-        PeekByte = lOffset
-    End Function
-#Else
-    Private Function PeekByte(uState As HashState, ByVal lOffset As Long) As Long
-        #If LargeAddressAware Then
-            uState.PeekArray.pvData = (VarPtr(uState.Words(lOffset \ 8)) Xor &H80000000) + 8 Xor &H80000000
-        #Else
-            uState.PeekArray.pvData = VarPtr(uState.Words(lOffset \ 8)) + 8
-        #End If
-        PeekByte = lOffset Mod 8
-    End Function
+Public Sub CryptoSha3Update(uCtx As CryptoSha3Context, baBuffer() As Byte, Optional ByVal Pos As Long, Optional ByVal Size As Long = -1)
+    Dim lIdx            As Long
+    Dim lOffset         As Long
     
-    Private Function CLngLng(vValue As Variant) As Variant
-        Const VT_I8 As Long = &H14
-        Call VariantChangeType(CLngLng, vValue, 0, VT_I8)
-    End Function
-#End If
-
-Public Sub CryptoSha3(ByVal lBitSize As Long, baOutput() As Byte, baInput() As Byte, Optional ByVal Pos As Long, Optional ByVal Size As Long = -1)
-    Dim uState          As HashState
-    
-    Init uState, lBitSize
-    Absorb uState, baInput, Pos, Size
-    Squeeze uState, baOutput, uState.DigestSize, &H6
+    If Size < 0 Then
+        Size = UBound(baBuffer) + 1 - Pos
+    End If
+    With uCtx
+        lOffset = PeekByte(uCtx, .Absorbed)
+        For lIdx = Pos To Size - 1
+            .Bytes(lOffset) = .Bytes(lOffset) Xor baBuffer(lIdx)
+            If .Absorbed = .Capacity - 1 Then
+                Keccak uCtx
+                .Absorbed = 0
+                lOffset = PeekByte(uCtx, .Absorbed)
+            Else
+                .Absorbed = .Absorbed + 1
+                If lOffset = UBound(.Bytes) Then
+                    lOffset = PeekByte(uCtx, .Absorbed)
+                Else
+                    lOffset = lOffset + 1
+                End If
+            End If
+        Next
+    End With
 End Sub
 
-Public Sub CryptoKeccak(ByVal lBitSize As Long, baOutput() As Byte, baInput() As Byte, Optional ByVal Pos As Long, Optional ByVal Size As Long = -1)
-    Dim uState          As HashState
+Public Sub CryptoSha3Finalize(uCtx As CryptoSha3Context, baOutput() As Byte, Optional ByVal OutSize As Long, Optional ByVal LFSR As Long)
+    Dim lIdx            As Long
+    Dim lOffset         As Long
+    Dim uEmpty          As CryptoSha3Context
     
-    Init uState, lBitSize
-    Absorb uState, baInput, Pos, Size
-    Squeeze uState, baOutput, uState.DigestSize, &H1
+    With uCtx
+        If OutSize = 0 Then
+            OutSize = .DigestSize
+        End If
+        If LFSR = 0 Then
+            LFSR = &H6
+        End If
+        ReDim baOutput(0 To OutSize - 1) As Byte
+        lOffset = PeekByte(uCtx, .Absorbed)
+        .Bytes(lOffset) = .Bytes(lOffset) Xor LFSR
+        lOffset = PeekByte(uCtx, .Capacity - 1)
+        .Bytes(lOffset) = .Bytes(lOffset) Xor &H80
+        For lIdx = 0 To UBound(baOutput)
+            If lIdx Mod .Capacity = 0 Then
+                Keccak uCtx
+                lOffset = PeekByte(uCtx, 0)
+            End If
+            baOutput(lIdx) = .Bytes(lOffset)
+            If lOffset = UBound(.Bytes) Then
+                lOffset = PeekByte(uCtx, lIdx + 1)
+            Else
+                lOffset = lOffset + 1
+            End If
+        Next
+    End With
+    uCtx = uEmpty
 End Sub
 
-Public Sub CryptoShake(ByVal lBitSize As Long, baOutput() As Byte, ByVal lOutSize As Long, baInput() As Byte, Optional ByVal Pos As Long, Optional ByVal Size As Long = -1)
-    Dim uState          As HashState
+Public Function CryptoSha3ByteArray(ByVal lBitSize As Long, baInput() As Byte, Optional ByVal Pos As Long, Optional ByVal Size As Long = -1) As Byte()
+    Dim uCtx            As CryptoSha3Context
     
-    Init uState, lBitSize
-    Absorb uState, baInput, Pos, Size
-    Squeeze uState, baOutput, lOutSize, &H1F
-End Sub
+    CryptoSha3Init uCtx, lBitSize
+    CryptoSha3Update uCtx, baInput, Pos, Size
+    CryptoSha3Finalize uCtx, CryptoSha3ByteArray
+End Function
 
-Public Sub CryptoHmacSha3(ByVal lBitSize As Long, baOutput() As Byte, baKey() As Byte, baInput() As Byte, Optional ByVal Pos As Long, Optional ByVal Size As Long = -1)
+Public Function CryptoSha3Text(ByVal lBitSize As Long, sText As String) As String
+    Const CP_UTF8       As Long = 65001
+    Dim uCtx            As CryptoSha3Context
+    Dim lSize           As Long
+    Dim baInput()       As Byte
+    Dim baOutput()      As Byte
+    Dim aSplit()        As String
+    
+    lSize = WideCharToMultiByte(CP_UTF8, 0, StrPtr(sText), Len(sText), ByVal 0, 0, 0, 0)
+    If lSize > 0 Then
+        ReDim baInput(0 To lSize - 1) As Byte
+        Call WideCharToMultiByte(CP_UTF8, 0, StrPtr(sText), Len(sText), baInput(0), lSize, 0, 0)
+    Else
+        baInput = vbNullString
+    End If
+    CryptoSha3Init uCtx, lBitSize
+    CryptoSha3Update uCtx, baInput, 0, lSize
+    CryptoSha3Finalize uCtx, baOutput
+    ReDim aSplit(0 To UBound(baOutput)) As String
+    For lSize = 0 To UBound(aSplit)
+        aSplit(lSize) = Right$("0" & Hex$(baOutput(lSize)), 2)
+    Next
+    CryptoSha3Text = LCase$(Join(aSplit, vbNullString))
+End Function
+
+Public Function CryptoKeccakByteArray(ByVal lBitSize As Long, baInput() As Byte, Optional ByVal Pos As Long, Optional ByVal Size As Long = -1) As Byte()
+    Dim uCtx            As CryptoSha3Context
+    
+    CryptoSha3Init uCtx, lBitSize
+    CryptoSha3Update uCtx, baInput, Pos, Size
+    CryptoSha3Finalize uCtx, CryptoKeccakByteArray, uCtx.DigestSize, &H1
+End Function
+
+Public Function CryptoShakeByteArray(ByVal lBitSize As Long, ByVal lOutSize As Long, baInput() As Byte, Optional ByVal Pos As Long, Optional ByVal Size As Long = -1) As Byte()
+    Dim uCtx            As CryptoSha3Context
+    
+    CryptoSha3Init uCtx, lBitSize
+    CryptoSha3Update uCtx, baInput, Pos, Size
+    CryptoSha3Finalize uCtx, CryptoShakeByteArray, lOutSize, &H1F
+End Function
+
+Public Function CryptoHmacSha3ByteArray(ByVal lBitSize As Long, baKey() As Byte, baInput() As Byte, Optional ByVal Pos As Long, Optional ByVal Size As Long = -1) As Byte()
     Const INNER_PAD     As Long = &H36
     Const OUTER_PAD     As Long = &H5C
     Dim lPadSize        As Long
@@ -290,11 +322,11 @@ Public Sub CryptoHmacSha3(ByVal lBitSize As Long, baOutput() As Byte, baKey() As
     Dim baHash()        As Byte
     
     '--- pad size is equal to sponge capacity
-    lPadSize = LNG_SPONGE_WORDS * 8 - 2 * ((lBitSize + 7) \ 8)
+    lPadSize = LNG_WORDS * 8 - 2 * ((lBitSize + 7) \ 8)
     If UBound(baKey) < lPadSize Then
         baPass = baKey
     Else
-        CryptoSha3 lBitSize, baPass, baKey
+        baPass = CryptoSha3ByteArray(lBitSize, baKey)
     End If
     If Size < 0 Then
         Size = UBound(baInput) + 1 - Pos
@@ -309,7 +341,7 @@ Public Sub CryptoHmacSha3(ByVal lBitSize As Long, baOutput() As Byte, baKey() As
     For lIdx = 0 To Size - 1
         baPad(lPadSize + lIdx) = baInput(Pos + lIdx)
     Next
-    CryptoSha3 lBitSize, baHash, baPad
+    baHash = CryptoSha3ByteArray(lBitSize, baPad)
     Size = UBound(baHash) + 1
     ReDim baPad(0 To Size + lPadSize - 1) As Byte
     For lIdx = 0 To UBound(baPass)
@@ -321,5 +353,5 @@ Public Sub CryptoHmacSha3(ByVal lBitSize As Long, baOutput() As Byte, baKey() As
     For lIdx = 0 To Size - 1
         baPad(lPadSize + lIdx) = baHash(lIdx)
     Next
-    CryptoSha3 lBitSize, baOutput, baPad
-End Sub
+    CryptoHmacSha3ByteArray = CryptoSha3ByteArray(lBitSize, baPad)
+End Function
