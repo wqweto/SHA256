@@ -5,14 +5,11 @@ DefObj A-Z
 
 #Const HasPtrSafe = (VBA7 <> 0)
 #Const LargeAddressAware = (Win64 = 0 And VBA7 = 0 And VBA6 = 0 And VBA5 = 0)
+#Const HasOperators = (TWINBASIC <> 0)
 
 #If HasPtrSafe Then
 Private Declare PtrSafe Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" (Destination As Any, Source As Any, ByVal Length As LongPtr)
-#If TWINBASIC <> 0 Then
-    Private Declare PtrSafe Function ArrPtr Lib "msvbvm60" Alias "VarPtr" (Ptr() As Any) As LongPtr
-#Else
-    Private Declare PtrSafe Function ArrPtr Lib "vbe7" Alias "VarPtr" (Ptr() As Any) As LongPtr
-#End If
+Private Declare PtrSafe Function ArrPtr Lib "vbe7" Alias "VarPtr" (Ptr() As Any) As LongPtr
 Private Declare PtrSafe Function VariantChangeType Lib "oleaut32" (Dest As Variant, Src As Variant, ByVal wFlags As Integer, ByVal vt As VbVarType) As Long
 Private Declare PtrSafe Function WideCharToMultiByte Lib "kernel32" (ByVal CodePage As Long, ByVal dwFlags As Long, ByVal lpWideCharStr As LongPtr, ByVal cchWideChar As Long, lpMultiByteStr As Any, ByVal cchMultiByte As Long, ByVal lpDefaultChar As Long, ByVal lpUsedDefaultChar As Long) As Long
 #Else
@@ -59,6 +56,7 @@ Public Type CryptoSha3Context
     PeekArray           As SAFEARRAY1D
 End Type
 
+#If Not HasOperators Then
 #If HasPtrSafe Then
 Private Function ROTL64(ByVal lX As LongLong, ByVal lN As Long) As LongLong
 #Else
@@ -69,6 +67,7 @@ Private Function ROTL64(lX As Variant, ByVal lN As Long) As Variant
     ROTL64 = ((lX And (LNG_POW2(63 - lN) - 1)) * LNG_POW2(lN) Or -((lX And LNG_POW2(63 - lN)) <> 0) * LNG_POW2(63)) Or _
         ((lX And (LNG_POW2(63) Xor -1)) \ LNG_POW2(64 - lN) Or -(lX < 0) * LNG_POW2(lN - 1))
 End Function
+#End If
 
 Private Sub Keccak(uCtx As CryptoSha3Context)
     #If HasPtrSafe Then
@@ -91,37 +90,68 @@ Private Sub Keccak(uCtx As CryptoSha3Context)
             C(lIdx) = .Words(lIdx) Xor .Words(lIdx + 5) Xor .Words(lIdx + 10) Xor .Words(lIdx + 15) Xor .Words(lIdx + 20)
         Next
         For lIdx = 0 To 4
-            vTemp = C((lIdx + 4) Mod 5) Xor ROTL64(C((lIdx + 1) Mod 5), 1)
+            #If HasOperators Then
+                vTemp = C((lIdx + 4) Mod 5) Xor (C((lIdx + 1) Mod 5) << 1 Or C((lIdx + 1) Mod 5) >> 63)
+            #Else
+                vTemp = C((lIdx + 4) Mod 5) Xor ROTL64(C((lIdx + 1) Mod 5), 1)
+            #End If
             For lJdx = 0 To 24 Step 5
                 .Words(lIdx + lJdx) = .Words(lIdx + lJdx) Xor vTemp
             Next
         Next
         '--- Rho & Pi
         aTemp = .Words
-        .Words(10) = ROTL64(aTemp(1), 1)
-        .Words(20) = ROTL64(aTemp(2), 62)
-        .Words(5) = ROTL64(aTemp(3), 28)
-        .Words(15) = ROTL64(aTemp(4), 27)
-        .Words(16) = ROTL64(aTemp(5), 36)
-        .Words(1) = ROTL64(aTemp(6), 44)
-        .Words(11) = ROTL64(aTemp(7), 6)
-        .Words(21) = ROTL64(aTemp(8), 55)
-        .Words(6) = ROTL64(aTemp(9), 20)
-        .Words(7) = ROTL64(aTemp(10), 3)
-        .Words(17) = ROTL64(aTemp(11), 10)
-        .Words(2) = ROTL64(aTemp(12), 43)
-        .Words(12) = ROTL64(aTemp(13), 25)
-        .Words(22) = ROTL64(aTemp(14), 39)
-        .Words(23) = ROTL64(aTemp(15), 41)
-        .Words(8) = ROTL64(aTemp(16), 45)
-        .Words(18) = ROTL64(aTemp(17), 15)
-        .Words(3) = ROTL64(aTemp(18), 21)
-        .Words(13) = ROTL64(aTemp(19), 8)
-        .Words(14) = ROTL64(aTemp(20), 18)
-        .Words(24) = ROTL64(aTemp(21), 2)
-        .Words(9) = ROTL64(aTemp(22), 61)
-        .Words(19) = ROTL64(aTemp(23), 56)
-        .Words(4) = ROTL64(aTemp(24), 14)
+        #If HasOperators Then
+            .Words(10) = (aTemp(1) << 1) Or (aTemp(1) >> (64 - 1))
+            .Words(20) = (aTemp(2) << 62) Or (aTemp(2) >> (64 - 62))
+            .Words(5) = (aTemp(3) << 28) Or (aTemp(3) >> (64 - 28))
+            .Words(15) = (aTemp(4) << 27) Or (aTemp(4) >> (64 - 27))
+            .Words(16) = (aTemp(5) << 36) Or (aTemp(5) >> (64 - 36))
+            .Words(1) = (aTemp(6) << 44) Or (aTemp(6) >> (64 - 44))
+            .Words(11) = (aTemp(7) << 6) Or (aTemp(7) >> (64 - 6))
+            .Words(21) = (aTemp(8) << 55) Or (aTemp(8) >> (64 - 55))
+            .Words(6) = (aTemp(9) << 20) Or (aTemp(9) >> (64 - 20))
+            .Words(7) = (aTemp(10) << 3) Or (aTemp(10) >> (64 - 3))
+            .Words(17) = (aTemp(11) << 10) Or (aTemp(11) >> (64 - 10))
+            .Words(2) = (aTemp(12) << 43) Or (aTemp(12) >> (64 - 43))
+            .Words(12) = (aTemp(13) << 25) Or (aTemp(13) >> (64 - 25))
+            .Words(22) = (aTemp(14) << 39) Or (aTemp(14) >> (64 - 39))
+            .Words(23) = (aTemp(15) << 41) Or (aTemp(15) >> (64 - 41))
+            .Words(8) = (aTemp(16) << 45) Or (aTemp(16) >> (64 - 45))
+            .Words(18) = (aTemp(17) << 15) Or (aTemp(17) >> (64 - 15))
+            .Words(3) = (aTemp(18) << 21) Or (aTemp(18) >> (64 - 21))
+            .Words(13) = (aTemp(19) << 8) Or (aTemp(19) >> (64 - 8))
+            .Words(14) = (aTemp(20) << 18) Or (aTemp(20) >> (64 - 18))
+            .Words(24) = (aTemp(21) << 2) Or (aTemp(21) >> (64 - 2))
+            .Words(9) = (aTemp(22) << 61) Or (aTemp(22) >> (64 - 61))
+            .Words(19) = (aTemp(23) << 56) Or (aTemp(23) >> (64 - 56))
+            .Words(4) = (aTemp(24) << 14) Or (aTemp(24) >> (64 - 14))
+        #Else
+            .Words(10) = ROTL64(aTemp(1), 1)
+            .Words(20) = ROTL64(aTemp(2), 62)
+            .Words(5) = ROTL64(aTemp(3), 28)
+            .Words(15) = ROTL64(aTemp(4), 27)
+            .Words(16) = ROTL64(aTemp(5), 36)
+            .Words(1) = ROTL64(aTemp(6), 44)
+            .Words(11) = ROTL64(aTemp(7), 6)
+            .Words(21) = ROTL64(aTemp(8), 55)
+            .Words(6) = ROTL64(aTemp(9), 20)
+            .Words(7) = ROTL64(aTemp(10), 3)
+            .Words(17) = ROTL64(aTemp(11), 10)
+            .Words(2) = ROTL64(aTemp(12), 43)
+            .Words(12) = ROTL64(aTemp(13), 25)
+            .Words(22) = ROTL64(aTemp(14), 39)
+            .Words(23) = ROTL64(aTemp(15), 41)
+            .Words(8) = ROTL64(aTemp(16), 45)
+            .Words(18) = ROTL64(aTemp(17), 15)
+            .Words(3) = ROTL64(aTemp(18), 21)
+            .Words(13) = ROTL64(aTemp(19), 8)
+            .Words(14) = ROTL64(aTemp(20), 18)
+            .Words(24) = ROTL64(aTemp(21), 2)
+            .Words(9) = ROTL64(aTemp(22), 61)
+            .Words(19) = ROTL64(aTemp(23), 56)
+            .Words(4) = ROTL64(aTemp(24), 14)
+        #End If
         '--- Chi
         For lJdx = 0 To 24 Step 5
             For lIdx = 0 To 4

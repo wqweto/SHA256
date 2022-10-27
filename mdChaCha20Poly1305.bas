@@ -322,7 +322,7 @@ Public Sub CryptoPoly1305Finish(uCtx As CryptoPoly1305Context, baOutput() As Byt
     End With
 End Sub
 
-'= ChaCha20Poly130 =======================================================
+'= ChaCha20Poly1305 ======================================================
 
 Private Function Process(baKey() As Byte, baNonce() As Byte, baAad() As Byte, baTag() As Byte, baBuffer() As Byte, ByVal lPos As Long, ByVal lSize As Long, ByVal Encrypt As Boolean) As Boolean
     Dim uChaCha         As CryptoChaCha20Context

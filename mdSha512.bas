@@ -186,7 +186,7 @@ Public Sub CryptoSha512Init(uCtx As CryptoSha512Context, ByVal lBitSize As Long)
         Next
     End If
     With uCtx
-        Select Case lBitSize
+        Select Case lBitSize Mod 1000
         Case 224
             vSplit = Split("8C3D37C819544DA2 73E1996689DCD4D6 1DFAB7AE32FF9C82 679DD514582F9FCF F6D2B697BD44DA8 77E36F7304C48942 3F9D85A86A1D36C8 1112E6AD91D692A1")
         Case 256
