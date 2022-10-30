@@ -32,18 +32,18 @@ Private S(0 To 15)                  As Long
 Private K(0 To LNG_ROUNDS - 1)      As Long
 
 #If Not HasOperators Then
-Private Function ROTL32(ByVal lX As Long, ByVal lN As Long) As Long
-    '--- ROTL32 = LShift(X, n) Or RShift(X, 32 - n)
+Private Function RotL32(ByVal lX As Long, ByVal lN As Long) As Long
+    '--- RotL32 = LShift(X, n) Or RShift(X, 32 - n)
     Debug.Assert lN <> 0
-    ROTL32 = ((lX And (LNG_POW2(31 - lN) - 1)) * LNG_POW2(lN) Or -((lX And LNG_POW2(31 - lN)) <> 0) * LNG_POW2(31)) Or _
+    RotL32 = ((lX And (LNG_POW2(31 - lN) - 1)) * LNG_POW2(lN) Or -((lX And LNG_POW2(31 - lN)) <> 0) * LNG_POW2(31)) Or _
         ((lX And (LNG_POW2(31) Xor -1)) \ LNG_POW2(32 - lN) Or -(lX < 0) * LNG_POW2(lN - 1))
 End Function
 
-Private Function UAdd(ByVal lX As Long, ByVal lY As Long) As Long
+Private Function UAdd32(ByVal lX As Long, ByVal lY As Long) As Long
     If (lX Xor lY) >= 0 Then
-        UAdd = ((lX Xor &H80000000) + lY) Xor &H80000000
+        UAdd32 = ((lX Xor &H80000000) + lY) Xor &H80000000
     Else
-        UAdd = lX + lY
+        UAdd32 = lX + lY
     End If
 End Function
 #End If
@@ -142,7 +142,7 @@ Public Sub CryptoMd5Update(uCtx As CryptoMd5Context, baInput() As Byte, Optional
                 #If HasOperators Then
                     lE += lA + K(lIdx) + B(lBufIdx)
                 #Else
-                    lE = UAdd(UAdd(UAdd(lE, lA), K(lIdx)), B(lBufIdx))
+                    lE = UAdd32(UAdd32(UAdd32(lE, lA), K(lIdx)), B(lBufIdx))
                 #End If
                 lTemp = lD
                 lD = lC
@@ -150,14 +150,14 @@ Public Sub CryptoMd5Update(uCtx As CryptoMd5Context, baInput() As Byte, Optional
                 #If HasOperators Then
                     lB += (lE << lS) Or (lE >> (32 - lS))
                 #Else
-                    lB = UAdd(lB, ROTL32(lE, lS))
+                    lB = UAdd32(lB, RotL32(lE, lS))
                 #End If
                 lA = lTemp
             Next
             #If HasOperators Then
                 .H0 += lA: .H1 += lB: .H2 += lC: .H3 += lD
             #Else
-                .H0 = UAdd(.H0, lA): .H1 = UAdd(.H1, lB): .H2 = UAdd(.H2, lC): .H3 = UAdd(.H3, lD)
+                .H0 = UAdd32(.H0, lA): .H1 = UAdd32(.H1, lB): .H2 = UAdd32(.H2, lC): .H3 = UAdd32(.H3, lD)
             #End If
         Loop
     End With

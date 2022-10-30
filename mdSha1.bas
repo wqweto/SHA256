@@ -31,25 +31,25 @@ End Type
 #If Not HasOperators Then
 Private LNG_POW2(0 To 31)           As Long
 
-Private Function ROTL32(ByVal lX As Long, ByVal lN As Long) As Long
-    '--- ROTL32 = LShift(X, n) Or RShift(X, 32 - n)
+Private Function RotL32(ByVal lX As Long, ByVal lN As Long) As Long
+    '--- RotL32 = LShift(X, n) Or RShift(X, 32 - n)
     Debug.Assert lN <> 0
-    ROTL32 = ((lX And (LNG_POW2(31 - lN) - 1)) * LNG_POW2(lN) Or -((lX And LNG_POW2(31 - lN)) <> 0) * LNG_POW2(31)) Or _
+    RotL32 = ((lX And (LNG_POW2(31 - lN) - 1)) * LNG_POW2(lN) Or -((lX And LNG_POW2(31 - lN)) <> 0) * LNG_POW2(31)) Or _
         ((lX And (LNG_POW2(31) Xor -1)) \ LNG_POW2(32 - lN) Or -(lX < 0) * LNG_POW2(lN - 1))
 End Function
 
-Private Function UAdd(ByVal lX As Long, ByVal lY As Long) As Long
+Private Function UAdd32(ByVal lX As Long, ByVal lY As Long) As Long
     If (lX Xor lY) >= 0 Then
-        UAdd = ((lX Xor &H80000000) + lY) Xor &H80000000
+        UAdd32 = ((lX Xor &H80000000) + lY) Xor &H80000000
     Else
-        UAdd = lX + lY
+        UAdd32 = lX + lY
     End If
 End Function
 #End If
 
-Private Function ByteSwap(ByVal lX As Long) As Long
-    ByteSwap = (lX And &H7F) * &H1000000 Or (lX And &HFF00&) * &H100 Or (lX And &HFF0000) \ &H100 Or (lX And &H7F000000) \ &H1000000 Or _
-                -((lX And &H80) <> 0) * &H80000000 Or -((lX And &H80000000) <> 0) * &H80
+Private Function ByteSwap32(ByVal lX As Long) As Long
+    ByteSwap32 = (lX And &H7F) * &H1000000 Or (lX And &HFF00&) * &H100 Or (lX And &HFF0000) \ &H100 Or _
+                 (lX And &HFF000000) \ &H1000000 And &HFF Or -((lX And &H80) <> 0) * &H80000000
 End Function
 
 Public Sub CryptoSha1Init(uCtx As CryptoSha1Context)
@@ -118,13 +118,13 @@ Public Sub CryptoSha1Update(uCtx As CryptoSha1Context, baInput() As Byte, Option
             lA = .H0: lB = .H1: lC = .H2: lD = .H3: lE = .H4
             For lIdx = 0 To LNG_ROUNDS - 1
                 If lIdx < 16 Then
-                    W(lIdx) = ByteSwap(B(lIdx))
+                    W(lIdx) = ByteSwap32(B(lIdx))
                 Else
                     #If HasOperators Then
                         lTemp = W(lIdx - 3) Xor W(lIdx - 8) Xor W(lIdx - 14) Xor W(lIdx - 16)
                         W(lIdx) = (lTemp << 1 Or lTemp >> 31)
                     #Else
-                        W(lIdx) = ROTL32(W(lIdx - 3) Xor W(lIdx - 8) Xor W(lIdx - 14) Xor W(lIdx - 16), 1)
+                        W(lIdx) = RotL32(W(lIdx - 3) Xor W(lIdx - 8) Xor W(lIdx - 14) Xor W(lIdx - 16), 1)
                     #End If
                 End If
                 Select Case lIdx
@@ -144,14 +144,14 @@ Public Sub CryptoSha1Update(uCtx As CryptoSha1Context, baInput() As Byte, Option
                 #If HasOperators Then
                     lTemp += (lA << 5 or lA >> 27) + lE + lK + W(lIdx)
                 #Else
-                    lTemp = UAdd(UAdd(UAdd(UAdd(lTemp, ROTL32(lA, 5)), lE), lK), W(lIdx))
+                    lTemp = UAdd32(UAdd32(UAdd32(UAdd32(lTemp, RotL32(lA, 5)), lE), lK), W(lIdx))
                 #End If
                 lE = lD
                 lD = lC
                 #If HasOperators Then
                     lC = (lB << 30 Or lB >> 2)
                 #Else
-                    lC = ROTL32(lB, 30)
+                    lC = RotL32(lB, 30)
                 #End If
                 lB = lA
                 lA = lTemp
@@ -159,7 +159,7 @@ Public Sub CryptoSha1Update(uCtx As CryptoSha1Context, baInput() As Byte, Option
             #If HasOperators Then
                 .H0 += lA: .H1 += lB: .H2 += lC: .H3 += lD: .H4 += lE
             #Else
-                .H0 = UAdd(.H0, lA): .H1 = UAdd(.H1, lB): .H2 = UAdd(.H2, lC): .H3 = UAdd(.H3, lD): .H4 = UAdd(.H4, lE)
+                .H0 = UAdd32(.H0, lA): .H1 = UAdd32(.H1, lB): .H2 = UAdd32(.H2, lC): .H3 = UAdd32(.H3, lD): .H4 = UAdd32(.H4, lE)
             #End If
         Loop
     End With
@@ -178,11 +178,11 @@ Public Sub CryptoSha1Finalize(uCtx As CryptoSha1Context, baOutput() As Byte)
         P(0) = &H80
         .NInput = .NInput / 10000@ * 8
         Call CopyMemory(B(0), .NInput, 8)
-        Call CopyMemory(P(lSize - 4), ByteSwap(B(0)), 4)
-        Call CopyMemory(P(lSize - 8), ByteSwap(B(1)), 4)
+        Call CopyMemory(P(lSize - 4), ByteSwap32(B(0)), 4)
+        Call CopyMemory(P(lSize - 8), ByteSwap32(B(1)), 4)
         CryptoSha1Update uCtx, P, Size:=lSize
         Debug.Assert .NPartial = 0
-        B(0) = ByteSwap(.H0): B(1) = ByteSwap(.H1): B(2) = ByteSwap(.H2): B(3) = ByteSwap(.H3): B(4) = ByteSwap(.H4)
+        B(0) = ByteSwap32(.H0): B(1) = ByteSwap32(.H1): B(2) = ByteSwap32(.H2): B(3) = ByteSwap32(.H3): B(4) = ByteSwap32(.H4)
         ReDim baOutput(0 To 19) As Byte
         Call CopyMemory(baOutput(0), B(0), UBound(baOutput) + 1)
     End With

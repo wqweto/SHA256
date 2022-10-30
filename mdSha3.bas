@@ -58,13 +58,13 @@ End Type
 
 #If Not HasOperators Then
 #If HasPtrSafe Then
-Private Function ROTL64(ByVal lX As LongLong, ByVal lN As Long) As LongLong
+Private Function RotL64(ByVal lX As LongLong, ByVal lN As Long) As LongLong
 #Else
-Private Function ROTL64(lX As Variant, ByVal lN As Long) As Variant
+Private Function RotL64(lX As Variant, ByVal lN As Long) As Variant
 #End If
-    '--- ROTL64 = LShift(X, n) Or RShift(X, 64 - n)
+    '--- RotL64 = LShift(X, n) Or RShift(X, 64 - n)
     Debug.Assert lN <> 0
-    ROTL64 = ((lX And (LNG_POW2(63 - lN) - 1)) * LNG_POW2(lN) Or -((lX And LNG_POW2(63 - lN)) <> 0) * LNG_POW2(63)) Or _
+    RotL64 = ((lX And (LNG_POW2(63 - lN) - 1)) * LNG_POW2(lN) Or -((lX And LNG_POW2(63 - lN)) <> 0) * LNG_POW2(63)) Or _
         ((lX And (LNG_POW2(63) Xor -1)) \ LNG_POW2(64 - lN) Or -(lX < 0) * LNG_POW2(lN - 1))
 End Function
 #End If
@@ -93,7 +93,7 @@ Private Sub Keccak(uCtx As CryptoSha3Context)
             #If HasOperators Then
                 vTemp = C((lIdx + 4) Mod 5) Xor (C((lIdx + 1) Mod 5) << 1 Or C((lIdx + 1) Mod 5) >> 63)
             #Else
-                vTemp = C((lIdx + 4) Mod 5) Xor ROTL64(C((lIdx + 1) Mod 5), 1)
+                vTemp = C((lIdx + 4) Mod 5) Xor RotL64(C((lIdx + 1) Mod 5), 1)
             #End If
             For lJdx = 0 To 24 Step 5
                 .Words(lIdx + lJdx) = .Words(lIdx + lJdx) Xor vTemp
@@ -127,30 +127,30 @@ Private Sub Keccak(uCtx As CryptoSha3Context)
             .Words(19) = (aTemp(23) << 56) Or (aTemp(23) >> (64 - 56))
             .Words(4) = (aTemp(24) << 14) Or (aTemp(24) >> (64 - 14))
         #Else
-            .Words(10) = ROTL64(aTemp(1), 1)
-            .Words(20) = ROTL64(aTemp(2), 62)
-            .Words(5) = ROTL64(aTemp(3), 28)
-            .Words(15) = ROTL64(aTemp(4), 27)
-            .Words(16) = ROTL64(aTemp(5), 36)
-            .Words(1) = ROTL64(aTemp(6), 44)
-            .Words(11) = ROTL64(aTemp(7), 6)
-            .Words(21) = ROTL64(aTemp(8), 55)
-            .Words(6) = ROTL64(aTemp(9), 20)
-            .Words(7) = ROTL64(aTemp(10), 3)
-            .Words(17) = ROTL64(aTemp(11), 10)
-            .Words(2) = ROTL64(aTemp(12), 43)
-            .Words(12) = ROTL64(aTemp(13), 25)
-            .Words(22) = ROTL64(aTemp(14), 39)
-            .Words(23) = ROTL64(aTemp(15), 41)
-            .Words(8) = ROTL64(aTemp(16), 45)
-            .Words(18) = ROTL64(aTemp(17), 15)
-            .Words(3) = ROTL64(aTemp(18), 21)
-            .Words(13) = ROTL64(aTemp(19), 8)
-            .Words(14) = ROTL64(aTemp(20), 18)
-            .Words(24) = ROTL64(aTemp(21), 2)
-            .Words(9) = ROTL64(aTemp(22), 61)
-            .Words(19) = ROTL64(aTemp(23), 56)
-            .Words(4) = ROTL64(aTemp(24), 14)
+            .Words(10) = RotL64(aTemp(1), 1)
+            .Words(20) = RotL64(aTemp(2), 62)
+            .Words(5) = RotL64(aTemp(3), 28)
+            .Words(15) = RotL64(aTemp(4), 27)
+            .Words(16) = RotL64(aTemp(5), 36)
+            .Words(1) = RotL64(aTemp(6), 44)
+            .Words(11) = RotL64(aTemp(7), 6)
+            .Words(21) = RotL64(aTemp(8), 55)
+            .Words(6) = RotL64(aTemp(9), 20)
+            .Words(7) = RotL64(aTemp(10), 3)
+            .Words(17) = RotL64(aTemp(11), 10)
+            .Words(2) = RotL64(aTemp(12), 43)
+            .Words(12) = RotL64(aTemp(13), 25)
+            .Words(22) = RotL64(aTemp(14), 39)
+            .Words(23) = RotL64(aTemp(15), 41)
+            .Words(8) = RotL64(aTemp(16), 45)
+            .Words(18) = RotL64(aTemp(17), 15)
+            .Words(3) = RotL64(aTemp(18), 21)
+            .Words(13) = RotL64(aTemp(19), 8)
+            .Words(14) = RotL64(aTemp(20), 18)
+            .Words(24) = RotL64(aTemp(21), 2)
+            .Words(9) = RotL64(aTemp(22), 61)
+            .Words(19) = RotL64(aTemp(23), 56)
+            .Words(4) = RotL64(aTemp(24), 14)
         #End If
         '--- Chi
         For lJdx = 0 To 24 Step 5

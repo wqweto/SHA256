@@ -52,49 +52,49 @@ End Type
 #End If
 
 #If HasPtrSafe Then
-Private Function ROTR64(ByVal lX As LongLong, ByVal lN As Long) As LongLong
+Private Function RotR64(ByVal lX As LongLong, ByVal lN As Long) As LongLong
 #Else
-Private Function ROTR64(lX As Variant, ByVal lN As Long) As Variant
+Private Function RotR64(lX As Variant, ByVal lN As Long) As Variant
 #End If
-    '--- ROTR64 = RShift(X, n) Or LShift(X, 64 - n)
+    '--- RotR64 = RShift64(X, n) Or LShift64(X, 64 - n)
     Debug.Assert lN <> 0
-    ROTR64 = ((lX And (-1 Xor LNG_POW2(63))) \ LNG_POW2(lN) Or -(lX < 0) * LNG_POW2(63 - lN)) Or _
+    RotR64 = ((lX And (-1 Xor LNG_POW2(63))) \ LNG_POW2(lN) Or -(lX < 0) * LNG_POW2(63 - lN)) Or _
         ((lX And (LNG_POW2(lN - 1) - 1)) * LNG_POW2(64 - lN) Or -((lX And LNG_POW2(lN - 1)) <> 0) * LNG_POW2(63))
 End Function
 
 #If HasPtrSafe Then
-Private Function LShift(ByVal lX As LongLong, ByVal lN As Long) As LongLong
+Private Function LShift64(ByVal lX As LongLong, ByVal lN As Long) As LongLong
 #Else
-Private Function LShift(lX As Variant, ByVal lN As Long) As Variant
+Private Function LShift64(lX As Variant, ByVal lN As Long) As Variant
 #End If
     If lN = 0 Then
-        LShift = lX
+        LShift64 = lX
     Else
-        LShift = (lX And (LNG_POW2(63 - lN) - 1)) * LNG_POW2(lN) Or -((lX And LNG_POW2(63 - lN)) <> 0) * LNG_POW2(63)
+        LShift64 = (lX And (LNG_POW2(63 - lN) - 1)) * LNG_POW2(lN) Or -((lX And LNG_POW2(63 - lN)) <> 0) * LNG_POW2(63)
     End If
 End Function
 
 #If HasPtrSafe Then
-Private Function RShift(ByVal lX As LongLong, ByVal lN As Long) As LongLong
+Private Function RShift64(ByVal lX As LongLong, ByVal lN As Long) As LongLong
 #Else
-Private Function RShift(lX As Variant, ByVal lN As Long) As Variant
+Private Function RShift64(lX As Variant, ByVal lN As Long) As Variant
 #End If
     If lN = 0 Then
-        RShift = lX
+        RShift64 = lX
     Else
-        RShift = (lX And (-1 Xor LNG_POW2(63))) \ LNG_POW2(lN) Or -(lX < 0) * LNG_POW2(63 - lN)
+        RShift64 = (lX And (-1 Xor LNG_POW2(63))) \ LNG_POW2(lN) Or -(lX < 0) * LNG_POW2(63 - lN)
     End If
 End Function
 
 #If HasPtrSafe Then
-Private Function UAdd(ByVal lX As LongLong, ByVal lY As LongLong) As LongLong
+Private Function UAdd64(ByVal lX As LongLong, ByVal lY As LongLong) As LongLong
 #Else
-Private Function UAdd(lX As Variant, lY As Variant) As Variant
+Private Function UAdd64(lX As Variant, lY As Variant) As Variant
 #End If
     If (lX Xor lY) >= 0 Then
-        UAdd = ((lX Xor LNG_POW2(63)) + lY) Xor LNG_POW2(63)
+        UAdd64 = ((lX Xor LNG_POW2(63)) + lY) Xor LNG_POW2(63)
     Else
-        UAdd = lX + lY
+        UAdd64 = lX + lY
     End If
 End Function
 
@@ -119,7 +119,7 @@ Private Function BigSigma0(ByVal lX As LongLong) As LongLong
 #Else
 Private Function BigSigma0(lX As Variant) As Variant
 #End If
-    BigSigma0 = ROTR64(lX, 28) Xor ROTR64(lX, 34) Xor ROTR64(lX, 39)
+    BigSigma0 = RotR64(lX, 28) Xor RotR64(lX, 34) Xor RotR64(lX, 39)
 End Function
 
 #If HasPtrSafe Then
@@ -127,7 +127,7 @@ Private Function BigSigma1(ByVal lX As LongLong) As LongLong
 #Else
 Private Function BigSigma1(lX As Variant) As Variant
 #End If
-    BigSigma1 = ROTR64(lX, 14) Xor ROTR64(lX, 18) Xor ROTR64(lX, 41)
+    BigSigma1 = RotR64(lX, 14) Xor RotR64(lX, 18) Xor RotR64(lX, 41)
 End Function
 
 #If HasPtrSafe Then
@@ -135,7 +135,7 @@ Private Function SmallSigma0(ByVal lX As LongLong) As LongLong
 #Else
 Private Function SmallSigma0(lX As Variant) As Variant
 #End If
-    SmallSigma0 = ROTR64(lX, 1) Xor ROTR64(lX, 8) Xor RShift(lX, 7)
+    SmallSigma0 = RotR64(lX, 1) Xor RotR64(lX, 8) Xor RShift64(lX, 7)
 End Function
 
 #If HasPtrSafe Then
@@ -143,22 +143,22 @@ Private Function SmallSigma1(ByVal lX As LongLong) As LongLong
 #Else
 Private Function SmallSigma1(lX As Variant) As Variant
 #End If
-    SmallSigma1 = ROTR64(lX, 19) Xor ROTR64(lX, 61) Xor RShift(lX, 6)
+    SmallSigma1 = RotR64(lX, 19) Xor RotR64(lX, 61) Xor RShift64(lX, 6)
 End Function
 
 Private Function ByteSwap32(ByVal lX As Long) As Long
-    ByteSwap32 = (lX And &H7F) * &H1000000 Or (lX And &HFF00&) * &H100 Or (lX And &HFF0000) \ &H100 Or (lX And &H7F000000) \ &H1000000 Or _
-                -((lX And &H80) <> 0) * &H80000000 Or -((lX And &H80000000) <> 0) * &H80
+    ByteSwap32 = (lX And &H7F) * &H1000000 Or (lX And &HFF00&) * &H100 Or (lX And &HFF0000) \ &H100 Or _
+                 (lX And &HFF000000) \ &H1000000 And &HFF Or -((lX And &H80) <> 0) * &H80000000
 End Function
 
 #If HasPtrSafe Then
-Private Function ByteSwap(ByVal lX As LongLong) As LongLong
+Private Function ByteSwap64(ByVal lX As LongLong) As LongLong
 #Else
-Private Function ByteSwap(ByVal lX As Variant) As Variant
+Private Function ByteSwap64(ByVal lX As Variant) As Variant
 #End If
     Dim lA As Long
     lA = ByteSwap32(CLng(lX And &H7FFFFFFF))
-    ByteSwap = lA And &H7FFFFFFF Or -((lA < 0) <> 0) * LNG_POW2(31) Or -((lX And LNG_POW2(31)) <> 0) * &H80
+    ByteSwap64 = lA And &H7FFFFFFF Or -((lA < 0) <> 0) * LNG_POW2(31) Or -((lX And LNG_POW2(31)) <> 0) * &H80
 End Function
 
 #If Not HasPtrSafe Then
@@ -271,23 +271,23 @@ Public Sub CryptoSha512Update(uCtx As CryptoSha512Context, baInput() As Byte, Op
             lE = .H4: lF = .H5: lG = .H6: lH = .H7
             For lIdx = 0 To LNG_ROUNDS - 1
                 If lIdx < 16 Then
-                    W(lIdx) = ByteSwap(CLngLng(B(lIdx * 2 + 1))) Or LShift(ByteSwap(CLngLng(B(lIdx * 2))), 32)
+                    W(lIdx) = ByteSwap64(CLngLng(B(lIdx * 2 + 1))) Or LShift64(ByteSwap64(CLngLng(B(lIdx * 2))), 32)
                 Else
-                    W(lIdx) = UAdd(UAdd(UAdd(SmallSigma1(W(lIdx - 2)), W(lIdx - 7)), SmallSigma0(W(lIdx - 15))), W(lIdx - 16))
+                    W(lIdx) = UAdd64(UAdd64(UAdd64(SmallSigma1(W(lIdx - 2)), W(lIdx - 7)), SmallSigma0(W(lIdx - 15))), W(lIdx - 16))
                 End If
-                lT1 = UAdd(UAdd(UAdd(UAdd(lH, BigSigma1(lE)), Ch(lE, lF, lG)), LNG_K(lIdx)), W(lIdx))
-                lT2 = UAdd(BigSigma0(lA), Maj(lA, lB, lC))
+                lT1 = UAdd64(UAdd64(UAdd64(UAdd64(lH, BigSigma1(lE)), Ch(lE, lF, lG)), LNG_K(lIdx)), W(lIdx))
+                lT2 = UAdd64(BigSigma0(lA), Maj(lA, lB, lC))
                 lH = lG
                 lG = lF
                 lF = lE
-                lE = UAdd(lD, lT1)
+                lE = UAdd64(lD, lT1)
                 lD = lC
                 lC = lB
                 lB = lA
-                lA = UAdd(lT1, lT2)
+                lA = UAdd64(lT1, lT2)
             Next
-            .H0 = UAdd(.H0, lA): .H1 = UAdd(.H1, lB): .H2 = UAdd(.H2, lC): .H3 = UAdd(.H3, lD)
-            .H4 = UAdd(.H4, lE): .H5 = UAdd(.H5, lF): .H6 = UAdd(.H6, lG): .H7 = UAdd(.H7, lH)
+            .H0 = UAdd64(.H0, lA): .H1 = UAdd64(.H1, lB): .H2 = UAdd64(.H2, lC): .H3 = UAdd64(.H3, lD)
+            .H4 = UAdd64(.H4, lE): .H5 = UAdd64(.H5, lF): .H6 = UAdd64(.H6, lG): .H7 = UAdd64(.H7, lH)
         Loop
     End With
 End Sub
@@ -299,9 +299,9 @@ Private Function pvToLong(ByVal lX As LongLong, lHi As Long, lLo As Long) As Lon
 Private Function pvToLong(ByVal lX As Variant, lHi As Long, lLo As Long) As Long
     Dim lA              As Variant
 #End If
-    lA = ByteSwap(RShift(lX, 32))
+    lA = ByteSwap64(RShift64(lX, 32))
     lHi = CLng(lA And &H7FFFFFFF) Or -((lA And LNG_POW2(31)) <> 0) * &H80000000
-    lA = ByteSwap(lX)
+    lA = ByteSwap64(lX)
     lLo = CLng(lA And &H7FFFFFFF) Or -((lA And LNG_POW2(31)) <> 0) * &H80000000
 End Function
 

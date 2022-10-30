@@ -16,13 +16,13 @@ Private Declare Function VariantChangeType Lib "oleaut32" (Dest As Variant, Src 
 #End If
 
 #If HasPtrSafe Then
-Private Function ROTR64(ByVal lX As LongLong, ByVal lN As Long) As LongLong
+Private Function RotR64(ByVal lX As LongLong, ByVal lN As Long) As LongLong
 #Else
-Private Function ROTR64(lX As Variant, ByVal lN As Long) As Variant
+Private Function RotR64(lX As Variant, ByVal lN As Long) As Variant
 #End If
-    '--- ROTR64 = RShift(X, n) Or LShift(X, 64 - n)
+    '--- RotR64 = RShift(X, n) Or LShift(X, 64 - n)
     Debug.Assert lN <> 0
-    ROTR64 = ((lX And (-1 Xor LNG_POW2(63))) \ LNG_POW2(lN) Or -(lX < 0) * LNG_POW2(63 - lN)) Or _
+    RotR64 = ((lX And (-1 Xor LNG_POW2(63))) \ LNG_POW2(lN) Or -(lX < 0) * LNG_POW2(63 - lN)) Or _
         ((lX And (LNG_POW2(lN - 1) - 1)) * LNG_POW2(64 - lN) Or -((lX And LNG_POW2(lN - 1)) <> 0) * LNG_POW2(63))
 End Function
 
@@ -51,14 +51,14 @@ Private Function RShift(lX As Variant, ByVal lN As Long) As Variant
 End Function
 
 #If HasPtrSafe Then
-Private Function UAdd(ByVal lX As LongLong, ByVal lY As LongLong) As LongLong
+Private Function UAdd32(ByVal lX As LongLong, ByVal lY As LongLong) As LongLong
 #Else
-Private Function UAdd(lX As Variant, lY As Variant) As Variant
+Private Function UAdd32(lX As Variant, lY As Variant) As Variant
 #End If
     If (lX Xor lY) > 0 Then
-        UAdd = ((lX Xor LNG_POW2(63)) + lY) Xor LNG_POW2(63)
+        UAdd32 = ((lX Xor LNG_POW2(63)) + lY) Xor LNG_POW2(63)
     Else
-        UAdd = lX + lY
+        UAdd32 = lX + lY
     End If
 End Function
 
@@ -83,7 +83,7 @@ Private Function BigSigma0(ByVal lX As LongLong) As LongLong
 #Else
 Private Function BigSigma0(lX As Variant) As Variant
 #End If
-    BigSigma0 = ROTR64(lX, 28) Xor ROTR64(lX, 34) Xor ROTR64(lX, 39)
+    BigSigma0 = RotR64(lX, 28) Xor RotR64(lX, 34) Xor RotR64(lX, 39)
 End Function
 
 #If HasPtrSafe Then
@@ -91,7 +91,7 @@ Private Function BigSigma1(ByVal lX As LongLong) As LongLong
 #Else
 Private Function BigSigma1(lX As Variant) As Variant
 #End If
-    BigSigma1 = ROTR64(lX, 14) Xor ROTR64(lX, 18) Xor ROTR64(lX, 41)
+    BigSigma1 = RotR64(lX, 14) Xor RotR64(lX, 18) Xor RotR64(lX, 41)
 End Function
 
 #If HasPtrSafe Then
@@ -99,7 +99,7 @@ Private Function SmallSigma0(ByVal lX As LongLong) As LongLong
 #Else
 Private Function SmallSigma0(lX As Variant) As Variant
 #End If
-    SmallSigma0 = ROTR64(lX, 1) Xor ROTR64(lX, 8) Xor RShift(lX, 7)
+    SmallSigma0 = RotR64(lX, 1) Xor RotR64(lX, 8) Xor RShift(lX, 7)
 End Function
 
 #If HasPtrSafe Then
@@ -107,7 +107,7 @@ Private Function SmallSigma1(ByVal lX As LongLong) As LongLong
 #Else
 Private Function SmallSigma1(lX As Variant) As Variant
 #End If
-    SmallSigma1 = ROTR64(lX, 19) Xor ROTR64(lX, 61) Xor RShift(lX, 6)
+    SmallSigma1 = RotR64(lX, 19) Xor RotR64(lX, 61) Xor RShift(lX, 6)
 End Function
 
 #If HasPtrSafe Then
@@ -230,28 +230,28 @@ Private Sub CalcSha512(baOutput() As Byte, ByVal lOutPos As Long, ByVal lOutSize
             If lJdx < 16 Then
                 W(lJdx) = M(lJdx + lIdx)
             Else
-                W(lJdx) = UAdd(UAdd(UAdd(SmallSigma1(W(lJdx - 2)), W(lJdx - 7)), SmallSigma0(W(lJdx - 15))), W(lJdx - 16))
+                W(lJdx) = UAdd32(UAdd32(UAdd32(SmallSigma1(W(lJdx - 2)), W(lJdx - 7)), SmallSigma0(W(lJdx - 15))), W(lJdx - 16))
             End If
 '            Debug.Print "W(" & lJdx + lIdx & ")=" & W(lJdx)
-            lT1 = UAdd(UAdd(UAdd(UAdd(lH, BigSigma1(lE)), Ch(lE, lF, lG)), K(lJdx)), W(lJdx))
-            lT2 = UAdd(BigSigma0(lA), Maj(lA, lB, lC))
+            lT1 = UAdd32(UAdd32(UAdd32(UAdd32(lH, BigSigma1(lE)), Ch(lE, lF, lG)), K(lJdx)), W(lJdx))
+            lT2 = UAdd32(BigSigma0(lA), Maj(lA, lB, lC))
             lH = lG
             lG = lF
             lF = lE
-            lE = UAdd(lD, lT1)
+            lE = UAdd32(lD, lT1)
             lD = lC
             lC = lB
             lB = lA
-            lA = UAdd(lT1, lT2)
+            lA = UAdd32(lT1, lT2)
         Next
-        H(0) = UAdd(lA, H(0))
-        H(1) = UAdd(lB, H(1))
-        H(2) = UAdd(lC, H(2))
-        H(3) = UAdd(lD, H(3))
-        H(4) = UAdd(lE, H(4))
-        H(5) = UAdd(lF, H(5))
-        H(6) = UAdd(lG, H(6))
-        H(7) = UAdd(lH, H(7))
+        H(0) = UAdd32(lA, H(0))
+        H(1) = UAdd32(lB, H(1))
+        H(2) = UAdd32(lC, H(2))
+        H(3) = UAdd32(lD, H(3))
+        H(4) = UAdd32(lE, H(4))
+        H(5) = UAdd32(lF, H(5))
+        H(6) = UAdd32(lG, H(6))
+        H(7) = UAdd32(lH, H(7))
     Next
     FromBigEndian baOutput, H, lOutPos, (lOutSize + 7) \ 8
     If UBound(baOutput) <> lOutSize - 1 Then

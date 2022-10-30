@@ -34,18 +34,18 @@ Public Type CryptoPoly1305Context
     NPartial            As Long
 End Type
 
-Private Function ROTL32(ByVal lX As Long, ByVal lN As Long) As Long
-    '--- ROTL32 = LShift(X, n) Or RShift(X, 32 - n)
+Private Function RotL32(ByVal lX As Long, ByVal lN As Long) As Long
+    '--- RotL32 = LShift(X, n) Or RShift(X, 32 - n)
     Debug.Assert lN <> 0
-    ROTL32 = ((lX And (LNG_POW2(31 - lN) - 1)) * LNG_POW2(lN) Or -((lX And LNG_POW2(31 - lN)) <> 0) * LNG_POW2(31)) Or _
+    RotL32 = ((lX And (LNG_POW2(31 - lN) - 1)) * LNG_POW2(lN) Or -((lX And LNG_POW2(31 - lN)) <> 0) * LNG_POW2(31)) Or _
         ((lX And (LNG_POW2(31) Xor -1)) \ LNG_POW2(32 - lN) Or -(lX < 0) * LNG_POW2(lN - 1))
 End Function
 
-Private Function UAdd(ByVal lX As Long, ByVal lY As Long) As Long
+Private Function UAdd32(ByVal lX As Long, ByVal lY As Long) As Long
     If (lX Xor lY) >= 0 Then
-        UAdd = ((lX Xor &H80000000) + lY) Xor &H80000000
+        UAdd32 = ((lX Xor &H80000000) + lY) Xor &H80000000
     Else
-        UAdd = lX + lY
+        UAdd32 = lX + lY
     End If
 End Function
 
@@ -62,10 +62,10 @@ Private Sub pvInit()
 End Sub
 
 Private Sub pvChaCha20Quarter(lA As Long, lB As Long, lC As Long, lD As Long)
-    lA = UAdd(lA, lB): lD = ROTL32(lD Xor lA, 16)
-    lC = UAdd(lC, lD): lB = ROTL32(lB Xor lC, 12)
-    lA = UAdd(lA, lB): lD = ROTL32(lD Xor lA, 8)
-    lC = UAdd(lC, lD): lB = ROTL32(lB Xor lC, 7)
+    lA = UAdd32(lA, lB): lD = RotL32(lD Xor lA, 16)
+    lC = UAdd32(lC, lD): lB = RotL32(lB Xor lC, 12)
+    lA = UAdd32(lA, lB): lD = RotL32(lD Xor lA, 8)
+    lC = UAdd32(lC, lD): lB = RotL32(lB Xor lC, 7)
 End Sub
 
 Private Sub pvChaCha20Core(uCtx As CryptoChaCha20Context, baOutput() As Byte)
@@ -86,7 +86,7 @@ Private Sub pvChaCha20Core(uCtx As CryptoChaCha20Context, baOutput() As Byte)
         pvChaCha20Quarter lZ(3), lZ(4), lZ(9), lZ(14)
     Next
     For lIdx = 0 To 15
-        lX(lIdx) = UAdd(lX(lIdx), lZ(lIdx))
+        lX(lIdx) = UAdd32(lX(lIdx), lZ(lIdx))
     Next
     Call CopyMemory(baOutput(0), lX(0), 16 * 4)
 End Sub
@@ -132,7 +132,7 @@ Public Sub CryptoChaCha20Cipher(uCtx As CryptoChaCha20Context, baInput() As Byte
             If .NBlock = 0 Then
                 pvChaCha20Core uCtx, .Block
                 For lIdx = 0 To .NCounter - 1
-                    uCtx.Nonce(lIdx) = UAdd(uCtx.Nonce(lIdx), 1)
+                    uCtx.Nonce(lIdx) = UAdd32(uCtx.Nonce(lIdx), 1)
                     If uCtx.Nonce(lIdx) <> 0 Then
                         Exit For
                     End If
