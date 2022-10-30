@@ -330,27 +330,63 @@ Public Function CryptoHmacSha2ByteArray(ByVal lBitSize As Long, baKey() As Byte,
     If Size < 0 Then
         Size = UBound(baInput) + 1 - Pos
     End If
-    ReDim baPad(0 To Size + lPadSize - 1) As Byte
+    ReDim baPad(0 To lPadSize + Size - 1) As Byte
     For lIdx = 0 To UBound(baPass)
         baPad(lIdx) = baPass(lIdx) Xor INNER_PAD
     Next
     For lIdx = lIdx To lPadSize - 1
         baPad(lIdx) = INNER_PAD
     Next
-    For lIdx = 0 To Size - 1
-        baPad(lPadSize + lIdx) = baInput(Pos + lIdx)
-    Next
+    If Size > 0 Then
+        Call CopyMemory(baPad(lPadSize), baInput(Pos), Size)
+    End If
     baHash = CryptoSha2ByteArray(lBitSize, baPad)
     Size = UBound(baHash) + 1
-    ReDim baPad(0 To Size + lPadSize - 1) As Byte
+    ReDim baPad(0 To lPadSize + Size - 1) As Byte
     For lIdx = 0 To UBound(baPass)
         baPad(lIdx) = baPass(lIdx) Xor OUTER_PAD
     Next
     For lIdx = lIdx To lPadSize - 1
         baPad(lIdx) = OUTER_PAD
     Next
-    For lIdx = 0 To Size - 1
-        baPad(lPadSize + lIdx) = baHash(lIdx)
-    Next
+    Call CopyMemory(baPad(lPadSize), baHash(0), Size)
     CryptoHmacSha2ByteArray = CryptoSha2ByteArray(lBitSize, baPad)
+End Function
+
+Public Function CryptoPbkdf2HmacSha2ByteArray(ByVal lBitSize As Long, baKey() As Byte, baSalt() As Byte, ByVal lNumIter As Long, ByVal lOutSize As Long) As Byte()
+    Dim baRetVal()      As Byte
+    Dim lIdx            As Long
+    Dim lJdx            As Long
+    Dim lKdx            As Long
+    Dim lHashSize       As Long
+    Dim baInit()        As Byte
+    Dim baHmac()        As Byte
+    Dim baTemp()        As Byte
+    Dim lRemaining      As Long
+    
+    If lNumIter <= 0 Or lOutSize <= 0 Then
+        baRetVal = vbNullString
+    Else
+        ReDim baRetVal(0 To lOutSize - 1) As Byte
+        baInit = baSalt
+        ReDim Preserve baInit(0 To LenB(CStr(baInit)) + 3) As Byte
+        lHashSize = (lBitSize + 7) \ 8
+        For lIdx = 0 To (lOutSize + lHashSize - 1) \ lHashSize - 1
+            Call CopyMemory(baInit(UBound(baInit) - 3), ByteSwap32(lIdx + 1), 4)
+            baTemp = baInit
+            ReDim baHmac(0 To lHashSize - 1) As Byte
+            For lJdx = 0 To lNumIter - 1
+                baTemp = CryptoHmacSha2ByteArray(lBitSize, baKey, baTemp)
+                For lKdx = 0 To UBound(baTemp)
+                    baHmac(lKdx) = baHmac(lKdx) Xor baTemp(lKdx)
+                Next
+            Next
+            lRemaining = lOutSize - lIdx * lHashSize
+            If lRemaining > lHashSize Then
+                lRemaining = lHashSize
+            End If
+            Call CopyMemory(baRetVal(lIdx * lHashSize), baHmac(0), lRemaining)
+        Next
+    End If
+    CryptoPbkdf2HmacSha2ByteArray = baRetVal
 End Function
