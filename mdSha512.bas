@@ -146,19 +146,19 @@ Private Function SmallSigma1(lX As Variant) As Variant
     SmallSigma1 = RotR64(lX, 19) Xor RotR64(lX, 61) Xor RShift64(lX, 6)
 End Function
 
-Private Function ByteSwap32(ByVal lX As Long) As Long
-    ByteSwap32 = (lX And &H7F) * &H1000000 Or (lX And &HFF00&) * &H100 Or (lX And &HFF0000) \ &H100 Or _
+Private Function BSwap32(ByVal lX As Long) As Long
+    BSwap32 = (lX And &H7F) * &H1000000 Or (lX And &HFF00&) * &H100 Or (lX And &HFF0000) \ &H100 Or _
                  (lX And &HFF000000) \ &H1000000 And &HFF Or -((lX And &H80) <> 0) * &H80000000
 End Function
 
 #If HasPtrSafe Then
-Private Function ByteSwap64(ByVal lX As LongLong) As LongLong
+Private Function BSwap64(ByVal lX As LongLong) As LongLong
 #Else
-Private Function ByteSwap64(ByVal lX As Variant) As Variant
+Private Function BSwap64(ByVal lX As Variant) As Variant
 #End If
     Dim lA As Long
-    lA = ByteSwap32(CLng(lX And &H7FFFFFFF))
-    ByteSwap64 = lA And &H7FFFFFFF Or -((lA < 0) <> 0) * LNG_POW2(31) Or -((lX And LNG_POW2(31)) <> 0) * &H80
+    lA = BSwap32(CLng(lX And &H7FFFFFFF))
+    BSwap64 = lA And &H7FFFFFFF Or -((lA < 0) <> 0) * LNG_POW2(31) Or -((lX And LNG_POW2(31)) <> 0) * &H80
 End Function
 
 #If Not HasPtrSafe Then
@@ -271,7 +271,7 @@ Public Sub CryptoSha512Update(uCtx As CryptoSha512Context, baInput() As Byte, Op
             lE = .H4: lF = .H5: lG = .H6: lH = .H7
             For lIdx = 0 To LNG_ROUNDS - 1
                 If lIdx < 16 Then
-                    W(lIdx) = ByteSwap64(CLngLng(B(lIdx * 2 + 1))) Or LShift64(ByteSwap64(CLngLng(B(lIdx * 2))), 32)
+                    W(lIdx) = BSwap64(CLngLng(B(lIdx * 2 + 1))) Or LShift64(BSwap64(CLngLng(B(lIdx * 2))), 32)
                 Else
                     W(lIdx) = UAdd64(UAdd64(UAdd64(SmallSigma1(W(lIdx - 2)), W(lIdx - 7)), SmallSigma0(W(lIdx - 15))), W(lIdx - 16))
                 End If
@@ -299,9 +299,9 @@ Private Function pvToLong(ByVal lX As LongLong, lHi As Long, lLo As Long) As Lon
 Private Function pvToLong(ByVal lX As Variant, lHi As Long, lLo As Long) As Long
     Dim lA              As Variant
 #End If
-    lA = ByteSwap64(RShift64(lX, 32))
+    lA = BSwap64(RShift64(lX, 32))
     lHi = CLng(lA And &H7FFFFFFF) Or -((lA And LNG_POW2(31)) <> 0) * &H80000000
-    lA = ByteSwap64(lX)
+    lA = BSwap64(lX)
     lLo = CLng(lA And &H7FFFFFFF) Or -((lA And LNG_POW2(31)) <> 0) * &H80000000
 End Function
 
@@ -318,8 +318,8 @@ Public Sub CryptoSha512Finalize(uCtx As CryptoSha512Context, baOutput() As Byte)
         P(0) = &H80
         .NInput = .NInput / 10000@ * 8
         Call CopyMemory(B(0), .NInput, 8)
-        Call CopyMemory(P(lSize - 4), ByteSwap32(B(0)), 4)
-        Call CopyMemory(P(lSize - 8), ByteSwap32(B(1)), 4)
+        Call CopyMemory(P(lSize - 4), BSwap32(B(0)), 4)
+        Call CopyMemory(P(lSize - 8), BSwap32(B(1)), 4)
         CryptoSha512Update uCtx, P, Size:=lSize
         Debug.Assert .NPartial = 0
         pvToLong .H0, B(0), B(1)
@@ -343,28 +343,36 @@ Public Function CryptoSha512ByteArray(ByVal lBitSize As Long, baInput() As Byte,
     CryptoSha512Finalize uCtx, CryptoSha512ByteArray
 End Function
 
-Public Function CryptoSha512Text(ByVal lBitSize As Long, sText As String) As String
+Private Function ToUtf8Array(sText As String) As Byte()
     Const CP_UTF8       As Long = 65001
-    Dim uCtx            As CryptoSha512Context
+    Dim baRetVal()      As Byte
     Dim lSize           As Long
-    Dim baInput()       As Byte
-    Dim baOutput()      As Byte
-    Dim aSplit()        As String
     
     lSize = WideCharToMultiByte(CP_UTF8, 0, StrPtr(sText), Len(sText), ByVal 0, 0, 0, 0)
     If lSize > 0 Then
-        ReDim baInput(0 To lSize - 1) As Byte
-        Call WideCharToMultiByte(CP_UTF8, 0, StrPtr(sText), Len(sText), baInput(0), lSize, 0, 0)
+        ReDim baRetVal(0 To lSize - 1) As Byte
+        Call WideCharToMultiByte(CP_UTF8, 0, StrPtr(sText), Len(sText), baRetVal(0), lSize, 0, 0)
     Else
-        baInput = vbNullString
+        baRetVal = vbNullString
     End If
-    CryptoSha512Init uCtx, lBitSize
-    CryptoSha512Update uCtx, baInput, 0, lSize
-    CryptoSha512Finalize uCtx, baOutput
-    ReDim aSplit(0 To UBound(baOutput)) As String
-    For lSize = 0 To UBound(aSplit)
-        aSplit(lSize) = Right$("0" & Hex$(baOutput(lSize)), 2)
-    Next
-    CryptoSha512Text = LCase$(Join(aSplit, vbNullString))
+    ToUtf8Array = baRetVal
 End Function
 
+Private Function ToHex(baData() As Byte) As String
+    Dim lIdx            As Long
+    Dim sByte           As String
+    
+    ToHex = String$(UBound(baData) * 2 + 2, 48)
+    For lIdx = 0 To UBound(baData)
+        sByte = LCase$(Hex$(baData(lIdx)))
+        If Len(sByte) = 1 Then
+            Mid$(ToHex, lIdx * 2 + 2, 1) = sByte
+        Else
+            Mid$(ToHex, lIdx * 2 + 1, 2) = sByte
+        End If
+    Next
+End Function
+
+Public Function CryptoSha512Text(ByVal lBitSize As Long, sText As String) As String
+    CryptoSha512Text = ToHex(CryptoSha512ByteArray(lBitSize, ToUtf8Array(sText)))
+End Function

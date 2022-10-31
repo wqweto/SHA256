@@ -190,26 +190,36 @@ Public Function CryptoMd5ByteArray(baInput() As Byte, Optional ByVal Pos As Long
     CryptoMd5Finalize uCtx, CryptoMd5ByteArray
 End Function
 
-Public Function CryptoMd5Text(sText As String) As String
+Private Function ToUtf8Array(sText As String) As Byte()
     Const CP_UTF8       As Long = 65001
-    Dim uCtx            As CryptoMd5Context
+    Dim baRetVal()      As Byte
     Dim lSize           As Long
-    Dim baInput()       As Byte
-    Dim baOutput()      As Byte
-    Dim aSplit(0 To 15) As String
     
     lSize = WideCharToMultiByte(CP_UTF8, 0, StrPtr(sText), Len(sText), ByVal 0, 0, 0, 0)
     If lSize > 0 Then
-        ReDim baInput(0 To lSize - 1) As Byte
-        Call WideCharToMultiByte(CP_UTF8, 0, StrPtr(sText), Len(sText), baInput(0), lSize, 0, 0)
+        ReDim baRetVal(0 To lSize - 1) As Byte
+        Call WideCharToMultiByte(CP_UTF8, 0, StrPtr(sText), Len(sText), baRetVal(0), lSize, 0, 0)
     Else
-        baInput = vbNullString
+        baRetVal = vbNullString
     End If
-    CryptoMd5Init uCtx
-    CryptoMd5Update uCtx, baInput, 0, lSize
-    CryptoMd5Finalize uCtx, baOutput
-    For lSize = 0 To UBound(aSplit)
-        aSplit(lSize) = Right$("0" & Hex$(baOutput(lSize)), 2)
+    ToUtf8Array = baRetVal
+End Function
+
+Private Function ToHex(baData() As Byte) As String
+    Dim lIdx            As Long
+    Dim sByte           As String
+    
+    ToHex = String$(UBound(baData) * 2 + 2, 48)
+    For lIdx = 0 To UBound(baData)
+        sByte = LCase$(Hex$(baData(lIdx)))
+        If Len(sByte) = 1 Then
+            Mid$(ToHex, lIdx * 2 + 2, 1) = sByte
+        Else
+            Mid$(ToHex, lIdx * 2 + 1, 2) = sByte
+        End If
     Next
-    CryptoMd5Text = LCase$(Join(aSplit, vbNullString))
+End Function
+
+Public Function CryptoMd5Text(sText As String) As String
+    CryptoMd5Text = ToHex(CryptoMd5ByteArray(ToUtf8Array(sText)))
 End Function

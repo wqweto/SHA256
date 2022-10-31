@@ -48,8 +48,8 @@ Private Function UAdd32(ByVal lX As Long, ByVal lY As Long) As Long
 End Function
 #End If
 
-Private Function ByteSwap32(ByVal lX As Long) As Long
-    ByteSwap32 = (lX And &H7F) * &H1000000 Or (lX And &HFF00&) * &H100 Or (lX And &HFF0000) \ &H100 Or _
+Private Function BSwap32(ByVal lX As Long) As Long
+    BSwap32 = (lX And &H7F) * &H1000000 Or (lX And &HFF00&) * &H100 Or (lX And &HFF0000) \ &H100 Or _
                  (lX And &HFF000000) \ &H1000000 And &HFF Or -((lX And &H80) <> 0) * &H80000000
 End Function
 
@@ -119,7 +119,7 @@ Public Sub CryptoSha1Update(uCtx As CryptoSha1Context, baInput() As Byte, Option
             lA = .H0: lB = .H1: lC = .H2: lD = .H3: lE = .H4
             For lIdx = 0 To LNG_ROUNDS - 1
                 If lIdx < 16 Then
-                    W(lIdx) = ByteSwap32(B(lIdx))
+                    W(lIdx) = BSwap32(B(lIdx))
                 Else
                     #If HasOperators Then
                         lTemp = W(lIdx - 3) Xor W(lIdx - 8) Xor W(lIdx - 14) Xor W(lIdx - 16)
@@ -179,11 +179,11 @@ Public Sub CryptoSha1Finalize(uCtx As CryptoSha1Context, baOutput() As Byte)
         P(0) = &H80
         .NInput = .NInput / 10000@ * 8
         Call CopyMemory(B(0), .NInput, 8)
-        Call CopyMemory(P(lSize - 4), ByteSwap32(B(0)), 4)
-        Call CopyMemory(P(lSize - 8), ByteSwap32(B(1)), 4)
+        Call CopyMemory(P(lSize - 4), BSwap32(B(0)), 4)
+        Call CopyMemory(P(lSize - 8), BSwap32(B(1)), 4)
         CryptoSha1Update uCtx, P, Size:=lSize
         Debug.Assert .NPartial = 0
-        B(0) = ByteSwap32(.H0): B(1) = ByteSwap32(.H1): B(2) = ByteSwap32(.H2): B(3) = ByteSwap32(.H3): B(4) = ByteSwap32(.H4)
+        B(0) = BSwap32(.H0): B(1) = BSwap32(.H1): B(2) = BSwap32(.H2): B(3) = BSwap32(.H3): B(4) = BSwap32(.H4)
         ReDim baOutput(0 To LNG_HASHSZ - 1) As Byte
         Call CopyMemory(baOutput(0), B(0), UBound(baOutput) + 1)
     End With
@@ -197,28 +197,38 @@ Public Function CryptoSha1ByteArray(baInput() As Byte, Optional ByVal Pos As Lon
     CryptoSha1Finalize uCtx, CryptoSha1ByteArray
 End Function
 
-Public Function CryptoSha1Text(sText As String) As String
+Private Function ToUtf8Array(sText As String) As Byte()
     Const CP_UTF8       As Long = 65001
-    Dim uCtx            As CryptoSha1Context
+    Dim baRetVal()      As Byte
     Dim lSize           As Long
-    Dim baInput()       As Byte
-    Dim baOutput()      As Byte
-    Dim aSplit(0 To LNG_HASHSZ - 1) As String
     
     lSize = WideCharToMultiByte(CP_UTF8, 0, StrPtr(sText), Len(sText), ByVal 0, 0, 0, 0)
     If lSize > 0 Then
-        ReDim baInput(0 To lSize - 1) As Byte
-        Call WideCharToMultiByte(CP_UTF8, 0, StrPtr(sText), Len(sText), baInput(0), lSize, 0, 0)
+        ReDim baRetVal(0 To lSize - 1) As Byte
+        Call WideCharToMultiByte(CP_UTF8, 0, StrPtr(sText), Len(sText), baRetVal(0), lSize, 0, 0)
     Else
-        baInput = vbNullString
+        baRetVal = vbNullString
     End If
-    CryptoSha1Init uCtx
-    CryptoSha1Update uCtx, baInput, 0, lSize
-    CryptoSha1Finalize uCtx, baOutput
-    For lSize = 0 To UBound(aSplit)
-        aSplit(lSize) = Right$("0" & Hex$(baOutput(lSize)), 2)
+    ToUtf8Array = baRetVal
+End Function
+
+Private Function ToHex(baData() As Byte) As String
+    Dim lIdx            As Long
+    Dim sByte           As String
+    
+    ToHex = String$(UBound(baData) * 2 + 2, 48)
+    For lIdx = 0 To UBound(baData)
+        sByte = LCase$(Hex$(baData(lIdx)))
+        If Len(sByte) = 1 Then
+            Mid$(ToHex, lIdx * 2 + 2, 1) = sByte
+        Else
+            Mid$(ToHex, lIdx * 2 + 1, 2) = sByte
+        End If
     Next
-    CryptoSha1Text = LCase$(Join(aSplit, vbNullString))
+End Function
+
+Public Function CryptoSha1Text(sText As String) As String
+    CryptoSha1Text = ToHex(CryptoSha1ByteArray(ToUtf8Array(sText)))
 End Function
 
 Public Function CryptoHmacSha1ByteArray(baKey() As Byte, baInput() As Byte, Optional ByVal Pos As Long, Optional ByVal Size As Long = -1) As Byte()
@@ -262,7 +272,13 @@ Public Function CryptoHmacSha1ByteArray(baKey() As Byte, baInput() As Byte, Opti
     CryptoHmacSha1ByteArray = CryptoSha1ByteArray(baPad)
 End Function
 
-Public Function CryptoPbkdf2HmacSha1ByteArray(baKey() As Byte, baSalt() As Byte, ByVal lNumIter As Long, ByVal lOutSize As Long) As Byte()
+Public Function CryptoHmacSha1Text(sKey As String, sText As String) As String
+    CryptoHmacSha1Text = ToHex(CryptoHmacSha1ByteArray(ToUtf8Array(sKey), ToUtf8Array(sText)))
+End Function
+
+Public Function CryptoPbkdf2HmacSha1ByteArray(baPass() As Byte, baSalt() As Byte, _
+            Optional ByVal OutSize As Long, _
+            Optional ByVal NumIter As Long = 10000) As Byte()
     Dim baRetVal()      As Byte
     Dim lIdx            As Long
     Dim lJdx            As Long
@@ -272,23 +288,26 @@ Public Function CryptoPbkdf2HmacSha1ByteArray(baKey() As Byte, baSalt() As Byte,
     Dim baTemp()        As Byte
     Dim lRemaining      As Long
     
-    If lNumIter <= 0 Or lOutSize <= 0 Then
+    If NumIter <= 0 Then
         baRetVal = vbNullString
     Else
-        ReDim baRetVal(0 To lOutSize - 1) As Byte
+        If OutSize <= 0 Then
+            OutSize = LNG_HASHSZ
+        End If
+        ReDim baRetVal(0 To OutSize - 1) As Byte
         baInit = baSalt
         ReDim Preserve baInit(0 To LenB(CStr(baInit)) + 3) As Byte
-        For lIdx = 0 To (lOutSize + LNG_HASHSZ - 1) \ LNG_HASHSZ - 1
-            Call CopyMemory(baInit(UBound(baInit) - 3), ByteSwap32(lIdx + 1), 4)
+        For lIdx = 0 To (OutSize + LNG_HASHSZ - 1) \ LNG_HASHSZ - 1
+            Call CopyMemory(baInit(UBound(baInit) - 3), BSwap32(lIdx + 1), 4)
             baTemp = baInit
             ReDim baHmac(0 To LNG_HASHSZ - 1) As Byte
-            For lJdx = 0 To lNumIter - 1
-                baTemp = CryptoHmacSha1ByteArray(baKey, baTemp)
+            For lJdx = 0 To NumIter - 1
+                baTemp = CryptoHmacSha1ByteArray(baPass, baTemp)
                 For lKdx = 0 To UBound(baTemp)
                     baHmac(lKdx) = baHmac(lKdx) Xor baTemp(lKdx)
                 Next
             Next
-            lRemaining = lOutSize - lIdx * LNG_HASHSZ
+            lRemaining = OutSize - lIdx * LNG_HASHSZ
             If lRemaining > LNG_HASHSZ Then
                 lRemaining = LNG_HASHSZ
             End If
@@ -296,4 +315,10 @@ Public Function CryptoPbkdf2HmacSha1ByteArray(baKey() As Byte, baSalt() As Byte,
         Next
     End If
     CryptoPbkdf2HmacSha1ByteArray = baRetVal
+End Function
+
+Public Function CryptoPbkdf2HmacSha1Text(sPass As String, sSalt As String, _
+            Optional ByVal OutSize As Long, _
+            Optional ByVal NumIter As Long = 10000) As String
+    CryptoPbkdf2HmacSha1Text = ToHex(CryptoPbkdf2HmacSha1ByteArray(ToUtf8Array(sPass), ToUtf8Array(sSalt), NumIter:=NumIter, OutSize:=OutSize))
 End Function

@@ -301,7 +301,7 @@ Public Sub CryptoPoly1305Update(uCtx As CryptoPoly1305Context, baInput() As Byte
     End With
 End Sub
 
-Public Sub CryptoPoly1305Finish(uCtx As CryptoPoly1305Context, baOutput() As Byte)
+Public Sub CryptoPoly1305Finalize(uCtx As CryptoPoly1305Context, baOutput() As Byte)
     Const BLOCKSZ       As Long = 16
     Dim lIdx            As Long
     Dim uX              As FieldElement
@@ -358,9 +358,9 @@ Private Function Process(baKey() As Byte, baNonce() As Byte, baAad() As Byte, ba
     CryptoPoly1305Update uPoly, baPad
     '--- MAC complete
     If Encrypt Then
-        CryptoPoly1305Finish uPoly, baTag
+        CryptoPoly1305Finalize uPoly, baTag
     Else
-        CryptoPoly1305Finish uPoly, baTemp
+        CryptoPoly1305Finalize uPoly, baTemp
         '--- decrypt only if tag matches
         If UBound(baTag) <> UBound(baTemp) Or InStrB(baTag, baTemp) <> 1 Then
             GoTo QH

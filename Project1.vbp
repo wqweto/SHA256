@@ -19,6 +19,7 @@ Module=mdSha1; mdSha1.bas
 Form=Form5.frm
 Module=mdSha2; mdSha2.bas
 Module=mdSha512Old; mdSha512Old.bas
+Module=mdScryptKdf; mdScryptKdf.bas
 IconForm="Form1"
 Startup="Form1"
 HelpFile=""

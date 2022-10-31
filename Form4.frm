@@ -81,7 +81,7 @@ Private Sub pvTestPoly1305()
     baInput = StrConv("Cryptographic Forum Research Group", vbFromUnicode)
     CryptoPoly1305Init uCtx, baKey
     CryptoPoly1305Update uCtx, baInput
-    CryptoPoly1305Finish uCtx, baOuput
+    CryptoPoly1305Finalize uCtx, baOuput
     Debug.Print ToHex(baOuput)
     '-> a8061dc1305136c6c22b8baf0c0127a9
 End Sub

@@ -62,6 +62,8 @@ Private Sub Form_Click1()
 End Sub
 
 Private Sub Form_Click()
+    pvTestScryptKdf
+    Exit Sub
     pvTestX25519 JsonParseObject(ReadTextFile("C:\Work\Temp\wycheproof\testvectors\x25519_test.json"))
 
     pvTestHmacSha2 JsonParseObject(ReadTextFile("C:\Work\Temp\wycheproof\testvectors\hmac_sha512_test.json")), 512
@@ -288,7 +290,7 @@ Private Sub pvTestPbkdf2HmacSha1()
     Dim baOutput()      As Byte
     
     dblTimer = TimerEx
-    baOutput = CryptoPbkdf2HmacSha1ByteArray(StrConv("password", vbFromUnicode), StrConv("salt", vbFromUnicode), 4096, 20)
+    baOutput = CryptoPbkdf2HmacSha1ByteArray(StrConv("password", vbFromUnicode), StrConv("salt", vbFromUnicode), OutSize:=20, NumIter:=4096)
     Debug.Print Format$(TimerEx - dblTimer, "0.000"), ToHex(baOutput)
     '-> 4b007901b765489abead49d926f721d065a429c1
 End Sub
@@ -298,22 +300,38 @@ Private Sub pvTestPbkdf2HmacSha2()
     Dim baOutput()      As Byte
     
     dblTimer = TimerEx
-    baOutput = CryptoPbkdf2HmacSha2ByteArray(224, StrConv("Password", vbFromUnicode), StrConv("sa" & vbNullChar & "lt", vbFromUnicode), 4096, 256)
+    baOutput = CryptoPbkdf2HmacSha2ByteArray(224, StrConv("Password", vbFromUnicode), StrConv("sa" & vbNullChar & "lt", vbFromUnicode), OutSize:=256, NumIter:=4096)
     Debug.Print Format$(TimerEx - dblTimer, "0.000"), ToHex(baOutput)
     '-> a329a360c825e12e454ad8633a842a06ba1456907770779d1fa4e0b61a5b1c6ce02e71de74ae433bbf14b907690d008d0cab5b01c976c1e627b027a9a809fd001082c809650344ecfcdebdf0d64b92cb1e869bf91b75517ea36918127b1eccc4cac145fb965071292a6dfa388d8ad893d2541f83a0dac1c55d2d90709963b066de985e92974e87b7d8c0e8026d96684bb0425203919b4792962b065e2b2b815ba888b8428ae51f57a74f637a658e27cf5fbc5593e85f775a1f81660850a723e2eb565f30dfc2cf2973ad57ec95b89c0979c7bab81c11d8987540a32badb2f7bbe4ff21a4f0d91dbd911b88ddd928603fd27b0ede994ee99edd2c04667b82067f
+    Debug.Print CryptoPbkdf2HmacSha2Text(224, "Password", "sa" & vbNullChar & "lt", NumIter:=4096)
     dblTimer = TimerEx
-    baOutput = CryptoPbkdf2HmacSha2ByteArray(256, StrConv("Password", vbFromUnicode), StrConv("sa" & vbNullChar & "lt", vbFromUnicode), 4096, 256)
+    baOutput = CryptoPbkdf2HmacSha2ByteArray(256, StrConv("Password", vbFromUnicode), StrConv("sa" & vbNullChar & "lt", vbFromUnicode), OutSize:=256, NumIter:=4096)
     Debug.Print Format$(TimerEx - dblTimer, "0.000"), ToHex(baOutput)
     '-> 436c82c6af9010bb0fdb274791934ac7dee21745dd11fb57bb90112ab187c495ad82df776ad7cefb606f34fedca59baa5922a57f3e91bc0e11960da7ec87ed0471b456a0808b60dff757b7d313d4068bf8d337a99caede24f3248f87d1bf16892b70b076a07dd163a8a09db788ae34300ff2f2d0a92c9e678186183622a636f4cbce15680dfea46f6d224e51c299d4946aa2471133a649288eef3e4227b609cf203dba65e9fa69e63d35b6ff435ff51664cbd6773d72ebc341d239f0084b004388d6afa504eee6719a7ae1bb9daf6b7628d851fab335f1d13948e8ee6f7ab033a32df447f8d0950809a70066605d6960847ed436fa52cdfbcf261b44d2a87061
     dblTimer = TimerEx
-    baOutput = CryptoPbkdf2HmacSha2ByteArray(512, StrConv("Password", vbFromUnicode), StrConv("sa" & vbNullChar & "lt", vbFromUnicode), 4096, 256)
+    baOutput = CryptoPbkdf2HmacSha2ByteArray(512, StrConv("Password", vbFromUnicode), StrConv("sa" & vbNullChar & "lt", vbFromUnicode), OutSize:=256, NumIter:=4096)
     Debug.Print Format$(TimerEx - dblTimer, "0.000"), ToHex(baOutput)
     '-> 10176fb32cb98cd7bb31e2bb5c8f6e425c103333a2e496058e3fd2bd88f657485c89ef92daa0668316bc23ebd1ef88f6dd14157b2320b5d54b5f26377c5dc279b1dcdec044bd6f91b166917c80e1e99ef861b1d2c7bce1b961178125fb86867f6db489a2eae0022e7bc9cf421f044319fac765d70cb89b45c214590e2ffb2c2b565ab3b9d07571fde0027b1dc57f8fd25afa842c1056dd459af4074d7510a0c020b914a5e202445d4d3f151070589dd6a2554fc506018c4f001df6239643dc86771286ae4910769d8385531bba57544d63c3640b90c98f1445ebdd129475e02086b600f0beb5b05cc6ca9b3633b452b7dad634e9336f56ec4c3ac0b4fe54ced8
+End Sub
+
+Private Sub pvTestScryptKdf()
+    Dim dblTimer        As Double
+    Dim baOutput()      As Byte
+    
+    dblTimer = TimerEx
+    baOutput = CryptoScryptKdfByteArray(StrConv("", vbFromUnicode), StrConv("", vbFromUnicode), OutSize:=64, CpuCost:=16, MemoryCost:=1, Parallel:=1)
+    Debug.Print Format$(TimerEx - dblTimer, "0.000"), ToHex(baOutput)
+    '-> 77d6576238657b203b19ca42c18a0497f16b4844e3074ae8dfdffa3fede21442fcd0069ded0948f8326a753a0fc81f17e8d3e0fb2e0d3628cf35e20c38d18906
+    dblTimer = TimerEx
+    baOutput = CryptoScryptKdfByteArray(StrConv("password", vbFromUnicode), StrConv("salt", vbFromUnicode), OutSize:=32)
+    Debug.Print Format$(TimerEx - dblTimer, "0.000"), ToHex(baOutput), ToBase64Array(baOutput)
+    '-> 745731af4484f323968969eda289aeee005b5903ac561e64a5aca121797bf773      dFcxr0SE8yOWiWntoomu7gBbWQOsVh5kpayhIXl793M=
 End Sub
 
 Private Sub Form_Load()
 '    pvTestPbkdf2HmacSha1
 '    pvTestPbkdf2HmacSha2
+'    pvTestScryptKdf
     pvTestSha3
     pvTestSha512
     pvTestCryptoEd25519
