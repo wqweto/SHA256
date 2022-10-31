@@ -123,26 +123,26 @@ Private Sub pvSalsa20Core(B() As Byte)
     Call CopyMemory(B(0), B32, 64)
 End Sub
 
-Private Sub pvBlockMix(B() As Byte, ByVal lR As Long, YTemp() As Byte)
+Private Sub pvBlockMix(B() As Byte, ByVal lR As Long, TempY() As Byte)
     Dim X(0 To 63)      As Byte
     Dim lIdx            As Long
     Dim lJdx            As Long
     
     Debug.Assert UBound(B) + 1 >= 2 * lR * 64
-    Debug.Assert UBound(YTemp) + 1 >= 2 * lR * 64
+    Debug.Assert UBound(TempY) + 1 >= 2 * lR * 64
     Call CopyMemory(X(0), B((2 * lR - 1) * 64), 64)
     For lIdx = 0 To 2 * lR - 1
         For lJdx = 0 To 63
             X(lJdx) = X(lJdx) Xor B(lIdx * 64 + lJdx)
         Next
         pvSalsa20Core X
-        Call CopyMemory(YTemp(lIdx * 64), X(0), 64)
+        Call CopyMemory(TempY(lIdx * 64), X(0), 64)
     Next
     For lIdx = 0 To lR - 1
-        Call CopyMemory(B((0 + lIdx) * 64), YTemp((2 * lIdx + 0) * 64), 64)
+        Call CopyMemory(B((0 + lIdx) * 64), TempY((2 * lIdx + 0) * 64), 64)
     Next
     For lIdx = 0 To lR - 1
-        Call CopyMemory(B((lR + lIdx) * 64), YTemp((2 * lIdx + 1) * 64), 64)
+        Call CopyMemory(B((lR + lIdx) * 64), TempY((2 * lIdx + 1) * 64), 64)
     Next
 End Sub
 
@@ -152,7 +152,7 @@ Private Function pvIntegerify(X() As Byte, ByVal lR As Long) As Long
     pvIntegerify = pvIntegerify And &H7FFFFFFF
 End Function
 
-Private Sub pvROMix(X() As Byte, ByVal lR As Long, ByVal lN As Long, VTemp() As Byte, YTemp() As Byte)
+Private Sub pvROMix(X() As Byte, ByVal lR As Long, ByVal lN As Long, TempV() As Byte, TempY() As Byte)
     Dim lIdx            As Long
     Dim lJdx            As Long
     Dim lK              As Long
@@ -160,18 +160,18 @@ Private Sub pvROMix(X() As Byte, ByVal lR As Long, ByVal lN As Long, VTemp() As 
     
     lBlockSize = 128 * lR
     Debug.Assert UBound(X) + 1 >= lBlockSize
-    Debug.Assert UBound(YTemp) + 1 >= lBlockSize
-    Debug.Assert UBound(VTemp) + 1 >= lN * lBlockSize
+    Debug.Assert UBound(TempY) + 1 >= lBlockSize
+    Debug.Assert UBound(TempV) + 1 >= lN * lBlockSize
     For lIdx = 0 To lN - 1
-        Call CopyMemory(VTemp(lIdx * lBlockSize), X(0), lBlockSize)
-        pvBlockMix X, lR, YTemp
+        Call CopyMemory(TempV(lIdx * lBlockSize), X(0), lBlockSize)
+        pvBlockMix X, lR, TempY
     Next
     For lIdx = 0 To lN - 1
         lK = pvIntegerify(X, lR) And (lN - 1)
         For lJdx = 0 To lBlockSize - 1
-            X(lJdx) = X(lJdx) Xor VTemp(lK * lBlockSize + lJdx)
+            X(lJdx) = X(lJdx) Xor TempV(lK * lBlockSize + lJdx)
         Next
-        pvBlockMix X, lR, YTemp
+        pvBlockMix X, lR, TempY
     Next
 End Sub
 
@@ -183,8 +183,8 @@ Public Function CryptoScryptKdfByteArray(baPass() As Byte, baSalt() As Byte, _
     Dim lN              As Long: lN = CpuCost
     Dim lR              As Long: lR = MemoryCost
     Dim lP              As Long: lP = Parallel
-    Dim VTemp()         As Byte
-    Dim YTemp()         As Byte
+    Dim TempV()         As Byte
+    Dim TempY()         As Byte
     Dim X()             As Byte
     Dim B()             As Byte
     Dim lIdx            As Long
@@ -200,17 +200,17 @@ Public Function CryptoScryptKdfByteArray(baPass() As Byte, baSalt() As Byte, _
             LNG_POW2(31) = &H80000000
         End If
     #End If
-    ReDim VTemp(0 To lN * 128 * lR - 1) As Byte
-    ReDim YTemp(0 To 128 * lR - 1) As Byte
+    ReDim TempV(0 To lN * 128 * lR - 1) As Byte
+    ReDim TempY(0 To 128 * lR - 1) As Byte
     ReDim X(0 To 128 * lR - 1) As Byte
     B = CryptoPbkdf2HmacSha2ByteArray(256, baPass, baSalt, OutSize:=lP * 128 * lR, NumIter:=1)
     For lIdx = 0 To lP - 1
         Call CopyMemory(X(0), B(lIdx * 128 * lR), 128 * lR)
-        pvROMix X, lR, lN, VTemp, YTemp
+        pvROMix X, lR, lN, TempV, TempY
         Call CopyMemory(B(lIdx * 128 * lR), X(0), 128 * lR)
     Next
-    Erase VTemp
-    Erase YTemp
+    Erase TempV
+    Erase TempY
     CryptoScryptKdfByteArray = CryptoPbkdf2HmacSha2ByteArray(256, baPass, B, OutSize:=OutSize, NumIter:=1)
 End Function
 
