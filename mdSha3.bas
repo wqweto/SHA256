@@ -458,3 +458,39 @@ Public Function CryptoPbkdf2HmacSha3Text(ByVal lBitSize As Long, sPass As String
             Optional ByVal NumIter As Long = 10000) As String
     CryptoPbkdf2HmacSha3Text = ToHex(CryptoPbkdf2HmacSha3ByteArray(lBitSize, ToUtf8Array(sPass), ToUtf8Array(sSalt), NumIter:=NumIter, OutSize:=OutSize))
 End Function
+
+Public Function CryptoHkdfSha3ByteArray(ByVal lBitSize As Long, baIKM() As Byte, baSalt() As Byte, baInfo() As Byte, Optional ByVal OutSize As Long) As Byte()
+    Dim lHashSize       As Long
+    Dim baRetVal()      As Byte
+    Dim baKey()         As Byte
+    Dim baPad()         As Byte
+    Dim baHash()        As Byte
+    Dim lIdx            As Long
+    Dim lRemaining      As Long
+    
+    lHashSize = (lBitSize + 7) \ 8
+    If OutSize <= 0 Then
+        OutSize = lHashSize
+    End If
+    ReDim baRetVal(0 To OutSize - 1) As Byte
+    baKey = CryptoHmacSha3ByteArray(lBitSize, baSalt, baIKM)
+    ReDim baPad(0 To lHashSize + UBound(baInfo) + 1) As Byte
+    If UBound(baInfo) >= 0 Then
+        Call CopyMemory(baPad(lHashSize), baInfo(0), UBound(baInfo) + 1)
+    End If
+    For lIdx = 0 To (OutSize + lHashSize - 1) \ lHashSize - 1
+        baPad(UBound(baPad)) = (lIdx + 1) And &HFF
+        baHash = CryptoHmacSha3ByteArray(lBitSize, baKey, baPad, Pos:=-(lIdx = 0) * lHashSize)
+        Call CopyMemory(baPad(0), baHash(0), lHashSize)
+        lRemaining = OutSize - lIdx * lHashSize
+        If lRemaining > lHashSize Then
+            lRemaining = lHashSize
+        End If
+        Call CopyMemory(baRetVal(lIdx * lHashSize), baHash(0), lRemaining)
+    Next
+    CryptoHkdfSha3ByteArray = baRetVal
+End Function
+
+Public Function CryptoHkdfSha3Text(ByVal lBitSize As Long, sIKM As String, sSalt As String, sInfo As String, Optional ByVal OutSize As Long) As String
+    CryptoHkdfSha3Text = ToHex(CryptoHkdfSha3ByteArray(lBitSize, ToUtf8Array(sIKM), ToUtf8Array(sSalt), ToUtf8Array(sInfo), OutSize:=OutSize))
+End Function
