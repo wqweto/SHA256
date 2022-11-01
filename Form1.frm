@@ -342,10 +342,20 @@ Private Sub pvTestHkdfSha2()
     '-> b11e398dc80327a1c8e7f78c596a49344f012eda2d4efad8a050cc4c19afa97c59045a99cac7827271cb41c65e590e09da3275600c2f09b8367793a9aca3db71cc30c58179ec3e87c14c01d5c1f3434f1d87
 End Sub
 
+Private Sub pvTestRipeMd160()
+    Debug.Print CryptoRipeMd160Text("")
+    '-> 9c1185a5c5e9fc54612808977ee8f548b2258d31
+    Debug.Print CryptoRipeMd160Text("a")
+    '-> 0bdc9d2d256b3ee9daae347be6f4dc835a467ffe
+    Debug.Print CryptoRipeMd160Text("abc")
+    '-> 8eb208f7e05d987a9b044a8e98c6b087f15a0bfc
+End Sub
+
 Private Sub Form_Load()
 '    pvTestPbkdf2HmacSha1
 '    pvTestPbkdf2HmacSha2
 '    pvTestScryptKdf
+    pvTestRipeMd160
     pvTestHkdfSha2
     pvTestSha3
     pvTestSha512
