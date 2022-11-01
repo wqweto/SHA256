@@ -98,14 +98,14 @@ Public Sub CryptoMd5Update(uCtx As CryptoMd5Context, baInput() As Byte, Optional
         End If
         .NInput = .NInput + Size
         If .NPartial > 0 Then
-            lTemp = LNG_BLOCKSZ - .NPartial
-            If lTemp > Size Then
-                lTemp = Size
+            lIdx = LNG_BLOCKSZ - .NPartial
+            If lIdx > Size Then
+                lIdx = Size
             End If
-            Call CopyMemory(.Partial(.NPartial), baInput(Pos), lTemp)
-            .NPartial = .NPartial + lTemp
-            Pos = Pos + lTemp
-            Size = Size - lTemp
+            Call CopyMemory(.Partial(.NPartial), baInput(Pos), lIdx)
+            .NPartial = .NPartial + lIdx
+            Pos = Pos + lIdx
+            Size = Size - lIdx
         End If
         Do While Size > 0 Or .NPartial = LNG_BLOCKSZ
             If .NPartial <> 0 Then

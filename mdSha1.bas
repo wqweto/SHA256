@@ -93,14 +93,14 @@ Public Sub CryptoSha1Update(uCtx As CryptoSha1Context, baInput() As Byte, Option
         End If
         .NInput = .NInput + Size
         If .NPartial > 0 Then
-            lTemp = LNG_BLOCKSZ - .NPartial
-            If lTemp > Size Then
-                lTemp = Size
+            lIdx = LNG_BLOCKSZ - .NPartial
+            If lIdx > Size Then
+                lIdx = Size
             End If
-            Call CopyMemory(.Partial(.NPartial), baInput(Pos), lTemp)
-            .NPartial = .NPartial + lTemp
-            Pos = Pos + lTemp
-            Size = Size - lTemp
+            Call CopyMemory(.Partial(.NPartial), baInput(Pos), lIdx)
+            .NPartial = .NPartial + lIdx
+            Pos = Pos + lIdx
+            Size = Size - lIdx
         End If
         Do While Size > 0 Or .NPartial = LNG_BLOCKSZ
             If .NPartial <> 0 Then
@@ -128,17 +128,17 @@ Public Sub CryptoSha1Update(uCtx As CryptoSha1Context, baInput() As Byte, Option
                         W(lIdx) = RotL32(W(lIdx - 3) Xor W(lIdx - 8) Xor W(lIdx - 14) Xor W(lIdx - 16), 1)
                     #End If
                 End If
-                Select Case lIdx
-                Case 0 To 19
+                Select Case lIdx \ 20
+                Case 0
                     lTemp = (lB And lC) Or ((Not lB) And lD)
                     lK = &H5A827999
-                Case 20 To 39
+                Case 1
                     lTemp = lB Xor lC Xor lD
                     lK = &H6ED9EBA1
-                Case 40 To 59
+                Case 2
                     lTemp = (lB And lC) Or (lB And lD) Or (lC And lD)
                     lK = &H8F1BBCDC
-                Case 60 To 79
+                Case 3
                     lTemp = lB Xor lC Xor lD
                     lK = &HCA62C1D6
                 End Select
