@@ -319,7 +319,7 @@ Private Sub pvTestScryptKdf()
     Dim baOutput()      As Byte
     
     dblTimer = TimerEx
-    baOutput = CryptoScryptKdfByteArray(StrConv("", vbFromUnicode), StrConv("", vbFromUnicode), OutSize:=64, CpuCost:=16, MemoryCost:=1, Parallel:=1)
+    baOutput = CryptoScryptKdfByteArray(StrConv("", vbFromUnicode), StrConv("", vbFromUnicode), OutSize:=64, Cost:=16, BlockSize:=1, Parallel:=1)
     Debug.Print Format$(TimerEx - dblTimer, "0.000"), ToHex(baOutput)
     '-> 77d6576238657b203b19ca42c18a0497f16b4844e3074ae8dfdffa3fede21442fcd0069ded0948f8326a753a0fc81f17e8d3e0fb2e0d3628cf35e20c38d18906
     dblTimer = TimerEx
@@ -349,6 +349,8 @@ Private Sub pvTestRipeMd160()
     '-> 0bdc9d2d256b3ee9daae347be6f4dc835a467ffe
     Debug.Print CryptoRipeMd160Text("abc")
     '-> 8eb208f7e05d987a9b044a8e98c6b087f15a0bfc
+    Debug.Print CryptoRipeMd160Text("Rosetta code")
+    '-> 1cda558e41e47c3090aafd73ca5651d176f95ca9
 End Sub
 
 Private Sub Form_Load()

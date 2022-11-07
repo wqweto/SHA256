@@ -47,7 +47,7 @@ End Sub
 #If HasOperators Then
 [ IntegerOverflowChecks (False) ]
 #End If
-Private Sub pvSalsa20Core(B() As Byte)
+Private Sub pvSalsa20Core8(B() As Byte)
     Dim B32             As ArrayLong16
     Dim X               As ArrayLong16
     Dim lIdx            As Long
@@ -135,7 +135,7 @@ Private Sub pvBlockMix(B() As Byte, ByVal lR As Long, TempY() As Byte)
         For lJdx = 0 To 63
             X(lJdx) = X(lJdx) Xor B(lIdx * 64 + lJdx)
         Next
-        pvSalsa20Core X
+        pvSalsa20Core8 X
         Call CopyMemory(TempY(lIdx * 64), X(0), 64)
     Next
     For lIdx = 0 To lR - 1
@@ -177,11 +177,11 @@ End Sub
 
 Public Function CryptoScryptKdfByteArray(baPass() As Byte, baSalt() As Byte, _
             Optional ByVal OutSize As Long, _
-            Optional ByVal CpuCost As Long = 16384, _
-            Optional ByVal MemoryCost As Long = 8, _
+            Optional ByVal Cost As Long = 16384, _
+            Optional ByVal BlockSize As Long = 8, _
             Optional ByVal Parallel As Long = 1) As Byte()
-    Dim lN              As Long: lN = CpuCost
-    Dim lR              As Long: lR = MemoryCost
+    Dim lN              As Long: lN = Cost
+    Dim lR              As Long: lR = BlockSize
     Dim lP              As Long: lP = Parallel
     Dim TempV()         As Byte
     Dim TempY()         As Byte
@@ -246,8 +246,8 @@ End Function
 
 Public Function CryptoScryptKdfText(sPass As String, sSalt As String, _
             Optional ByVal OutSize As Long, _
-            Optional ByVal CpuCost As Long = 16384, _
-            Optional ByVal MemoryCost As Long = 8, _
+            Optional ByVal Cost As Long = 16384, _
+            Optional ByVal BlockSize As Long = 8, _
             Optional ByVal Parallel As Long = 1) As String
-    CryptoScryptKdfText = ToHex(CryptoScryptKdfByteArray(ToUtf8Array(sPass), ToUtf8Array(sSalt), OutSize:=OutSize, CpuCost:=CpuCost, MemoryCost:=MemoryCost, Parallel:=Parallel))
+    CryptoScryptKdfText = ToHex(CryptoScryptKdfByteArray(ToUtf8Array(sPass), ToUtf8Array(sSalt), OutSize:=OutSize, Cost:=Cost, BlockSize:=BlockSize, Parallel:=Parallel))
 End Function
