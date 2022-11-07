@@ -76,13 +76,11 @@ Public Sub CryptoRipeMd160Init(uCtx As CryptoRipeMd160Context)
             lIdx = lIdx + 1
         Next
         #If Not HasOperators Then
-            If LNG_POW2(0) = 0 Then
-                LNG_POW2(0) = 1
-                For lIdx = 1 To 30
-                    LNG_POW2(lIdx) = LNG_POW2(lIdx - 1) * 2
-                Next
-                LNG_POW2(31) = &H80000000
-            End If
+            LNG_POW2(0) = 1
+            For lIdx = 1 To 30
+                LNG_POW2(lIdx) = LNG_POW2(lIdx - 1) * 2
+            Next
+            LNG_POW2(31) = &H80000000
         #End If
     End If
     With uCtx
