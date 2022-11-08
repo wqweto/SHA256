@@ -9,26 +9,42 @@ Begin VB.Form Form5
    ScaleHeight     =   4020
    ScaleWidth      =   6012
    StartUpPosition =   3  'Windows Default
+   Begin VB.CommandButton Command3b 
+      Caption         =   "SHA-512"
+      Height          =   600
+      Left            =   2856
+      TabIndex        =   4
+      Top             =   1932
+      Width           =   2028
+   End
+   Begin VB.CommandButton Command4 
+      Caption         =   "SHA-3"
+      Height          =   600
+      Left            =   588
+      TabIndex        =   3
+      Top             =   2772
+      Width           =   2028
+   End
    Begin VB.CommandButton Command3 
-      Caption         =   "Command3"
+      Caption         =   "SHA-2"
       Height          =   600
       Left            =   588
       TabIndex        =   2
-      Top             =   2268
+      Top             =   1932
       Width           =   2028
    End
    Begin VB.CommandButton Command2 
-      Caption         =   "Command2"
+      Caption         =   "SHA-1"
       Height          =   600
       Left            =   588
       TabIndex        =   1
-      Top             =   1344
+      Top             =   1176
       Width           =   2028
    End
    Begin VB.CommandButton Command1 
-      Caption         =   "Command1"
+      Caption         =   "MD5"
       Height          =   600
-      Left            =   504
+      Left            =   588
       TabIndex        =   0
       Top             =   420
       Width           =   2028
@@ -44,7 +60,7 @@ Option Explicit
 Private m_baContents() As Byte
 
 Private Sub Form_Load()
-    m_baContents = ReadBinaryFile("D:\TEMP\BinaryNinja-demo.exe")
+    m_baContents = ReadBinaryFile("D:\TEMP\VirtualBox-6.1.34-150636-Win.exe")
     Caption = UBound(m_baContents) + 1 & " bytes ready"
 End Sub
 
@@ -64,7 +80,6 @@ Public Function ReadBinaryFile(sFile As String) As Byte()
     ReadBinaryFile = baBuffer
 EH:
 End Function
-
 
 Private Sub Command1_Click()
     Const ITER As Long = 1
@@ -109,4 +124,34 @@ Private Sub Command3_Click()
     Next
     Caption = Format$(Timer - dblTimer, "0.000") & " sec"
     Command3.Caption = Format$((UBound(m_baContents) + 1) * ITER / 1024# / 1024# / (Timer - dblTimer), "0.000") & " MB/s"
+End Sub
+
+Private Sub Command3b_Click()
+    Const ITER As Long = 1
+    Dim lIdx As Long
+    Dim baOutput()  As Byte
+    Dim dblTimer As Double
+    
+    Command3b.Caption = "Processing"
+    dblTimer = Timer
+    For lIdx = 1 To ITER
+        baOutput = CryptoSha2ByteArray(512, m_baContents)
+    Next
+    Caption = Format$(Timer - dblTimer, "0.000") & " sec"
+    Command3b.Caption = Format$((UBound(m_baContents) + 1) * ITER / 1024# / 1024# / (Timer - dblTimer), "0.000") & " MB/s"
+End Sub
+
+Private Sub Command4_Click()
+    Const ITER As Long = 1
+    Dim lIdx As Long
+    Dim baOutput()  As Byte
+    Dim dblTimer As Double
+    
+    Command4.Caption = "Processing"
+    dblTimer = Timer
+    For lIdx = 1 To ITER
+        baOutput = CryptoSha3ByteArray(256, m_baContents)
+    Next
+    Caption = Format$(Timer - dblTimer, "0.000") & " sec"
+    Command4.Caption = Format$((UBound(m_baContents) + 1) * ITER / 1024# / 1024# / (Timer - dblTimer), "0.000") & " MB/s"
 End Sub
