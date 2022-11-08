@@ -4,6 +4,7 @@ Option Explicit
 DefObj A-Z
 
 #Const HasPtrSafe = (VBA7 <> 0)
+#Const HasOperators = (TWINBASIC <> 0)
 
 #If HasPtrSafe Then
 Private Declare PtrSafe Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" (Destination As Any, Source As Any, ByVal Length As LongPtr)
@@ -44,13 +45,16 @@ Public Type CryptoSha512Context
 End Type
 
 #If HasPtrSafe Then
-    Private LNG_K(0 To LNG_ROUNDS - 1) As LongLong
+#If Not HasOperators Then
     Private LNG_POW2(0 To 63)       As LongLong
+#End If
+    Private LNG_K(0 To LNG_ROUNDS - 1) As LongLong
 #Else
-    Private LNG_K(0 To LNG_ROUNDS - 1) As Variant
     Private LNG_POW2(0 To 63)       As Variant
+    Private LNG_K(0 To LNG_ROUNDS - 1) As Variant
 #End If
 
+#If Not HasOperators Then
 #If HasPtrSafe Then
 Private Function RotR64(ByVal lX As LongLong, ByVal lN As Long) As LongLong
 #Else
@@ -97,6 +101,7 @@ Private Function UAdd64(lX As Variant, lY As Variant) As Variant
         UAdd64 = lX + lY
     End If
 End Function
+#End If
 
 #If HasPtrSafe Then
 Private Function Ch(ByVal lX As LongLong, ByVal lY As LongLong, ByVal lZ As LongLong) As LongLong
@@ -119,7 +124,11 @@ Private Function BigSigma0(ByVal lX As LongLong) As LongLong
 #Else
 Private Function BigSigma0(lX As Variant) As Variant
 #End If
-    BigSigma0 = RotR64(lX, 28) Xor RotR64(lX, 34) Xor RotR64(lX, 39)
+    #If HasOperators Then
+        BigSigma0 = (lX >> 28 Or lX << 36) Xor (lX >> 34 Or lX << 30) Xor (lX >> 39 Or lX << 25)
+    #Else
+        BigSigma0 = RotR64(lX, 28) Xor RotR64(lX, 34) Xor RotR64(lX, 39)
+    #End If
 End Function
 
 #If HasPtrSafe Then
@@ -127,7 +136,11 @@ Private Function BigSigma1(ByVal lX As LongLong) As LongLong
 #Else
 Private Function BigSigma1(lX As Variant) As Variant
 #End If
-    BigSigma1 = RotR64(lX, 14) Xor RotR64(lX, 18) Xor RotR64(lX, 41)
+    #If HasOperators Then
+        BigSigma1 = (lX >> 14 Or lX << 50) Xor (lX >> 18 Or lX << 46) Xor (lX >> 41 Or lX << 23)
+    #Else
+        BigSigma1 = RotR64(lX, 14) Xor RotR64(lX, 18) Xor RotR64(lX, 41)
+    #End If
 End Function
 
 #If HasPtrSafe Then
@@ -135,7 +148,11 @@ Private Function SmallSigma0(ByVal lX As LongLong) As LongLong
 #Else
 Private Function SmallSigma0(lX As Variant) As Variant
 #End If
-    SmallSigma0 = RotR64(lX, 1) Xor RotR64(lX, 8) Xor RShift64(lX, 7)
+    #If HasOperators Then
+        SmallSigma0 = (lX >> 1 Or lX << 63) Xor (lX >> 8 Or lX << 56) Xor (lX >> 7)
+    #Else
+        SmallSigma0 = RotR64(lX, 1) Xor RotR64(lX, 8) Xor RShift64(lX, 7)
+    #End If
 End Function
 
 #If HasPtrSafe Then
@@ -143,7 +160,11 @@ Private Function SmallSigma1(ByVal lX As LongLong) As LongLong
 #Else
 Private Function SmallSigma1(lX As Variant) As Variant
 #End If
-    SmallSigma1 = RotR64(lX, 19) Xor RotR64(lX, 61) Xor RShift64(lX, 6)
+    #If HasOperators Then
+        SmallSigma1 = (lX >> 19 Or lX << 45) Xor (lX >> 61 Or lX << 3) Xor (lX >> 6)
+    #Else
+        SmallSigma1 = RotR64(lX, 19) Xor RotR64(lX, 61) Xor RShift64(lX, 6)
+    #End If
 End Function
 
 Private Function BSwap32(ByVal lX As Long) As Long
@@ -158,7 +179,12 @@ Private Function BSwap64(ByVal lX As Variant) As Variant
 #End If
     Dim lA As Long
     lA = BSwap32(CLng(lX And &H7FFFFFFF))
-    BSwap64 = lA And &H7FFFFFFF Or -((lA < 0) <> 0) * LNG_POW2(31) Or -((lX And LNG_POW2(31)) <> 0) * &H80
+    #If HasOperators Then
+        Const LNG_POW2_31 As LongLong = 2 ^ 31
+        BSwap64 = lA And &H7FFFFFFF Or -((lA < 0) <> 0) * LNG_POW2_31 Or -((lX And LNG_POW2_31) <> 0) * &H80
+    #Else
+        BSwap64 = lA And &H7FFFFFFF Or -((lA < 0) <> 0) * LNG_POW2(31) Or -((lX And LNG_POW2(31)) <> 0) * &H80
+    #End If
 End Function
 
 #If Not HasPtrSafe Then
@@ -180,10 +206,12 @@ Public Sub CryptoSha512Init(uCtx As CryptoSha512Context, ByVal lBitSize As Long)
             LNG_K(lIdx) = CLngLng(CStr("&H" & vElem))
             lIdx = lIdx + 1
         Next
-        LNG_POW2(0) = CLngLng(1)
-        For lIdx = 1 To 63
-            LNG_POW2(lIdx) = CVar(LNG_POW2(lIdx - 1)) * 2
-        Next
+        #If Not HasOperators Then
+            LNG_POW2(0) = CLngLng(1)
+            For lIdx = 1 To 63
+                LNG_POW2(lIdx) = CVar(LNG_POW2(lIdx - 1)) * 2
+            Next
+        #End If
     End If
     With uCtx
         Select Case lBitSize Mod 1000
@@ -271,23 +299,49 @@ Public Sub CryptoSha512Update(uCtx As CryptoSha512Context, baInput() As Byte, Op
             lE = .H4: lF = .H5: lG = .H6: lH = .H7
             For lIdx = 0 To LNG_ROUNDS - 1
                 If lIdx < 16 Then
-                    W(lIdx) = BSwap64(CLngLng(B(lIdx * 2 + 1))) Or LShift64(BSwap64(CLngLng(B(lIdx * 2))), 32)
+                    #If HasOperators Then
+                        W(lIdx) = BSwap64(CLngLng(B(lIdx * 2 + 1))) Or (BSwap64(CLngLng(B(lIdx * 2))) << 32)
+                    #Else
+                        W(lIdx) = BSwap64(CLngLng(B(lIdx * 2 + 1))) Or LShift64(BSwap64(CLngLng(B(lIdx * 2))), 32)
+                    #End If
                 Else
-                    W(lIdx) = UAdd64(UAdd64(UAdd64(SmallSigma1(W(lIdx - 2)), W(lIdx - 7)), SmallSigma0(W(lIdx - 15))), W(lIdx - 16))
+                    #If HasOperators Then
+                        W(lIdx) = SmallSigma1(W(lIdx - 2)) + W(lIdx - 7) + SmallSigma0(W(lIdx - 15)) + W(lIdx - 16)
+                    #Else
+                        W(lIdx) = UAdd64(UAdd64(UAdd64(SmallSigma1(W(lIdx - 2)), W(lIdx - 7)), SmallSigma0(W(lIdx - 15))), W(lIdx - 16))
+                    #End If
                 End If
-                lT1 = UAdd64(UAdd64(UAdd64(UAdd64(lH, BigSigma1(lE)), Ch(lE, lF, lG)), LNG_K(lIdx)), W(lIdx))
-                lT2 = UAdd64(BigSigma0(lA), Maj(lA, lB, lC))
+                #If HasOperators Then
+                    lT1 = lH + BigSigma1(lE) + Ch(lE, lF, lG) + LNG_K(lIdx) + W(lIdx)
+                    lT2 = BigSigma0(lA) + Maj(lA, lB, lC)
+                #Else
+                    lT1 = UAdd64(UAdd64(UAdd64(UAdd64(lH, BigSigma1(lE)), Ch(lE, lF, lG)), LNG_K(lIdx)), W(lIdx))
+                    lT2 = UAdd64(BigSigma0(lA), Maj(lA, lB, lC))
+                #End If
                 lH = lG
                 lG = lF
                 lF = lE
-                lE = UAdd64(lD, lT1)
+                #If HasOperators Then
+                    lE = lD + lT1
+                #Else
+                    lE = UAdd64(lD, lT1)
+                #End If
                 lD = lC
                 lC = lB
                 lB = lA
-                lA = UAdd64(lT1, lT2)
+                #If HasOperators Then
+                    lA = lT1 + lT2
+                #Else
+                    lA = UAdd64(lT1, lT2)
+                #End If
             Next
-            .H0 = UAdd64(.H0, lA): .H1 = UAdd64(.H1, lB): .H2 = UAdd64(.H2, lC): .H3 = UAdd64(.H3, lD)
-            .H4 = UAdd64(.H4, lE): .H5 = UAdd64(.H5, lF): .H6 = UAdd64(.H6, lG): .H7 = UAdd64(.H7, lH)
+            #If HasOperators Then
+                .H0 += lA: .H1 += lB: .H2 += lC: .H3 += lD
+                .H4 += lE: .H5 += lF: .H6 += lG: .H7 += lH
+            #Else
+                .H0 = UAdd64(.H0, lA): .H1 = UAdd64(.H1, lB): .H2 = UAdd64(.H2, lC): .H3 = UAdd64(.H3, lD)
+                .H4 = UAdd64(.H4, lE): .H5 = UAdd64(.H5, lF): .H6 = UAdd64(.H6, lG): .H7 = UAdd64(.H7, lH)
+            #End If
         Loop
     End With
 End Sub
@@ -299,10 +353,18 @@ Private Function pvToLong(ByVal lX As LongLong, lHi As Long, lLo As Long) As Lon
 Private Function pvToLong(ByVal lX As Variant, lHi As Long, lLo As Long) As Long
     Dim lA              As Variant
 #End If
-    lA = BSwap64(RShift64(lX, 32))
-    lHi = CLng(lA And &H7FFFFFFF) Or -((lA And LNG_POW2(31)) <> 0) * &H80000000
-    lA = BSwap64(lX)
-    lLo = CLng(lA And &H7FFFFFFF) Or -((lA And LNG_POW2(31)) <> 0) * &H80000000
+    #If HasOperators Then
+        Const LNG_POW2_31 As LongLong = 2 ^ 31
+        lA = BSwap64(lX >> 32)
+        lHi = CLng(lA And &H7FFFFFFF) Or -((lA And LNG_POW2_31) <> 0) * &H80000000
+        lA = BSwap64(lX)
+        lLo = CLng(lA And &H7FFFFFFF) Or -((lA And LNG_POW2_31) <> 0) * &H80000000
+    #Else
+        lA = BSwap64(RShift64(lX, 32))
+        lHi = CLng(lA And &H7FFFFFFF) Or -((lA And LNG_POW2(31)) <> 0) * &H80000000
+        lA = BSwap64(lX)
+        lLo = CLng(lA And &H7FFFFFFF) Or -((lA And LNG_POW2(31)) <> 0) * &H80000000
+    #End If
 End Function
 
 Public Sub CryptoSha512Finalize(uCtx As CryptoSha512Context, baOutput() As Byte)
