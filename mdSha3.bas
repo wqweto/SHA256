@@ -36,7 +36,9 @@ Private Const LNG_ROUNDS                As Long = 24
 Private Const LNG_WORDS                 As Long = 25
 
 #If HasPtrSafe Then
+#If Not HasOperators Then
     Private LNG_POW2(0 To 63)       As LongLong
+#End If
     Private LNG_ROUND_C(0 To 23)    As LongLong
 #Else
     Private LNG_POW2(0 To 63)       As Variant
@@ -47,11 +49,11 @@ Public Type CryptoSha3Context
     DigestSize          As Long
     Capacity            As Long
     Absorbed            As Long
-    #If HasPtrSafe Then
-        Words(0 To LNG_WORDS - 1) As LongLong
-    #Else
-        Words(0 To LNG_WORDS - 1) As Variant
-    #End If
+#If HasPtrSafe Then
+    Words(0 To LNG_WORDS - 1) As LongLong
+#Else
+    Words(0 To LNG_WORDS - 1) As Variant
+#End If
     Bytes()             As Byte
     PeekArray           As SAFEARRAY1D
 End Type
@@ -69,16 +71,32 @@ Private Function RotL64(lX As Variant, ByVal lN As Long) As Variant
 End Function
 #End If
 
-Private Sub Keccak(uCtx As CryptoSha3Context)
-    #If HasPtrSafe Then
-        Static C(0 To 4) As LongLong
-        Dim vTemp       As LongLong
-        Dim aTemp()     As LongLong
+#If Not HasPtrSafe Then
+Private Function CLngLng(vValue As Variant) As Variant
+    Const VT_I8 As Long = &H14
+    Call VariantChangeType(CLngLng, vValue, 0, VT_I8)
+End Function
+
+Private Function PeekByte(uCtx As CryptoSha3Context, ByVal lOffset As Long) As Long
+    #If LargeAddressAware Then
+        uCtx.PeekArray.pvData = (VarPtr(uCtx.Words(lOffset \ 8)) Xor &H80000000) + 8 Xor &H80000000
     #Else
-        Static C(0 To 4) As Variant
-        Dim vTemp       As Variant
-        Dim aTemp()     As Variant
+        uCtx.PeekArray.pvData = VarPtr(uCtx.Words(lOffset \ 8)) + 8
     #End If
+    PeekByte = lOffset Mod 8
+End Function
+#End If
+
+Private Sub Keccak(uCtx As CryptoSha3Context)
+#If HasPtrSafe Then
+    Static C(0 To 4) As LongLong
+    Static T(0 To LNG_WORDS - 1) As LongLong
+    Dim lTemp       As LongLong
+#Else
+    Static C(0 To 4) As Variant
+    Static T(0 To LNG_WORDS - 1) As Variant
+    Dim lTemp       As Variant
+#End If
     Dim lRound          As Long
     Dim lIdx            As Long
     Dim lJdx            As Long
@@ -91,66 +109,71 @@ Private Sub Keccak(uCtx As CryptoSha3Context)
         Next
         For lIdx = 0 To 4
             #If HasOperators Then
-                vTemp = C((lIdx + 4) Mod 5) Xor (C((lIdx + 1) Mod 5) << 1 Or C((lIdx + 1) Mod 5) >> 63)
+                lTemp = C((lIdx + 1) Mod 5)
+                lTemp = C((lIdx + 4) Mod 5) Xor (lTemp << 1 Or lTemp >> 63)
             #Else
-                vTemp = C((lIdx + 4) Mod 5) Xor RotL64(C((lIdx + 1) Mod 5), 1)
+                lTemp = C((lIdx + 4) Mod 5) Xor RotL64(C((lIdx + 1) Mod 5), 1)
             #End If
             For lJdx = 0 To 24 Step 5
-                .Words(lIdx + lJdx) = .Words(lIdx + lJdx) Xor vTemp
+                .Words(lIdx + lJdx) = .Words(lIdx + lJdx) Xor lTemp
             Next
         Next
         '--- Rho & Pi
-        aTemp = .Words
-        #If HasOperators Then
-            .Words(10) = (aTemp(1) << 1) Or (aTemp(1) >> (64 - 1))
-            .Words(20) = (aTemp(2) << 62) Or (aTemp(2) >> (64 - 62))
-            .Words(5) = (aTemp(3) << 28) Or (aTemp(3) >> (64 - 28))
-            .Words(15) = (aTemp(4) << 27) Or (aTemp(4) >> (64 - 27))
-            .Words(16) = (aTemp(5) << 36) Or (aTemp(5) >> (64 - 36))
-            .Words(1) = (aTemp(6) << 44) Or (aTemp(6) >> (64 - 44))
-            .Words(11) = (aTemp(7) << 6) Or (aTemp(7) >> (64 - 6))
-            .Words(21) = (aTemp(8) << 55) Or (aTemp(8) >> (64 - 55))
-            .Words(6) = (aTemp(9) << 20) Or (aTemp(9) >> (64 - 20))
-            .Words(7) = (aTemp(10) << 3) Or (aTemp(10) >> (64 - 3))
-            .Words(17) = (aTemp(11) << 10) Or (aTemp(11) >> (64 - 10))
-            .Words(2) = (aTemp(12) << 43) Or (aTemp(12) >> (64 - 43))
-            .Words(12) = (aTemp(13) << 25) Or (aTemp(13) >> (64 - 25))
-            .Words(22) = (aTemp(14) << 39) Or (aTemp(14) >> (64 - 39))
-            .Words(23) = (aTemp(15) << 41) Or (aTemp(15) >> (64 - 41))
-            .Words(8) = (aTemp(16) << 45) Or (aTemp(16) >> (64 - 45))
-            .Words(18) = (aTemp(17) << 15) Or (aTemp(17) >> (64 - 15))
-            .Words(3) = (aTemp(18) << 21) Or (aTemp(18) >> (64 - 21))
-            .Words(13) = (aTemp(19) << 8) Or (aTemp(19) >> (64 - 8))
-            .Words(14) = (aTemp(20) << 18) Or (aTemp(20) >> (64 - 18))
-            .Words(24) = (aTemp(21) << 2) Or (aTemp(21) >> (64 - 2))
-            .Words(9) = (aTemp(22) << 61) Or (aTemp(22) >> (64 - 61))
-            .Words(19) = (aTemp(23) << 56) Or (aTemp(23) >> (64 - 56))
-            .Words(4) = (aTemp(24) << 14) Or (aTemp(24) >> (64 - 14))
+        #If HasPtrSafe Then
+            Call CopyMemory(T(0), .Words(0), LNG_WORDS * 8)
         #Else
-            .Words(10) = RotL64(aTemp(1), 1)
-            .Words(20) = RotL64(aTemp(2), 62)
-            .Words(5) = RotL64(aTemp(3), 28)
-            .Words(15) = RotL64(aTemp(4), 27)
-            .Words(16) = RotL64(aTemp(5), 36)
-            .Words(1) = RotL64(aTemp(6), 44)
-            .Words(11) = RotL64(aTemp(7), 6)
-            .Words(21) = RotL64(aTemp(8), 55)
-            .Words(6) = RotL64(aTemp(9), 20)
-            .Words(7) = RotL64(aTemp(10), 3)
-            .Words(17) = RotL64(aTemp(11), 10)
-            .Words(2) = RotL64(aTemp(12), 43)
-            .Words(12) = RotL64(aTemp(13), 25)
-            .Words(22) = RotL64(aTemp(14), 39)
-            .Words(23) = RotL64(aTemp(15), 41)
-            .Words(8) = RotL64(aTemp(16), 45)
-            .Words(18) = RotL64(aTemp(17), 15)
-            .Words(3) = RotL64(aTemp(18), 21)
-            .Words(13) = RotL64(aTemp(19), 8)
-            .Words(14) = RotL64(aTemp(20), 18)
-            .Words(24) = RotL64(aTemp(21), 2)
-            .Words(9) = RotL64(aTemp(22), 61)
-            .Words(19) = RotL64(aTemp(23), 56)
-            .Words(4) = RotL64(aTemp(24), 14)
+            Call CopyMemory(T(0), .Words(0), LNG_WORDS * 16)
+        #End If
+        #If HasOperators Then
+            .Words(10) = (T(1) << 1) Or (T(1) >> (64 - 1))
+            .Words(20) = (T(2) << 62) Or (T(2) >> (64 - 62))
+            .Words(5) = (T(3) << 28) Or (T(3) >> (64 - 28))
+            .Words(15) = (T(4) << 27) Or (T(4) >> (64 - 27))
+            .Words(16) = (T(5) << 36) Or (T(5) >> (64 - 36))
+            .Words(1) = (T(6) << 44) Or (T(6) >> (64 - 44))
+            .Words(11) = (T(7) << 6) Or (T(7) >> (64 - 6))
+            .Words(21) = (T(8) << 55) Or (T(8) >> (64 - 55))
+            .Words(6) = (T(9) << 20) Or (T(9) >> (64 - 20))
+            .Words(7) = (T(10) << 3) Or (T(10) >> (64 - 3))
+            .Words(17) = (T(11) << 10) Or (T(11) >> (64 - 10))
+            .Words(2) = (T(12) << 43) Or (T(12) >> (64 - 43))
+            .Words(12) = (T(13) << 25) Or (T(13) >> (64 - 25))
+            .Words(22) = (T(14) << 39) Or (T(14) >> (64 - 39))
+            .Words(23) = (T(15) << 41) Or (T(15) >> (64 - 41))
+            .Words(8) = (T(16) << 45) Or (T(16) >> (64 - 45))
+            .Words(18) = (T(17) << 15) Or (T(17) >> (64 - 15))
+            .Words(3) = (T(18) << 21) Or (T(18) >> (64 - 21))
+            .Words(13) = (T(19) << 8) Or (T(19) >> (64 - 8))
+            .Words(14) = (T(20) << 18) Or (T(20) >> (64 - 18))
+            .Words(24) = (T(21) << 2) Or (T(21) >> (64 - 2))
+            .Words(9) = (T(22) << 61) Or (T(22) >> (64 - 61))
+            .Words(19) = (T(23) << 56) Or (T(23) >> (64 - 56))
+            .Words(4) = (T(24) << 14) Or (T(24) >> (64 - 14))
+        #Else
+            .Words(10) = RotL64(T(1), 1)
+            .Words(20) = RotL64(T(2), 62)
+            .Words(5) = RotL64(T(3), 28)
+            .Words(15) = RotL64(T(4), 27)
+            .Words(16) = RotL64(T(5), 36)
+            .Words(1) = RotL64(T(6), 44)
+            .Words(11) = RotL64(T(7), 6)
+            .Words(21) = RotL64(T(8), 55)
+            .Words(6) = RotL64(T(9), 20)
+            .Words(7) = RotL64(T(10), 3)
+            .Words(17) = RotL64(T(11), 10)
+            .Words(2) = RotL64(T(12), 43)
+            .Words(12) = RotL64(T(13), 25)
+            .Words(22) = RotL64(T(14), 39)
+            .Words(23) = RotL64(T(15), 41)
+            .Words(8) = RotL64(T(16), 45)
+            .Words(18) = RotL64(T(17), 15)
+            .Words(3) = RotL64(T(18), 21)
+            .Words(13) = RotL64(T(19), 8)
+            .Words(14) = RotL64(T(20), 18)
+            .Words(24) = RotL64(T(21), 2)
+            .Words(9) = RotL64(T(22), 61)
+            .Words(19) = RotL64(T(23), 56)
+            .Words(4) = RotL64(T(24), 14)
         #End If
         '--- Chi
         For lJdx = 0 To 24 Step 5
@@ -167,38 +190,11 @@ Private Sub Keccak(uCtx As CryptoSha3Context)
     End With
 End Sub
 
-#If HasPtrSafe Then
-    Private Function PeekByte(uCtx As CryptoSha3Context, ByVal lOffset As Long) As Long
-        #If uCtx Then '--- silence MZ-Tools
-        #End If
-        PeekByte = lOffset Mod 200
-    End Function
-#Else
-    Private Function PeekByte(uCtx As CryptoSha3Context, ByVal lOffset As Long) As Long
-        #If LargeAddressAware Then
-            uCtx.PeekArray.pvData = (VarPtr(uCtx.Words(lOffset \ 8)) Xor &H80000000) + 8 Xor &H80000000
-        #Else
-            uCtx.PeekArray.pvData = VarPtr(uCtx.Words(lOffset \ 8)) + 8
-        #End If
-        PeekByte = lOffset Mod 8
-    End Function
-    
-    Private Function CLngLng(vValue As Variant) As Variant
-        Const VT_I8 As Long = &H14
-        Call VariantChangeType(CLngLng, vValue, 0, VT_I8)
-    End Function
-#End If
-
 Public Sub CryptoSha3Init(uCtx As CryptoSha3Context, ByVal lBitSize As Long)
     Dim lIdx            As Long
     Dim vElem           As Variant
     
-    If LNG_POW2(0) = 0 Then
-        LNG_POW2(0) = CLngLng(1)
-        For lIdx = 1 To 63
-            LNG_POW2(lIdx) = CVar(LNG_POW2(lIdx - 1)) * 2
-        Next
-        lIdx = 0
+    If LNG_ROUND_C(0) = 0 Then
         For Each vElem In Split("1 8082 800000000000808A 8000000080008000 808B 80000001 8000000080008081 8000000000008009 8A 88 80008009 8000000A 8000808B 800000000000008B 8000000000008089 8000000000008003 8000000000008002 8000000000000080 800A 800000008000000A 8000000080008081 8000000000008080 80000001 8000000080008008")
             LNG_ROUND_C(lIdx) = CLngLng(CStr("&H" & vElem))
             #If HasPtrSafe Then
@@ -206,6 +202,12 @@ Public Sub CryptoSha3Init(uCtx As CryptoSha3Context, ByVal lBitSize As Long)
             #End If
             lIdx = lIdx + 1
         Next
+        #If Not HasOperators Then
+            LNG_POW2(0) = CLngLng(1)
+            For lIdx = 1 To 63
+                LNG_POW2(lIdx) = CVar(LNG_POW2(lIdx - 1)) * 2
+            Next
+        #End If
     End If
     With uCtx
         .DigestSize = (lBitSize + 7) \ 8
@@ -241,17 +243,29 @@ Public Sub CryptoSha3Update(uCtx As CryptoSha3Context, baBuffer() As Byte, Optio
         Size = UBound(baBuffer) + 1 - Pos
     End If
     With uCtx
-        lOffset = PeekByte(uCtx, .Absorbed)
+        #If HasPtrSafe Then
+            lOffset = .Absorbed Mod 200
+        #Else
+            lOffset = PeekByte(uCtx, .Absorbed)
+        #End If
         For lIdx = Pos To Size - 1
             .Bytes(lOffset) = .Bytes(lOffset) Xor baBuffer(lIdx)
             If .Absorbed = .Capacity - 1 Then
                 Keccak uCtx
                 .Absorbed = 0
-                lOffset = PeekByte(uCtx, .Absorbed)
+                #If HasPtrSafe Then
+                    lOffset = .Absorbed Mod 200
+                #Else
+                    lOffset = PeekByte(uCtx, .Absorbed)
+                #End If
             Else
                 .Absorbed = .Absorbed + 1
                 If lOffset = UBound(.Bytes) Then
-                    lOffset = PeekByte(uCtx, .Absorbed)
+                    #If HasPtrSafe Then
+                        lOffset = .Absorbed Mod 200
+                    #Else
+                        lOffset = PeekByte(uCtx, .Absorbed)
+                    #End If
                 Else
                     lOffset = lOffset + 1
                 End If
@@ -273,18 +287,34 @@ Public Sub CryptoSha3Finalize(uCtx As CryptoSha3Context, baOutput() As Byte, Opt
             LFSR = &H6
         End If
         ReDim baOutput(0 To OutSize - 1) As Byte
-        lOffset = PeekByte(uCtx, .Absorbed)
+        #If HasPtrSafe Then
+            lOffset = .Absorbed Mod 200
+        #Else
+            lOffset = PeekByte(uCtx, .Absorbed)
+        #End If
         .Bytes(lOffset) = .Bytes(lOffset) Xor LFSR
-        lOffset = PeekByte(uCtx, .Capacity - 1)
+        #If HasPtrSafe Then
+            lOffset = (.Capacity - 1) Mod 200
+        #Else
+            lOffset = PeekByte(uCtx, .Capacity - 1)
+        #End If
         .Bytes(lOffset) = .Bytes(lOffset) Xor &H80
         For lIdx = 0 To UBound(baOutput)
             If lIdx Mod .Capacity = 0 Then
                 Keccak uCtx
-                lOffset = PeekByte(uCtx, 0)
+                #If HasPtrSafe Then
+                    lOffset = 0
+                #Else
+                    lOffset = PeekByte(uCtx, 0)
+                #End If
             End If
             baOutput(lIdx) = .Bytes(lOffset)
             If lOffset = UBound(.Bytes) Then
-                lOffset = PeekByte(uCtx, lIdx + 1)
+                #If HasPtrSafe Then
+                    lOffset = (lIdx + 1) Mod 200
+                #Else
+                    lOffset = PeekByte(uCtx, lIdx + 1)
+                #End If
             Else
                 lOffset = lOffset + 1
             End If
