@@ -92,7 +92,7 @@ Public Sub CryptoSha1Update(uCtx As CryptoSha1Context, baInput() As Byte, Option
             Size = UBound(baInput) + 1 - Pos
         End If
         .NInput = .NInput + Size
-        If .NPartial > 0 Then
+        If .NPartial > 0 And Size > 0 Then
             lIdx = LNG_BLOCKSZ - .NPartial
             If lIdx > Size Then
                 lIdx = Size

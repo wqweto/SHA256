@@ -269,7 +269,7 @@ Public Sub CryptoPoly1305Update(uCtx As CryptoPoly1305Context, baInput() As Byte
         If Size < 0 Then
             Size = UBound(baInput) + 1 - Pos
         End If
-        If .NPartial > 0 Then
+        If .NPartial > 0 And Size > 0 Then
             lTaken = BLOCKSZ - .NPartial
             If lTaken > Size Then
                 lTaken = Size
