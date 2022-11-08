@@ -1,4 +1,4 @@
-Attribute VB_Name = "mdRipeMD160"
+Attribute VB_Name = "mdRipeMd160"
 '--- mdRipeMd160.bas
 Option Explicit
 DefObj A-Z
