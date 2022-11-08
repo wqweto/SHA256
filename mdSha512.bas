@@ -101,7 +101,6 @@ Private Function UAdd64(lX As Variant, lY As Variant) As Variant
         UAdd64 = lX + lY
     End If
 End Function
-#End If
 
 #If HasPtrSafe Then
 Private Function Ch(ByVal lX As LongLong, ByVal lY As LongLong, ByVal lZ As LongLong) As LongLong
@@ -124,11 +123,7 @@ Private Function BigSigma0(ByVal lX As LongLong) As LongLong
 #Else
 Private Function BigSigma0(lX As Variant) As Variant
 #End If
-    #If HasOperators Then
-        BigSigma0 = (lX >> 28 Or lX << 36) Xor (lX >> 34 Or lX << 30) Xor (lX >> 39 Or lX << 25)
-    #Else
-        BigSigma0 = RotR64(lX, 28) Xor RotR64(lX, 34) Xor RotR64(lX, 39)
-    #End If
+    BigSigma0 = RotR64(lX, 28) Xor RotR64(lX, 34) Xor RotR64(lX, 39)
 End Function
 
 #If HasPtrSafe Then
@@ -136,11 +131,7 @@ Private Function BigSigma1(ByVal lX As LongLong) As LongLong
 #Else
 Private Function BigSigma1(lX As Variant) As Variant
 #End If
-    #If HasOperators Then
-        BigSigma1 = (lX >> 14 Or lX << 50) Xor (lX >> 18 Or lX << 46) Xor (lX >> 41 Or lX << 23)
-    #Else
-        BigSigma1 = RotR64(lX, 14) Xor RotR64(lX, 18) Xor RotR64(lX, 41)
-    #End If
+    BigSigma1 = RotR64(lX, 14) Xor RotR64(lX, 18) Xor RotR64(lX, 41)
 End Function
 
 #If HasPtrSafe Then
@@ -148,11 +139,7 @@ Private Function SmallSigma0(ByVal lX As LongLong) As LongLong
 #Else
 Private Function SmallSigma0(lX As Variant) As Variant
 #End If
-    #If HasOperators Then
-        SmallSigma0 = (lX >> 1 Or lX << 63) Xor (lX >> 8 Or lX << 56) Xor (lX >> 7)
-    #Else
-        SmallSigma0 = RotR64(lX, 1) Xor RotR64(lX, 8) Xor RShift64(lX, 7)
-    #End If
+    SmallSigma0 = RotR64(lX, 1) Xor RotR64(lX, 8) Xor RShift64(lX, 7)
 End Function
 
 #If HasPtrSafe Then
@@ -160,12 +147,9 @@ Private Function SmallSigma1(ByVal lX As LongLong) As LongLong
 #Else
 Private Function SmallSigma1(lX As Variant) As Variant
 #End If
-    #If HasOperators Then
-        SmallSigma1 = (lX >> 19 Or lX << 45) Xor (lX >> 61 Or lX << 3) Xor (lX >> 6)
-    #Else
-        SmallSigma1 = RotR64(lX, 19) Xor RotR64(lX, 61) Xor RShift64(lX, 6)
-    #End If
+    SmallSigma1 = RotR64(lX, 19) Xor RotR64(lX, 61) Xor RShift64(lX, 6)
 End Function
+#End If
 
 Private Function BSwap32(ByVal lX As Long) As Long
     BSwap32 = (lX And &H7F) * &H1000000 Or (lX And &HFF00&) * &H100 Or (lX And &HFF0000) \ &H100 Or _
@@ -251,6 +235,11 @@ Public Sub CryptoSha512Update(uCtx As CryptoSha512Context, baInput() As Byte, Op
     Dim lH              As LongLong
     Dim lT1             As LongLong
     Dim lT2             As LongLong
+    Dim lX              As LongLong
+    Dim lSigma1         As LongLong
+    Dim lSigma0         As LongLong
+    Dim lCh             As LongLong
+    Dim lMaj            As LongLong
 #Else
     Static W(0 To LNG_ROUNDS - 1) As Variant
     Dim lA              As Variant
@@ -306,14 +295,22 @@ Public Sub CryptoSha512Update(uCtx As CryptoSha512Context, baInput() As Byte, Op
                     #End If
                 Else
                     #If HasOperators Then
-                        W(lIdx) = SmallSigma1(W(lIdx - 2)) + W(lIdx - 7) + SmallSigma0(W(lIdx - 15)) + W(lIdx - 16)
+                        lX = W(lIdx - 2)
+                        lSigma1 = (lX >> 19 Or lX << 45) Xor (lX >> 61 Or lX << 3) Xor (lX >> 6)
+                        lX = W(lIdx - 15)
+                        lSigma0 = (lX >> 1 Or lX << 63) Xor (lX >> 8 Or lX << 56) Xor (lX >> 7)
+                        W(lIdx) = lSigma1 + W(lIdx - 7) + lSigma0 + W(lIdx - 16)
                     #Else
                         W(lIdx) = UAdd64(UAdd64(UAdd64(SmallSigma1(W(lIdx - 2)), W(lIdx - 7)), SmallSigma0(W(lIdx - 15))), W(lIdx - 16))
                     #End If
                 End If
                 #If HasOperators Then
-                    lT1 = lH + BigSigma1(lE) + Ch(lE, lF, lG) + LNG_K(lIdx) + W(lIdx)
-                    lT2 = BigSigma0(lA) + Maj(lA, lB, lC)
+                    lSigma1 = (lE >> 14 Or lE << 50) Xor (lE >> 18 Or lE << 46) Xor (lE >> 41 Or lE << 23)
+                    lSigma0 = (lA >> 28 Or lA << 36) Xor (lA >> 34 Or lA << 30) Xor (lA >> 39 Or lA << 25)
+                    lCh = (lE And lF) Xor ((Not lE) And lG)
+                    lMaj = (lA And lB) Xor (lA And lC) Xor (lB And lC)
+                    lT1 = lH + lSigma1 + lCh + LNG_K(lIdx) + W(lIdx)
+                    lT2 = lSigma0 + lMaj
                 #Else
                     lT1 = UAdd64(UAdd64(UAdd64(UAdd64(lH, BigSigma1(lE)), Ch(lE, lF, lG)), LNG_K(lIdx)), W(lIdx))
                     lT2 = UAdd64(BigSigma0(lA), Maj(lA, lB, lC))
