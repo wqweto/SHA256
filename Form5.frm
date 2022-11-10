@@ -1,14 +1,22 @@
 VERSION 5.00
 Begin VB.Form Form5 
    Caption         =   "Form5"
-   ClientHeight    =   4020
+   ClientHeight    =   4332
    ClientLeft      =   108
    ClientTop       =   456
    ClientWidth     =   6012
    LinkTopic       =   "Form5"
-   ScaleHeight     =   4020
+   ScaleHeight     =   4332
    ScaleWidth      =   6012
    StartUpPosition =   3  'Windows Default
+   Begin VB.CommandButton Command5 
+      Caption         =   "Blake2s"
+      Height          =   600
+      Left            =   588
+      TabIndex        =   5
+      Top             =   3444
+      Width           =   2028
+   End
    Begin VB.CommandButton Command3b 
       Caption         =   "SHA-512"
       Height          =   600
@@ -22,7 +30,7 @@ Begin VB.Form Form5
       Height          =   600
       Left            =   588
       TabIndex        =   3
-      Top             =   2772
+      Top             =   2688
       Width           =   2028
    End
    Begin VB.CommandButton Command3 
@@ -155,3 +163,20 @@ Private Sub Command4_Click()
     Caption = Format$(Timer - dblTimer, "0.000") & " sec"
     Command4.Caption = Format$((UBound(m_baContents) + 1) * ITER / 1024# / 1024# / (Timer - dblTimer), "0.000") & " MB/s"
 End Sub
+
+Private Sub Command5_Click()
+    Const ITER As Long = 1
+    Dim lIdx As Long
+    Dim baOutput()  As Byte
+    Dim dblTimer As Double
+    
+    Command5.Caption = "Processing"
+    dblTimer = Timer
+    For lIdx = 1 To ITER
+        baOutput = CryptoBlake2sByteArray(256, m_baContents)
+    Next
+    Caption = Format$(Timer - dblTimer, "0.000") & " sec"
+    Command5.Caption = Format$((UBound(m_baContents) + 1) * ITER / 1024# / 1024# / (Timer - dblTimer), "0.000") & " MB/s"
+End Sub
+
+

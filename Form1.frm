@@ -353,7 +353,22 @@ Private Sub pvTestRipeMd160()
     '-> 1cda558e41e47c3090aafd73ca5651d176f95ca9
 End Sub
 
+Private Sub pvTestBlake2s()
+    Debug.Print CryptoBlake2sText(256, "")
+    '-> 69217a3079908094e11121d042354a7c1f55b6482ca1a51e1b250dfd1ed0eef9
+    
+    Debug.Print CryptoBlake2sText(256, "abc")
+    '-> 508c5e8c327c14e2e1a72ba34eeb452f37458b209ed63a294d999b4c86675982
+    
+    Debug.Print CryptoBlake2sText(256, "", Key:=FromHex("000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"))
+    '-> 48a8997da407876b3d79c0d92325ad3b89cbb754d86ab71aee047ad345fd2c49
+    
+    Debug.Print CryptoBlake2sText(256, Chr$(0), Key:=FromHex("000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"))
+    '-> 40d15fee7c328830166ac3f918650f807e7e01e177258cdc0a39b11f598066f1
+End Sub
+
 Private Sub Form_Load()
+    pvTestBlake2s
 '    pvTestPbkdf2HmacSha1
 '    pvTestPbkdf2HmacSha2
 '    pvTestScryptKdf
