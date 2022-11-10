@@ -22,6 +22,7 @@ Module=mdSha512Old; mdSha512Old.bas
 Module=mdScryptKdf; mdScryptKdf.bas
 Module=mdRipeMd160; mdRipeMd160.bas
 Module=mdBlake2s; mdBlake2s.bas
+Module=mdBlake2b; mdBlake2b.bas
 IconForm="Form1"
 Startup="Form1"
 HelpFile=""
