@@ -271,7 +271,6 @@ Private Sub pvTestCryptoEd25519()
     Dim baMsg()         As Byte
     Dim baSig()         As Byte
     
-    Debug.Assert CryptoSha2Text(256, "Rosetta code") = "764faf5c61ac315f1497f9dfa542713965b785e5cc2f707d6468d7d1124cdfcf"
     baPriv = FromHex("0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20")
     CryptoEd25519PublicKey baPub, baPriv
     Debug.Print ToHex(baPub) ' 79b5562e8fe654f94078b112e8a98ba7901f853ae695bed7e0e3910bad049664
@@ -381,8 +380,21 @@ Private Sub pvTestBlake2b()
     '-> 961f6dd1e4dd30f63901690c512e78e4b45e4742ed197c3c5e45c549fd25f2e4187b0bc9fe30492b16b0d0bc4ef9b0f34c7003fac09a5ef1532e69430234cebd
 End Sub
 
+Private Sub pvTestSha1()
+    Debug.Print ToHex(CryptoSha1ByteArray(StrConv("abc", vbFromUnicode)))
+    '-> a9993e364706816aba3e25717850c26c9cd0d89d
+    Debug.Assert CryptoSha1Text("abc") = "a9993e364706816aba3e25717850c26c9cd0d89d"
+    Debug.Print ToHex(CryptoSha1ByteArray(StrConv(vbNullString, vbFromUnicode)))
+    '-> da39a3ee5e6b4b0d3255bfef95601890afd80709
+End Sub
+
+Private Sub pvTestSha2()
+    Debug.Assert CryptoSha2Text(256, "Rosetta code") = "764faf5c61ac315f1497f9dfa542713965b785e5cc2f707d6468d7d1124cdfcf"
+End Sub
 
 Private Sub Form_Load()
+'    pvTestSha1
+    pvTestSha2
     pvTestBlake2s
     pvTestBlake2b
 '    pvTestPbkdf2HmacSha1

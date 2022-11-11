@@ -130,13 +130,13 @@ Public Sub CryptoSha1Update(uCtx As CryptoSha1Context, baInput() As Byte, Option
                 End If
                 Select Case lIdx \ 20
                 Case 0
-                    lTemp = (lB And lC) Or ((Not lB) And lD)
+                    lTemp = (lB And (lC Xor lD)) Xor lD
                     lK = &H5A827999
                 Case 1
                     lTemp = lB Xor lC Xor lD
                     lK = &H6ED9EBA1
                 Case 2
-                    lTemp = (lB And lC) Or (lB And lD) Or (lC And lD)
+                    lTemp = (lB And (lC Or lD)) Or (lC And lD)
                     lK = &H8F1BBCDC
                 Case 3
                     lTemp = lB Xor lC Xor lD

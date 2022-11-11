@@ -126,10 +126,10 @@ Public Sub CryptoMd5Update(uCtx As CryptoMd5Context, baInput() As Byte, Optional
                 lR = lIdx \ 16
                 Select Case lR
                 Case 0
-                    lE = (lB And lC) Or (Not lB And lD)
+                    lE = (lB And (lC Xor lD)) Xor lD
                     lBufIdx = lIdx
                 Case 1
-                    lE = (lB And lD) Or (lC And Not lD)
+                    lE = ((lB Xor lC) And lD) Xor lC
                     lBufIdx = (lIdx * 5 + 1) And 15
                 Case 2
                     lE = lB Xor lC Xor lD

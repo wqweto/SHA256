@@ -107,7 +107,7 @@ Private Function Ch(ByVal lX As LongLong, ByVal lY As LongLong, ByVal lZ As Long
 #Else
 Private Function Ch(lX As Variant, lY As Variant, ByVal lZ As Variant) As Variant
 #End If
-    Ch = (lX And lY) Xor ((Not lX) And lZ)
+    Ch = (lX And (lY Xor lZ)) Xor lZ
 End Function
 
 #If HasPtrSafe Then
@@ -115,7 +115,7 @@ Private Function Maj(ByVal lX As LongLong, ByVal lY As LongLong, ByVal lZ As Lon
 #Else
 Private Function Maj(lX As Variant, lY As Variant, lZ As Variant) As Variant
 #End If
-    Maj = (lX And lY) Xor (lX And lZ) Xor (lY And lZ)
+    Maj = (lX And (lY Or lZ)) Or (lY And lZ)
 End Function
 
 #If HasPtrSafe Then
@@ -295,10 +295,8 @@ Public Sub CryptoSha512Update(uCtx As CryptoSha512Context, baInput() As Byte, Op
                     #End If
                 Else
                     #If HasOperators Then
-                        lX = W(lIdx - 2)
-                        lSigma1 = (lX >> 19 Or lX << 45) Xor (lX >> 61 Or lX << 3) Xor (lX >> 6)
-                        lX = W(lIdx - 15)
-                        lSigma0 = (lX >> 1 Or lX << 63) Xor (lX >> 8 Or lX << 56) Xor (lX >> 7)
+                        lX = W(lIdx - 2): lSigma1 = (lX >> 19 Or lX << 45) Xor (lX >> 61 Or lX << 3) Xor (lX >> 6)
+                        lX = W(lIdx - 15): lSigma0 = (lX >> 1 Or lX << 63) Xor (lX >> 8 Or lX << 56) Xor (lX >> 7)
                         W(lIdx) = lSigma1 + W(lIdx - 7) + lSigma0 + W(lIdx - 16)
                     #Else
                         W(lIdx) = UAdd64(UAdd64(UAdd64(SmallSigma1(W(lIdx - 2)), W(lIdx - 7)), SmallSigma0(W(lIdx - 15))), W(lIdx - 16))
@@ -307,8 +305,8 @@ Public Sub CryptoSha512Update(uCtx As CryptoSha512Context, baInput() As Byte, Op
                 #If HasOperators Then
                     lSigma1 = (lE >> 14 Or lE << 50) Xor (lE >> 18 Or lE << 46) Xor (lE >> 41 Or lE << 23)
                     lSigma0 = (lA >> 28 Or lA << 36) Xor (lA >> 34 Or lA << 30) Xor (lA >> 39 Or lA << 25)
-                    lCh = (lE And lF) Xor ((Not lE) And lG)
-                    lMaj = (lA And lB) Xor (lA And lC) Xor (lB And lC)
+                    lCh = (lE And (lF Xor lG)) Xor lG
+                    lMaj = (lA And (lB Or lC)) Or (lB And lC)
                     lT1 = lH + lSigma1 + lCh + LNG_K(lIdx) + W(lIdx)
                     lT2 = lSigma0 + lMaj
                 #Else
