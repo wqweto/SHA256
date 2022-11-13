@@ -19,7 +19,6 @@ Private Declare Sub FillMemory Lib "kernel32" Alias "RtlFillMemory" (Destination
 Private Declare Function WideCharToMultiByte Lib "kernel32" (ByVal CodePage As Long, ByVal dwFlags As Long, ByVal lpWideCharStr As Long, ByVal cchWideChar As Long, lpMultiByteStr As Any, ByVal cchMultiByte As Long, ByVal lpDefaultChar As Long, ByVal lpUsedDefaultChar As Long) As Long
 #End If
 
-Private Const LNG_ROUNDS                As Long = 7
 Private Const LNG_OUT_LEN               As Long = 32
 Private Const LNG_KEY_LEN               As Long = 32
 Private Const LNG_BLOCK_LEN             As Long = 64
@@ -112,10 +111,8 @@ Private Sub pvQuarter32(lA As Long, lB As Long, lC As Long, lD As Long, ByVal lX
 End Sub
 #End If
 
-Private Sub pvCompress(uInput As ArrayLong8, ByVal lBlockPtr As LongPtr, ByVal cCounter As Currency, ByVal lBlockLen As Long, ByVal eFlags As Blake3Flags, uRetVal As ArrayLong16)
+Private Sub pvCompress(uState As ArrayLong8, uBlock As ArrayLong16, ByVal cCounter As Currency, ByVal lBlockLen As Long, ByVal eFlags As Blake3Flags, uRetVal As ArrayLong16)
     Static S(0 To 1)    As Long
-    Static B            As ArrayLong16
-    Static B2           As ArrayLong16
     Dim V0              As Long
     Dim V1              As Long
     Dim V2              As Long
@@ -132,9 +129,8 @@ Private Sub pvCompress(uInput As ArrayLong8, ByVal lBlockPtr As LongPtr, ByVal c
     Dim V13             As Long
     Dim V14             As Long
     Dim V15             As Long
-    Dim lIdx            As Long
     
-    With uInput
+    With uState
         V0 = .Item(0):  V1 = .Item(1)
         V2 = .Item(2):  V3 = .Item(3)
         V4 = .Item(4):  V5 = .Item(5)
@@ -146,56 +142,88 @@ Private Sub pvCompress(uInput As ArrayLong8, ByVal lBlockPtr As LongPtr, ByVal c
     End With
     cCounter = cCounter / 10000@
     Call CopyMemory(S(0), cCounter, 8)
-    V12 = S(0):         V13 = S(1)
-    V14 = lBlockLen:    V15 = eFlags
-    Call CopyMemory(B, ByVal lBlockPtr, 64)
-    With B
-        For lIdx = 0 To LNG_ROUNDS - 1
-            pvQuarter32 V0, V4, V8, V12, .Item(0), .Item(1)
-            pvQuarter32 V1, V5, V9, V13, .Item(2), .Item(3)
-            pvQuarter32 V2, V6, V10, V14, .Item(4), .Item(5)
-            pvQuarter32 V3, V7, V11, V15, .Item(6), .Item(7)
-            pvQuarter32 V0, V5, V10, V15, .Item(8), .Item(9)
-            pvQuarter32 V1, V6, V11, V12, .Item(10), .Item(11)
-            pvQuarter32 V2, V7, V8, V13, .Item(12), .Item(13)
-            pvQuarter32 V3, V4, V9, V14, .Item(14), .Item(15)
-            '--- permute
-            B2 = B
-            .Item(0) = B2.Item(2)
-            .Item(1) = B2.Item(6)
-            .Item(2) = B2.Item(3)
-            .Item(3) = B2.Item(10)
-            .Item(4) = B2.Item(7)
-            .Item(5) = B2.Item(0)
-            .Item(6) = B2.Item(4)
-            .Item(7) = B2.Item(13)
-            .Item(8) = B2.Item(1)
-            .Item(9) = B2.Item(11)
-            .Item(10) = B2.Item(12)
-            .Item(11) = B2.Item(5)
-            .Item(12) = B2.Item(9)
-            .Item(13) = B2.Item(14)
-            .Item(14) = B2.Item(15)
-            .Item(15) = B2.Item(8)
-        Next
+    V12 = S(0)
+    V13 = S(1)
+    V14 = lBlockLen
+    V15 = eFlags
+    With uBlock
+        '--- Round 1
+        pvQuarter32 V0, V4, V8, V12, .Item(0), .Item(1)
+        pvQuarter32 V1, V5, V9, V13, .Item(2), .Item(3)
+        pvQuarter32 V2, V6, V10, V14, .Item(4), .Item(5)
+        pvQuarter32 V3, V7, V11, V15, .Item(6), .Item(7)
+        pvQuarter32 V0, V5, V10, V15, .Item(8), .Item(9)
+        pvQuarter32 V1, V6, V11, V12, .Item(10), .Item(11)
+        pvQuarter32 V2, V7, V8, V13, .Item(12), .Item(13)
+        pvQuarter32 V3, V4, V9, V14, .Item(14), .Item(15)
+        '--- Round 2
+        pvQuarter32 V0, V4, V8, V12, .Item(2), .Item(6)
+        pvQuarter32 V1, V5, V9, V13, .Item(3), .Item(10)
+        pvQuarter32 V2, V6, V10, V14, .Item(7), .Item(0)
+        pvQuarter32 V3, V7, V11, V15, .Item(4), .Item(13)
+        pvQuarter32 V0, V5, V10, V15, .Item(1), .Item(11)
+        pvQuarter32 V1, V6, V11, V12, .Item(12), .Item(5)
+        pvQuarter32 V2, V7, V8, V13, .Item(9), .Item(14)
+        pvQuarter32 V3, V4, V9, V14, .Item(15), .Item(8)
+        '--- Round 3
+        pvQuarter32 V0, V4, V8, V12, .Item(3), .Item(4)
+        pvQuarter32 V1, V5, V9, V13, .Item(10), .Item(12)
+        pvQuarter32 V2, V6, V10, V14, .Item(13), .Item(2)
+        pvQuarter32 V3, V7, V11, V15, .Item(7), .Item(14)
+        pvQuarter32 V0, V5, V10, V15, .Item(6), .Item(5)
+        pvQuarter32 V1, V6, V11, V12, .Item(9), .Item(0)
+        pvQuarter32 V2, V7, V8, V13, .Item(11), .Item(15)
+        pvQuarter32 V3, V4, V9, V14, .Item(8), .Item(1)
+        '--- Round 4
+        pvQuarter32 V0, V4, V8, V12, .Item(10), .Item(7)
+        pvQuarter32 V1, V5, V9, V13, .Item(12), .Item(9)
+        pvQuarter32 V2, V6, V10, V14, .Item(14), .Item(3)
+        pvQuarter32 V3, V7, V11, V15, .Item(13), .Item(15)
+        pvQuarter32 V0, V5, V10, V15, .Item(4), .Item(0)
+        pvQuarter32 V1, V6, V11, V12, .Item(11), .Item(2)
+        pvQuarter32 V2, V7, V8, V13, .Item(5), .Item(8)
+        pvQuarter32 V3, V4, V9, V14, .Item(1), .Item(6)
+        '--- Round 5
+        pvQuarter32 V0, V4, V8, V12, .Item(12), .Item(13)
+        pvQuarter32 V1, V5, V9, V13, .Item(9), .Item(11)
+        pvQuarter32 V2, V6, V10, V14, .Item(15), .Item(10)
+        pvQuarter32 V3, V7, V11, V15, .Item(14), .Item(8)
+        pvQuarter32 V0, V5, V10, V15, .Item(7), .Item(2)
+        pvQuarter32 V1, V6, V11, V12, .Item(5), .Item(3)
+        pvQuarter32 V2, V7, V8, V13, .Item(0), .Item(1)
+        pvQuarter32 V3, V4, V9, V14, .Item(6), .Item(4)
+        '--- Round 6
+        pvQuarter32 V0, V4, V8, V12, .Item(9), .Item(14)
+        pvQuarter32 V1, V5, V9, V13, .Item(11), .Item(5)
+        pvQuarter32 V2, V6, V10, V14, .Item(8), .Item(12)
+        pvQuarter32 V3, V7, V11, V15, .Item(15), .Item(1)
+        pvQuarter32 V0, V5, V10, V15, .Item(13), .Item(3)
+        pvQuarter32 V1, V6, V11, V12, .Item(0), .Item(10)
+        pvQuarter32 V2, V7, V8, V13, .Item(2), .Item(6)
+        pvQuarter32 V3, V4, V9, V14, .Item(4), .Item(7)
+        '--- Round 7
+        pvQuarter32 V0, V4, V8, V12, .Item(11), .Item(15)
+        pvQuarter32 V1, V5, V9, V13, .Item(5), .Item(0)
+        pvQuarter32 V2, V6, V10, V14, .Item(1), .Item(9)
+        pvQuarter32 V3, V7, V11, V15, .Item(8), .Item(6)
+        pvQuarter32 V0, V5, V10, V15, .Item(14), .Item(10)
+        pvQuarter32 V1, V6, V11, V12, .Item(2), .Item(12)
+        pvQuarter32 V2, V7, V8, V13, .Item(3), .Item(4)
+        pvQuarter32 V3, V4, V9, V14, .Item(7), .Item(13)
     End With
     With uRetVal
-        .Item(0) = V0 Xor V8
-        .Item(1) = V1 Xor V9
-        .Item(2) = V2 Xor V10
-        .Item(3) = V3 Xor V11
-        .Item(4) = V4 Xor V12
-        .Item(5) = V5 Xor V13
-        .Item(6) = V6 Xor V14
-        .Item(7) = V7 Xor V15
-        .Item(8) = V8 Xor uInput.Item(0)
-        .Item(9) = V9 Xor uInput.Item(1)
-        .Item(10) = V10 Xor uInput.Item(2)
-        .Item(11) = V11 Xor uInput.Item(3)
-        .Item(12) = V12 Xor uInput.Item(4)
-        .Item(13) = V13 Xor uInput.Item(5)
-        .Item(14) = V14 Xor uInput.Item(6)
-        .Item(15) = V15 Xor uInput.Item(7)
+        .Item(0) = V0 Xor V8: .Item(1) = V1 Xor V9
+        .Item(2) = V2 Xor V10: .Item(3) = V3 Xor V11
+        .Item(4) = V4 Xor V12: .Item(5) = V5 Xor V13
+        .Item(6) = V6 Xor V14: .Item(7) = V7 Xor V15
+        .Item(8) = V8 Xor uState.Item(0)
+        .Item(9) = V9 Xor uState.Item(1)
+        .Item(10) = V10 Xor uState.Item(2)
+        .Item(11) = V11 Xor uState.Item(3)
+        .Item(12) = V12 Xor uState.Item(4)
+        .Item(13) = V13 Xor uState.Item(5)
+        .Item(14) = V14 Xor uState.Item(6)
+        .Item(15) = V15 Xor uState.Item(7)
     End With
 End Sub
 
@@ -208,7 +236,8 @@ Private Sub pvUpdateChunk(uChunk As Blake3ChunkState, baInput() As Byte, ByVal l
         Do While lSize > 0
             If .BlockLen = LNG_BLOCK_LEN Then
                 eStartFlag = -(.BlocksCompressed = 0) * LNG_CHUNK_START
-                pvCompress .ChainingValue, VarPtr(.Block(0)), .ChunkCounter, .BlockLen, .Flags Or eStartFlag, uTemp
+                Call CopyMemory(uTemp, .Block(0), 64)
+                pvCompress .ChainingValue, uTemp, .ChunkCounter, .BlockLen, .Flags Or eStartFlag, uTemp
                 Call CopyMemory(.ChainingValue, uTemp, LNG_BLOCK_LEN \ 2)
                 .BlocksCompressed = .BlocksCompressed + 1
                 .BlockLen = 0
@@ -261,7 +290,7 @@ Private Sub pvGetChainingValue(uOutput As Blake3Output, uRetVal As ArrayLong8)
     Static uTemp        As ArrayLong16
     
     With uOutput
-        pvCompress .InputChainingValue, VarPtr(.BlockWords), .Counter, .BlockLen, .Flags, uTemp
+        pvCompress .InputChainingValue, .BlockWords, .Counter, .BlockLen, .Flags, uTemp
     End With
     Call CopyMemory(uRetVal, uTemp, LNG_BLOCK_LEN \ 2)
 End Sub
@@ -275,7 +304,7 @@ Private Sub pvGetRootBytes(uOutput As Blake3Output, baOutput() As Byte, ByVal lO
     With uOutput
         ReDim baOutput(0 To lOutSize - 1) As Byte
         Do While lPos < lOutSize
-            pvCompress .InputChainingValue, VarPtr(.BlockWords), cCounter, .BlockLen, .Flags Or LNG_ROOT, uTemp
+            pvCompress .InputChainingValue, .BlockWords, cCounter, .BlockLen, .Flags Or LNG_ROOT, uTemp
             lRemaining = lOutSize - lPos
             If lRemaining > LNG_BLOCK_LEN Then
                 lRemaining = LNG_BLOCK_LEN
