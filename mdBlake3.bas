@@ -111,7 +111,7 @@ Private Sub pvQuarter32(lA As Long, lB As Long, lC As Long, lD As Long, ByVal lX
 End Sub
 #End If
 
-Private Sub pvCompress(uState As ArrayLong8, uBlock As ArrayLong16, ByVal cCounter As Currency, ByVal lBlockLen As Long, ByVal eFlags As Blake3Flags, uRetVal As ArrayLong16)
+Private Sub pvCompress(uState As ArrayLong8, uBlock As ArrayLong16, ByVal cCounter As Currency, ByVal lBlockLen As Long, ByVal eFlags As Blake3Flags, uRetVal As ArrayLong16, Optional ByVal HalfOnly As Boolean)
     Static S(0 To 1)    As Long
     Dim V0              As Long
     Dim V1              As Long
@@ -216,19 +216,20 @@ Private Sub pvCompress(uState As ArrayLong8, uBlock As ArrayLong16, ByVal cCount
         .Item(2) = V2 Xor V10: .Item(3) = V3 Xor V11
         .Item(4) = V4 Xor V12: .Item(5) = V5 Xor V13
         .Item(6) = V6 Xor V14: .Item(7) = V7 Xor V15
-        .Item(8) = V8 Xor uState.Item(0)
-        .Item(9) = V9 Xor uState.Item(1)
-        .Item(10) = V10 Xor uState.Item(2)
-        .Item(11) = V11 Xor uState.Item(3)
-        .Item(12) = V12 Xor uState.Item(4)
-        .Item(13) = V13 Xor uState.Item(5)
-        .Item(14) = V14 Xor uState.Item(6)
-        .Item(15) = V15 Xor uState.Item(7)
+        If Not HalfOnly Then
+            .Item(8) = V8 Xor uState.Item(0)
+            .Item(9) = V9 Xor uState.Item(1)
+            .Item(10) = V10 Xor uState.Item(2)
+            .Item(11) = V11 Xor uState.Item(3)
+            .Item(12) = V12 Xor uState.Item(4)
+            .Item(13) = V13 Xor uState.Item(5)
+            .Item(14) = V14 Xor uState.Item(6)
+            .Item(15) = V15 Xor uState.Item(7)
+        End If
     End With
 End Sub
 
 Private Sub pvUpdateChunk(uChunk As Blake3ChunkState, baInput() As Byte, ByVal lPos As Long, ByVal lSize As Long)
-    Static uTemp        As ArrayLong16
     Dim eStartFlag      As Blake3Flags
     Dim lRemaining      As Long
     
@@ -236,9 +237,14 @@ Private Sub pvUpdateChunk(uChunk As Blake3ChunkState, baInput() As Byte, ByVal l
         Do While lSize > 0
             If .BlockLen = LNG_BLOCK_LEN Then
                 eStartFlag = -(.BlocksCompressed = 0) * LNG_CHUNK_START
-                Call CopyMemory(uTemp, .Block(0), 64)
-                pvCompress .ChainingValue, uTemp, .ChunkCounter, .BlockLen, .Flags Or eStartFlag, uTemp
-                Call CopyMemory(.ChainingValue, uTemp, LNG_BLOCK_LEN \ 2)
+                #If HasOperators Then
+                    pvCompress .ChainingValue, VarPtr(.Block(0)), .ChunkCounter, .BlockLen, .Flags Or eStartFlag, VarPtr(.ChainingValue), HalfOnly:=True
+                #Else
+                    Static uTemp As ArrayLong16
+                    Call CopyMemory(uTemp, .Block(0), LNG_BLOCK_LEN)
+                    pvCompress .ChainingValue, uTemp, .ChunkCounter, .BlockLen, .Flags Or eStartFlag, uTemp
+                    Call CopyMemory(.ChainingValue, uTemp, LNG_BLOCK_LEN \ 2)
+                #End If
                 .BlocksCompressed = .BlocksCompressed + 1
                 .BlockLen = 0
             End If
@@ -287,12 +293,15 @@ Private Sub pvMakeParentOutput(uLeft As ArrayLong8, uRight As ArrayLong8, uKeyWo
 End Sub
 
 Private Sub pvGetChainingValue(uOutput As Blake3Output, uRetVal As ArrayLong8)
-    Static uTemp        As ArrayLong16
-    
     With uOutput
-        pvCompress .InputChainingValue, .BlockWords, .Counter, .BlockLen, .Flags, uTemp
+        #If HasOperators Then
+            pvCompress .InputChainingValue, .BlockWords, .Counter, .BlockLen, .Flags, VarPtr(uRetVal), HalfOnly:=True
+        #Else
+            Static uTemp As ArrayLong16
+            pvCompress .InputChainingValue, .BlockWords, .Counter, .BlockLen, .Flags, uTemp
+            Call CopyMemory(uRetVal, uTemp, LNG_BLOCK_LEN \ 2)
+        #End If
     End With
-    Call CopyMemory(uRetVal, uTemp, LNG_BLOCK_LEN \ 2)
 End Sub
 
 Private Sub pvGetRootBytes(uOutput As Blake3Output, baOutput() As Byte, ByVal lOutSize As Long)
