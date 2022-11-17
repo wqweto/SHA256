@@ -59,8 +59,10 @@ Private LNG_SIGMA(0 To 15, 0 To LNG_ROUNDS - 1)  As Long
 #If Not HasOperators Then
 #If HasPtrSafe Then
 Private LNG_POW2(0 To 63)           As LongLong
+Private LNG_SIGN_BIT                As LongLong ' 2 ^ 63
 #Else
 Private LNG_POW2(0 To 63)           As Variant
+Private LNG_SIGN_BIT                As Variant
 #End If
 
 #If HasPtrSafe Then
@@ -70,8 +72,8 @@ Private Function RotR64(lX As Variant, ByVal lN As Long) As Variant
 #End If
     '--- RotR64 = RShift64(X, n) Or LShift64(X, 64 - n)
     Debug.Assert lN <> 0
-    RotR64 = ((lX And (-1 Xor LNG_POW2(63))) \ LNG_POW2(lN) Or -(lX < 0) * LNG_POW2(63 - lN)) Or _
-        ((lX And (LNG_POW2(lN - 1) - 1)) * LNG_POW2(64 - lN) Or -((lX And LNG_POW2(lN - 1)) <> 0) * LNG_POW2(63))
+    RotR64 = ((lX And (-1 Xor LNG_SIGN_BIT)) \ LNG_POW2(lN) Or -(lX < 0) * LNG_POW2(63 - lN)) Or _
+        ((lX And (LNG_POW2(lN - 1) - 1)) * LNG_POW2(64 - lN) Or -((lX And LNG_POW2(lN - 1)) <> 0) * LNG_SIGN_BIT)
 End Function
 
 #If HasPtrSafe Then
@@ -80,7 +82,7 @@ Private Function UAdd64(ByVal lX As LongLong, ByVal lY As LongLong) As LongLong
 Private Function UAdd64(lX As Variant, lY As Variant) As Variant
 #End If
     If (lX Xor lY) >= 0 Then
-        UAdd64 = ((lX Xor LNG_POW2(63)) + lY) Xor LNG_POW2(63)
+        UAdd64 = ((lX Xor LNG_SIGN_BIT) + lY) Xor LNG_SIGN_BIT
     Else
         UAdd64 = lX + lY
     End If
@@ -251,6 +253,7 @@ Public Sub CryptoBlake2bInit(uCtx As CryptoBlake2bContext, ByVal lBitSize As Lon
             For lIdx = 1 To 63
                 LNG_POW2(lIdx) = CVar(LNG_POW2(lIdx - 1)) * 2
             Next
+            LNG_SIGN_BIT = LNG_POW2(63)
         #End If
     End If
     If lBitSize <= 0 Or lBitSize > 512 Or (lBitSize And 7) <> 0 Then
@@ -292,7 +295,7 @@ Public Sub CryptoBlake2bUpdate(uCtx As CryptoBlake2bContext, baInput() As Byte, 
         If Size < 0 Then
             Size = UBound(baInput) + 1 - Pos
         End If
-        If .NPartial > 0 And .NPartial < LNG_BLOCKSZ Then
+        If .NPartial > 0 And .NPartial < LNG_BLOCKSZ And Size > 0 Then
             lIdx = LNG_BLOCKSZ - .NPartial
             If lIdx > Size Then
                 lIdx = Size

@@ -212,7 +212,7 @@ Public Sub CryptoBlake2sUpdate(uCtx As CryptoBlake2sContext, baInput() As Byte, 
         If Size < 0 Then
             Size = UBound(baInput) + 1 - Pos
         End If
-        If .NPartial > 0 And .NPartial < LNG_BLOCKSZ Then
+        If .NPartial > 0 And .NPartial < LNG_BLOCKSZ And Size > 0 Then
             lIdx = LNG_BLOCKSZ - .NPartial
             If lIdx > Size Then
                 lIdx = Size

@@ -38,10 +38,12 @@ Private Const LNG_WORDS                 As Long = 25
 #If HasPtrSafe Then
 #If Not HasOperators Then
     Private LNG_POW2(0 To 63)       As LongLong
+    Private LNG_SIGN_BIT            As LongLong ' 2 ^ 63
 #End If
     Private LNG_ROUND_C(0 To 23)    As LongLong
 #Else
     Private LNG_POW2(0 To 63)       As Variant
+    Private LNG_SIGN_BIT            As Variant
     Private LNG_ROUND_C(0 To 23)    As Variant
 #End If
 
@@ -66,8 +68,8 @@ Private Function RotL64(lX As Variant, ByVal lN As Long) As Variant
 #End If
     '--- RotL64 = LShift(X, n) Or RShift(X, 64 - n)
     Debug.Assert lN <> 0
-    RotL64 = ((lX And (LNG_POW2(63 - lN) - 1)) * LNG_POW2(lN) Or -((lX And LNG_POW2(63 - lN)) <> 0) * LNG_POW2(63)) Or _
-        ((lX And (LNG_POW2(63) Xor -1)) \ LNG_POW2(64 - lN) Or -(lX < 0) * LNG_POW2(lN - 1))
+    RotL64 = ((lX And (LNG_POW2(63 - lN) - 1)) * LNG_POW2(lN) Or -((lX And LNG_POW2(63 - lN)) <> 0) * LNG_SIGN_BIT) Or _
+        ((lX And (LNG_SIGN_BIT Xor -1)) \ LNG_POW2(64 - lN) Or -(lX < 0) * LNG_POW2(lN - 1))
 End Function
 #End If
 
@@ -207,6 +209,7 @@ Public Sub CryptoSha3Init(uCtx As CryptoSha3Context, ByVal lBitSize As Long)
             For lIdx = 1 To 63
                 LNG_POW2(lIdx) = CVar(LNG_POW2(lIdx - 1)) * 2
             Next
+            LNG_SIGN_BIT = LNG_POW2(63)
         #End If
     End If
     With uCtx
