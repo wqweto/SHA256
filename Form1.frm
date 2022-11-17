@@ -318,7 +318,7 @@ Private Sub pvTestScryptKdf()
     Dim baOutput()      As Byte
     
     dblTimer = TimerEx
-    baOutput = CryptoScryptKdfByteArray(StrConv("", vbFromUnicode), StrConv("", vbFromUnicode), OutSize:=64, Cost:=16, BlockSize:=1, Parallel:=1)
+    baOutput = CryptoScryptKdfByteArray(StrConv("", vbFromUnicode), StrConv("", vbFromUnicode), OutSize:=64, Passes:=1, Memory:=16, Parallelism:=1)
     Debug.Print Format$(TimerEx - dblTimer, "0.000"), ToHex(baOutput)
     '-> 77d6576238657b203b19ca42c18a0497f16b4844e3074ae8dfdffa3fede21442fcd0069ded0948f8326a753a0fc81f17e8d3e0fb2e0d3628cf35e20c38d18906
     dblTimer = TimerEx
@@ -411,8 +411,24 @@ Private Sub pvTestBlake3()
     '-> b3e2e340a117a499c6cf2398a19ee0d29cca2bb7404c73063382693bf66cb06c5827b91bf889b6b97c5477f535361caefca0b5d8c4746441c57617111933158950670f9aa8a05d791daae10ac683cbef8faf897c84e6114a59d2173c3f417023a35d6983f2c7dfa57e7fc559ad751dbfb9ffab39c2ef8c4aafebc9ae973a64f0c76551
 End Sub
 
+Private Sub pvTestArgon2()
+    Dim baOutput()          As Byte
+    
+    baOutput = CryptoArgon2KdfByteArray(FromHex("0101010101010101010101010101010101010101010101010101010101010101"), FromHex("02020202020202020202020202020202"), _
+        Secret:=FromHex("0303030303030303"), Data:=FromHex("040404040404040404040404"), OutSize:=32, Passes:=3, Memory:=32, Parallelism:=4)
+    Debug.Assert ToHex(baOutput) = "c814d9d1dc7f37aa13f0d77f2494bda1c8de6b016dd388d29952a4c4672b6ce8"
+    '-- c814d9d1dc7f37aa13f0d77f2494bda1c8de6b016dd388d29952a4c4672b6ce8
+    Debug.Print CryptoArgon2KdfText("pasword", "somesalt", Passes:=3, Memory:=4096, Parallelism:=1)
+    '-> 957fc0727d83f4060bb0f1071eb590a19a8c448fc0209497ee4f54ca241f3c90
+    Debug.Print CryptoArgon2IdKdfText("pasword", "somesalt", Passes:=3, Memory:=4096, Parallelism:=1)
+    '-> f55535bfe948710051424c7424b11ba9a13a50239b0459f56ca695ea14bc195e
+    Debug.Print CryptoArgon2KdfText("pasword", "somesalt", Memory:=32768, Passes:=1, OutSize:=32, Parallelism:=4)
+    '-> afe22ddd167cacbb9ac102ed56143e54fca5042f29e015954f93b885499a7f8d
+End Sub
+
 Private Sub Form_Load()
-    pvTestBlake3
+'    pvTestArgon2
+'    pvTestBlake3
 '    pvTestSha1
 '    pvTestSha2
 '    pvTestBlake2s
