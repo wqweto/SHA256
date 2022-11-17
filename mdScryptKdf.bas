@@ -39,8 +39,8 @@ Private Function UAdd32(ByVal lX As Long, ByVal lY As Long) As Long
     End If
 End Function
 
-Private Sub Op32(X As ArrayLong16, ByVal lIdx As Long, ByVal lA As Long, ByVal lB As Long, ByVal lShift As Long)
-    X.Item(lIdx) = X.Item(lIdx) Xor RotL32(UAdd32(X.Item(lA), X.Item(lB)), lShift)
+Private Sub Op32(X As ArrayLong16, ByVal lIdx As Long, ByVal lA As Long, ByVal lB As Long, ByVal LShift As Long)
+    X.Item(lIdx) = X.Item(lIdx) Xor RotL32(UAdd32(X.Item(lA), X.Item(lB)), LShift)
 End Sub
 #End If
 
@@ -177,12 +177,12 @@ End Sub
 
 Public Function CryptoScryptKdfByteArray(baPass() As Byte, baSalt() As Byte, _
             Optional ByVal OutSize As Long, _
-            Optional ByVal Cost As Long = 16384, _
-            Optional ByVal BlockSize As Long = 8, _
-            Optional ByVal Parallel As Long = 1) As Byte()
-    Dim lN              As Long: lN = Cost
-    Dim lR              As Long: lR = BlockSize
-    Dim lP              As Long: lP = Parallel
+            Optional ByVal Passes As Long = 8, _
+            Optional ByVal Memory As Long = 16& * 1024, _
+            Optional ByVal Parallelism As Long = 1) As Byte()
+    Dim lR              As Long: lR = Passes
+    Dim lN              As Long: lN = Memory
+    Dim lP              As Long: lP = Parallelism
     Dim TempV()         As Byte
     Dim TempY()         As Byte
     Dim X()             As Byte
@@ -246,8 +246,8 @@ End Function
 
 Public Function CryptoScryptKdfText(sPass As String, sSalt As String, _
             Optional ByVal OutSize As Long, _
-            Optional ByVal Cost As Long = 16384, _
-            Optional ByVal BlockSize As Long = 8, _
-            Optional ByVal Parallel As Long = 1) As String
-    CryptoScryptKdfText = ToHex(CryptoScryptKdfByteArray(ToUtf8Array(sPass), ToUtf8Array(sSalt), OutSize:=OutSize, Cost:=Cost, BlockSize:=BlockSize, Parallel:=Parallel))
+            Optional ByVal Passes As Long = 8, _
+            Optional ByVal Memory As Long = 16384, _
+            Optional ByVal Parallelism As Long = 1) As String
+    CryptoScryptKdfText = ToHex(CryptoScryptKdfByteArray(ToUtf8Array(sPass), ToUtf8Array(sSalt), OutSize:=OutSize, Passes:=Passes, Memory:=Memory, Parallelism:=Parallelism))
 End Function
