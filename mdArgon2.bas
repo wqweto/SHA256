@@ -19,9 +19,9 @@ Private Declare Function WideCharToMultiByte Lib "kernel32" (ByVal CodePage As L
 
 Private Const LNG_BLOCKSZ               As Long = 1024
 Private Const LNG_ARRAYSZ               As Long = LNG_BLOCKSZ \ 8
+Private Const LNG_HASHSZ                As Long = 64
 Private Const LNG_SYNC_POINTS           As Long = 4
 Private Const LNG_VERSION               As Long = &H13
-Private Const LNG_BLAKE2BSZ             As Long = 64
 
 Private Enum Argon2ModeEnum
     LNG_MODE_Argon2d = 0
@@ -245,26 +245,26 @@ Private Sub pvExtendedHash(baInput() As Byte, baOutput() As Byte)
     lOutSize = UBound(baOutput) + 1
     ReDim baTemp(0 To 3) As Byte
     Call CopyMemory(baTemp(0), lOutSize, 4)
-    If lOutSize < LNG_BLAKE2BSZ Then
+    If lOutSize < LNG_HASHSZ Then
         CryptoBlake2bInit uHash, lOutSize * 8
         CryptoBlake2bUpdate uHash, baTemp
         CryptoBlake2bUpdate uHash, baInput
         CryptoBlake2bFinalize uHash, baOutput
     Else
-        CryptoBlake2bInit uHash, LNG_BLAKE2BSZ * 8
+        CryptoBlake2bInit uHash, LNG_HASHSZ * 8
         CryptoBlake2bUpdate uHash, baTemp
         CryptoBlake2bUpdate uHash, baInput
         CryptoBlake2bFinalize uHash, baTemp
         Call CopyMemory(baOutput(0), baTemp(0), UBound(baTemp) + 1)
-        lOutPos = LNG_BLAKE2BSZ \ 2
-        lRemaining = lOutSize - LNG_BLAKE2BSZ \ 2
-        Do While lRemaining > LNG_BLAKE2BSZ
-            CryptoBlake2bInit uHash, LNG_BLAKE2BSZ * 8
+        lOutPos = LNG_HASHSZ \ 2
+        lRemaining = lOutSize - LNG_HASHSZ \ 2
+        Do While lRemaining > LNG_HASHSZ
+            CryptoBlake2bInit uHash, LNG_HASHSZ * 8
             CryptoBlake2bUpdate uHash, baTemp
             CryptoBlake2bFinalize uHash, baTemp
-            Call CopyMemory(baOutput(lOutPos), baTemp(0), LNG_BLAKE2BSZ \ 2)
-            lOutPos = lOutPos + LNG_BLAKE2BSZ \ 2
-            lRemaining = lRemaining - LNG_BLAKE2BSZ \ 2
+            Call CopyMemory(baOutput(lOutPos), baTemp(0), LNG_HASHSZ \ 2)
+            lOutPos = lOutPos + LNG_HASHSZ \ 2
+            lRemaining = lRemaining - LNG_HASHSZ \ 2
         Loop
         CryptoBlake2bInit uHash, lRemaining * 8
         CryptoBlake2bUpdate uHash, baTemp
@@ -304,9 +304,9 @@ Private Sub pvInitHash(baPassword() As Byte, baSalt() As Byte, baSecret() As Byt
     CryptoBlake2bUpdate uHash, baData
     CryptoBlake2bFinalize uHash, baOutput
     #If DebugMode Then
-        Debug.Print "pre-hash digest: " & ToHex(baOutput)
+        Debug.Print "Pre-hash digest: " & ToHex(baOutput)
     #End If
-    ReDim Preserve baOutput(0 To UBound(baOutput) + 8) As Byte '--- 8 bytes overhead
+    ReDim Preserve baOutput(0 To UBound(baOutput) + 8) As Byte '--- 8 bytes overallocated
 End Sub
 
 Private Sub pvInitBlocks(baHash() As Byte, ByVal lMemory As Long, ByVal lThreads As Long, uOutput() As ArrayLongLong128)
@@ -316,13 +316,13 @@ Private Sub pvInitBlocks(baHash() As Byte, ByVal lMemory As Long, ByVal lThreads
     Dim lJdx            As Long
     Dim lKdx            As Long
     
-    Debug.Assert UBound(baHash) + 1 >= LNG_BLAKE2BSZ + 8
+    Debug.Assert UBound(baHash) + 1 >= LNG_HASHSZ + 8
     ReDim uOutput(0 To lMemory - 1) As ArrayLongLong128
     For lLane = 0 To lThreads - 1
         lJdx = lLane * (lMemory \ lThreads)
-        Call CopyMemory(baHash(LNG_BLAKE2BSZ + 4), lLane, 4)
+        Call CopyMemory(baHash(LNG_HASHSZ + 4), lLane, 4)
         For lKdx = 0 To 1
-            Call CopyMemory(baHash(LNG_BLAKE2BSZ), lKdx, 4)
+            Call CopyMemory(baHash(LNG_HASHSZ), lKdx, 4)
             pvExtendedHash baHash, baTemp
             With uOutput(lJdx + lKdx)
                 #If HasPtrSafe Then
@@ -348,14 +348,6 @@ Private Function Hex64(vValue As Variant) As String
     Call CopyMemory(S(0), ByVal VarPtr(vValue) + 8, 8)
     Hex64 = Right$("0000000" & Hex(S(1)), 8) & Right$("0000000" & Hex$(S(0)), 8)
 End Function
-
-'Private Sub pvOutputBlock(uA As ArrayLongLong128)
-'    Dim lIdx As Long
-'    For lIdx = 0 To LNG_ARRAYSZ - 1
-'        Debug.Print LCase$(Hex64(uA.Item(lIdx))),
-'    Next
-'    Debug.Print
-'End Sub
 #End If
 
 Private Sub pvProcessBlocks(uBlocks() As ArrayLongLong128, ByVal lPasses As Long, ByVal lMemory As Long, ByVal lThreads As Long, ByVal eMode As Argon2ModeEnum)
@@ -420,10 +412,6 @@ Private Sub pvProcessBlocks(uBlocks() As ArrayLongLong128, ByVal lPasses As Long
                     End If
                     lNewOffset = pvIndexAlpha(lRandom, lLanes, lSegments, lThreads, lN, lSlice, lLane, lIndex)
                     pvFillBlock uBlocks(lPrev), uBlocks(lNewOffset), uBlocks(lOffset), IsXor:=(lN > 0)
-                    #If DebugMode Then
-'                        Debug.Print "uBlocks(" & lOffset & ")=";
-'                        pvOutputBlock uBlocks(lOffset)
-                    #End If
                     lIndex = lIndex + 1
                     lOffset = lOffset + 1
                 Loop
@@ -495,10 +483,10 @@ Private Sub pvDeriveKey( _
         End If
     #End If
     If lPasses < 1 Then
-        Err.Raise vbObjectError, , "Invalid CPU cost for ARGON2 (" & lPasses & ")"
+        Err.Raise vbObjectError, , "Invalid CPU cost for Argon2 (" & lPasses & ")"
     End If
     If lThreads < 1 Then
-        Err.Raise vbObjectError, , "Invalid parallelism for ARGON2 (" & lThreads & ")"
+        Err.Raise vbObjectError, , "Invalid parallelism for Argon2 (" & lThreads & ")"
     End If
     If lOutSize <= 0 Then
         lOutSize = 32
@@ -596,3 +584,41 @@ Public Function CryptoArgon2IdKdfText(sPass As String, sSalt As String, _
             Optional ByVal Parallelism As Long = 4) As String
     CryptoArgon2IdKdfText = ToHex(CryptoArgon2IdKdfByteArray(ToUtf8Array(sPass), ToUtf8Array(sSalt), OutSize:=OutSize, Secret:=Secret, Data:=Data, Passes:=Passes, Memory:=Memory, Parallelism:=Parallelism))
 End Function
+
+Private Sub pvTestVectors(ByVal SeqNo As Long, ByVal Mode As Argon2ModeEnum, ByVal Passes As Long, ByVal Memory As Long, ByVal Parallelism As Long, Hash As String)
+    Dim baEmpty() As Byte
+    Dim baOutput() As Byte
+    
+    baEmpty = vbNullString
+    pvDeriveKey Mode, ToUtf8Array("password"), ToUtf8Array("somesalt"), baEmpty, baEmpty, Passes, Memory, Parallelism, Len(Hash) \ 2, baOutput
+    If ToHex(baOutput) <> Hash Then
+        Debug.Print "Test " & SeqNo & " - got: " & ToHex(baOutput) & " want: " & Hash
+    End If
+End Sub
+
+Public Sub CryptoTestArgon2()
+    pvTestVectors 1, LNG_MODE_Argon2i, Passes:=1, Memory:=64, Parallelism:=1, Hash:="b9c401d1844a67d50eae3967dc28870b22e508092e861a37"
+    pvTestVectors 2, LNG_MODE_Argon2d, Passes:=1, Memory:=64, Parallelism:=1, Hash:="8727405fd07c32c78d64f547f24150d3f2e703a89f981a19"
+    pvTestVectors 3, LNG_MODE_Argon2id, Passes:=1, Memory:=64, Parallelism:=1, Hash:="655ad15eac652dc59f7170a7332bf49b8469be1fdb9c28bb"
+    pvTestVectors 4, LNG_MODE_Argon2i, Passes:=2, Memory:=64, Parallelism:=1, Hash:="8cf3d8f76a6617afe35fac48eb0b7433a9a670ca4a07ed64"
+    pvTestVectors 5, LNG_MODE_Argon2d, Passes:=2, Memory:=64, Parallelism:=1, Hash:="3be9ec79a69b75d3752acb59a1fbb8b295a46529c48fbb75"
+    pvTestVectors 6, LNG_MODE_Argon2id, Passes:=2, Memory:=64, Parallelism:=1, Hash:="068d62b26455936aa6ebe60060b0a65870dbfa3ddf8d41f7"
+    pvTestVectors 7, LNG_MODE_Argon2i, Passes:=2, Memory:=64, Parallelism:=2, Hash:="2089f3e78a799720f80af806553128f29b132cafe40d059f"
+    pvTestVectors 8, LNG_MODE_Argon2d, Passes:=2, Memory:=64, Parallelism:=2, Hash:="68e2462c98b8bc6bb60ec68db418ae2c9ed24fc6748a40e9"
+    pvTestVectors 9, LNG_MODE_Argon2id, Passes:=2, Memory:=64, Parallelism:=2, Hash:="350ac37222f436ccb5c0972f1ebd3bf6b958bf2071841362"
+    pvTestVectors 10, LNG_MODE_Argon2i, Passes:=3, Memory:=256, Parallelism:=2, Hash:="f5bbf5d4c3836af13193053155b73ec7476a6a2eb93fd5e6"
+    pvTestVectors 11, LNG_MODE_Argon2d, Passes:=3, Memory:=256, Parallelism:=2, Hash:="f4f0669218eaf3641f39cc97efb915721102f4b128211ef2"
+    pvTestVectors 12, LNG_MODE_Argon2id, Passes:=3, Memory:=256, Parallelism:=2, Hash:="4668d30ac4187e6878eedeacf0fd83c5a0a30db2cc16ef0b"
+    pvTestVectors 13, LNG_MODE_Argon2i, Passes:=4, Memory:=4096, Parallelism:=4, Hash:="a11f7b7f3f93f02ad4bddb59ab62d121e278369288a0d0e7"
+    pvTestVectors 14, LNG_MODE_Argon2d, Passes:=4, Memory:=4096, Parallelism:=4, Hash:="935598181aa8dc2b720914aa6435ac8d3e3a4210c5b0fb2d"
+    pvTestVectors 15, LNG_MODE_Argon2id, Passes:=4, Memory:=4096, Parallelism:=4, Hash:="145db9733a9f4ee43edf33c509be96b934d505a4efb33c5a"
+    pvTestVectors 16, LNG_MODE_Argon2i, Passes:=4, Memory:=1024, Parallelism:=8, Hash:="0cdd3956aa35e6b475a7b0c63488822f774f15b43f6e6e17"
+    pvTestVectors 17, LNG_MODE_Argon2d, Passes:=4, Memory:=1024, Parallelism:=8, Hash:="83604fc2ad0589b9d055578f4d3cc55bc616df3578a896e9"
+    pvTestVectors 18, LNG_MODE_Argon2id, Passes:=4, Memory:=1024, Parallelism:=8, Hash:="8dafa8e004f8ea96bf7c0f93eecf67a6047476143d15577f"
+    pvTestVectors 19, LNG_MODE_Argon2i, Passes:=2, Memory:=64, Parallelism:=3, Hash:="5cab452fe6b8479c8661def8cd703b611a3905a6d5477fe6"
+    pvTestVectors 20, LNG_MODE_Argon2d, Passes:=2, Memory:=64, Parallelism:=3, Hash:="22474a423bda2ccd36ec9afd5119e5c8949798cadf659f51"
+    pvTestVectors 21, LNG_MODE_Argon2id, Passes:=2, Memory:=64, Parallelism:=3, Hash:="4a15b31aec7c2590b87d1f520be7d96f56658172deaa3079"
+    pvTestVectors 22, LNG_MODE_Argon2i, Passes:=3, Memory:=1024, Parallelism:=6, Hash:="d236b29c2b2a09babee842b0dec6aa1e83ccbdea8023dced"
+    pvTestVectors 23, LNG_MODE_Argon2d, Passes:=3, Memory:=1024, Parallelism:=6, Hash:="a3351b0319a53229152023d9206902f4ef59661cdca89481"
+    pvTestVectors 24, LNG_MODE_Argon2id, Passes:=3, Memory:=1024, Parallelism:=6, Hash:="1640b932f4b60e272f5d2207b9a9c626ffa1bd88d2349016"
+End Sub
