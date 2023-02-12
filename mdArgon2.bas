@@ -29,7 +29,7 @@ Private Enum Argon2ModeEnum
     LNG_MODE_Argon2id
 End Enum
 
-Private Type ArrayLongLong128
+Private Type ArrayLong128
 #If HasPtrSafe Then
     Item(0 To LNG_ARRAYSZ - 1)  As LongLong
 #Else
@@ -146,8 +146,8 @@ Private Function CLngLng(vValue As Variant) As Variant
 End Function
 #End If
 
-Private Sub pvFillBlock(uA As ArrayLongLong128, uB As ArrayLongLong128, uOut As ArrayLongLong128, Optional ByVal IsXor As Boolean)
-    Static W            As ArrayLongLong128
+Private Sub pvFillBlock(uA As ArrayLong128, uB As ArrayLong128, uOut As ArrayLong128, Optional ByVal IsXor As Boolean)
+    Static W            As ArrayLong128
     Dim lIdx            As Long
     
     With W
@@ -309,7 +309,7 @@ Private Sub pvInitHash(baPassword() As Byte, baSalt() As Byte, baSecret() As Byt
     ReDim Preserve baOutput(0 To UBound(baOutput) + 8) As Byte '--- 8 bytes overallocated
 End Sub
 
-Private Sub pvInitBlocks(baHash() As Byte, ByVal lMemory As Long, ByVal lThreads As Long, uOutput() As ArrayLongLong128)
+Private Sub pvInitBlocks(baHash() As Byte, ByVal lMemory As Long, ByVal lThreads As Long, uOutput() As ArrayLong128)
     Static baTemp(0 To LNG_BLOCKSZ - 1) As Byte
     Dim lLane           As Long
     Dim lIdx            As Long
@@ -317,7 +317,7 @@ Private Sub pvInitBlocks(baHash() As Byte, ByVal lMemory As Long, ByVal lThreads
     Dim lKdx            As Long
     
     Debug.Assert UBound(baHash) + 1 >= LNG_HASHSZ + 8
-    ReDim uOutput(0 To lMemory - 1) As ArrayLongLong128
+    ReDim uOutput(0 To lMemory - 1) As ArrayLong128
     For lLane = 0 To lThreads - 1
         lJdx = lLane * (lMemory \ lThreads)
         Call CopyMemory(baHash(LNG_HASHSZ + 4), lLane, 4)
@@ -350,7 +350,7 @@ Private Function Hex64(vValue As Variant) As String
 End Function
 #End If
 
-Private Sub pvProcessBlocks(uBlocks() As ArrayLongLong128, ByVal lPasses As Long, ByVal lMemory As Long, ByVal lThreads As Long, ByVal eMode As Argon2ModeEnum)
+Private Sub pvProcessBlocks(uBlocks() As ArrayLong128, ByVal lPasses As Long, ByVal lMemory As Long, ByVal lThreads As Long, ByVal eMode As Argon2ModeEnum)
 #If HasPtrSafe Then
     Dim lRandom         As LongLong
 #Else
@@ -361,9 +361,9 @@ Private Sub pvProcessBlocks(uBlocks() As ArrayLongLong128, ByVal lPasses As Long
     Dim lN              As Long
     Dim lSlice          As Long
     Dim lLane           As Long
-    Dim uAddresses      As ArrayLongLong128
-    Dim uInput          As ArrayLongLong128
-    Dim uZero           As ArrayLongLong128
+    Dim uAddresses      As ArrayLong128
+    Dim uInput          As ArrayLong128
+    Dim uZero           As ArrayLong128
     Dim lIndex          As Long
     Dim lOffset         As Long
     Dim lPrev           As Long
@@ -429,7 +429,7 @@ Private Sub pvProcessBlocks(uBlocks() As ArrayLongLong128, ByVal lPasses As Long
     Next
 End Sub
 
-Private Sub pvExtractKey(uBlocks() As ArrayLongLong128, ByVal lMemory As Long, ByVal lThreads As Long, ByVal lOutSize As Long, baOutput() As Byte)
+Private Sub pvExtractKey(uBlocks() As ArrayLong128, ByVal lMemory As Long, ByVal lThreads As Long, ByVal lOutSize As Long, baOutput() As Byte)
     Static baTemp(0 To LNG_BLOCKSZ - 1) As Byte
     Dim lLanes          As Long
     Dim lLane           As Long
@@ -467,7 +467,7 @@ Private Sub pvDeriveKey( _
             ByVal lOutSize As Long, baOutput() As Byte)
     Dim lIdx            As Long
     Dim baHash()        As Byte
-    Dim uBlocks()       As ArrayLongLong128
+    Dim uBlocks()       As ArrayLong128
     Dim baSecret()      As Byte
     Dim baData()        As Byte
     
@@ -530,10 +530,10 @@ Private Function ToUtf8Array(sText As String) As Byte()
     Dim baRetVal()      As Byte
     Dim lSize           As Long
     
-    lSize = WideCharToMultiByte(CP_UTF8, 0, StrPtr(sText), Len(sText), ByVal 0, 0, 0, 0)
+    ReDim baRetVal(0 To 4 * Len(sText)) As Byte
+    lSize = WideCharToMultiByte(CP_UTF8, 0, StrPtr(sText), Len(sText), baRetVal(0), UBound(baRetVal) + 1, 0, 0)
     If lSize > 0 Then
-        ReDim baRetVal(0 To lSize - 1) As Byte
-        Call WideCharToMultiByte(CP_UTF8, 0, StrPtr(sText), Len(sText), baRetVal(0), lSize, 0, 0)
+        ReDim Preserve baRetVal(0 To lSize - 1) As Byte
     Else
         baRetVal = vbNullString
     End If
@@ -547,11 +547,7 @@ Private Function ToHex(baData() As Byte) As String
     ToHex = String$(UBound(baData) * 2 + 2, 48)
     For lIdx = 0 To UBound(baData)
         sByte = LCase$(Hex$(baData(lIdx)))
-        If Len(sByte) = 1 Then
-            Mid$(ToHex, lIdx * 2 + 2, 1) = sByte
-        Else
-            Mid$(ToHex, lIdx * 2 + 1, 2) = sByte
-        End If
+        Mid$(ToHex, lIdx * 2 + 3 - Len(sByte)) = sByte
     Next
 End Function
 
@@ -585,40 +581,40 @@ Public Function CryptoArgon2IdKdfText(sPass As String, sSalt As String, _
     CryptoArgon2IdKdfText = ToHex(CryptoArgon2IdKdfByteArray(ToUtf8Array(sPass), ToUtf8Array(sSalt), OutSize:=OutSize, Secret:=Secret, Data:=Data, Passes:=Passes, Memory:=Memory, Parallelism:=Parallelism))
 End Function
 
-Private Sub pvTestVectors(ByVal SeqNo As Long, ByVal Mode As Argon2ModeEnum, ByVal Passes As Long, ByVal Memory As Long, ByVal Parallelism As Long, Hash As String)
+Private Sub pvTestVectors(ByVal SeqNo As Long, ByVal Mode As Argon2ModeEnum, ByVal Passes As Long, ByVal Memory As Long, ByVal Parallelism As Long, HASH As String)
     Dim baEmpty() As Byte
     Dim baOutput() As Byte
     
     baEmpty = vbNullString
-    pvDeriveKey Mode, ToUtf8Array("password"), ToUtf8Array("somesalt"), baEmpty, baEmpty, Passes, Memory, Parallelism, Len(Hash) \ 2, baOutput
-    If ToHex(baOutput) <> Hash Then
-        Debug.Print "Test " & SeqNo & " - got: " & ToHex(baOutput) & " want: " & Hash
+    pvDeriveKey Mode, ToUtf8Array("password"), ToUtf8Array("somesalt"), baEmpty, baEmpty, Passes, Memory, Parallelism, Len(HASH) \ 2, baOutput
+    If ToHex(baOutput) <> HASH Then
+        Debug.Print "Test " & SeqNo & " - got: " & ToHex(baOutput) & " want: " & HASH
     End If
 End Sub
 
 Public Sub CryptoTestArgon2()
-    pvTestVectors 1, LNG_MODE_Argon2i, Passes:=1, Memory:=64, Parallelism:=1, Hash:="b9c401d1844a67d50eae3967dc28870b22e508092e861a37"
-    pvTestVectors 2, LNG_MODE_Argon2d, Passes:=1, Memory:=64, Parallelism:=1, Hash:="8727405fd07c32c78d64f547f24150d3f2e703a89f981a19"
-    pvTestVectors 3, LNG_MODE_Argon2id, Passes:=1, Memory:=64, Parallelism:=1, Hash:="655ad15eac652dc59f7170a7332bf49b8469be1fdb9c28bb"
-    pvTestVectors 4, LNG_MODE_Argon2i, Passes:=2, Memory:=64, Parallelism:=1, Hash:="8cf3d8f76a6617afe35fac48eb0b7433a9a670ca4a07ed64"
-    pvTestVectors 5, LNG_MODE_Argon2d, Passes:=2, Memory:=64, Parallelism:=1, Hash:="3be9ec79a69b75d3752acb59a1fbb8b295a46529c48fbb75"
-    pvTestVectors 6, LNG_MODE_Argon2id, Passes:=2, Memory:=64, Parallelism:=1, Hash:="068d62b26455936aa6ebe60060b0a65870dbfa3ddf8d41f7"
-    pvTestVectors 7, LNG_MODE_Argon2i, Passes:=2, Memory:=64, Parallelism:=2, Hash:="2089f3e78a799720f80af806553128f29b132cafe40d059f"
-    pvTestVectors 8, LNG_MODE_Argon2d, Passes:=2, Memory:=64, Parallelism:=2, Hash:="68e2462c98b8bc6bb60ec68db418ae2c9ed24fc6748a40e9"
-    pvTestVectors 9, LNG_MODE_Argon2id, Passes:=2, Memory:=64, Parallelism:=2, Hash:="350ac37222f436ccb5c0972f1ebd3bf6b958bf2071841362"
-    pvTestVectors 10, LNG_MODE_Argon2i, Passes:=3, Memory:=256, Parallelism:=2, Hash:="f5bbf5d4c3836af13193053155b73ec7476a6a2eb93fd5e6"
-    pvTestVectors 11, LNG_MODE_Argon2d, Passes:=3, Memory:=256, Parallelism:=2, Hash:="f4f0669218eaf3641f39cc97efb915721102f4b128211ef2"
-    pvTestVectors 12, LNG_MODE_Argon2id, Passes:=3, Memory:=256, Parallelism:=2, Hash:="4668d30ac4187e6878eedeacf0fd83c5a0a30db2cc16ef0b"
-    pvTestVectors 13, LNG_MODE_Argon2i, Passes:=4, Memory:=4096, Parallelism:=4, Hash:="a11f7b7f3f93f02ad4bddb59ab62d121e278369288a0d0e7"
-    pvTestVectors 14, LNG_MODE_Argon2d, Passes:=4, Memory:=4096, Parallelism:=4, Hash:="935598181aa8dc2b720914aa6435ac8d3e3a4210c5b0fb2d"
-    pvTestVectors 15, LNG_MODE_Argon2id, Passes:=4, Memory:=4096, Parallelism:=4, Hash:="145db9733a9f4ee43edf33c509be96b934d505a4efb33c5a"
-    pvTestVectors 16, LNG_MODE_Argon2i, Passes:=4, Memory:=1024, Parallelism:=8, Hash:="0cdd3956aa35e6b475a7b0c63488822f774f15b43f6e6e17"
-    pvTestVectors 17, LNG_MODE_Argon2d, Passes:=4, Memory:=1024, Parallelism:=8, Hash:="83604fc2ad0589b9d055578f4d3cc55bc616df3578a896e9"
-    pvTestVectors 18, LNG_MODE_Argon2id, Passes:=4, Memory:=1024, Parallelism:=8, Hash:="8dafa8e004f8ea96bf7c0f93eecf67a6047476143d15577f"
-    pvTestVectors 19, LNG_MODE_Argon2i, Passes:=2, Memory:=64, Parallelism:=3, Hash:="5cab452fe6b8479c8661def8cd703b611a3905a6d5477fe6"
-    pvTestVectors 20, LNG_MODE_Argon2d, Passes:=2, Memory:=64, Parallelism:=3, Hash:="22474a423bda2ccd36ec9afd5119e5c8949798cadf659f51"
-    pvTestVectors 21, LNG_MODE_Argon2id, Passes:=2, Memory:=64, Parallelism:=3, Hash:="4a15b31aec7c2590b87d1f520be7d96f56658172deaa3079"
-    pvTestVectors 22, LNG_MODE_Argon2i, Passes:=3, Memory:=1024, Parallelism:=6, Hash:="d236b29c2b2a09babee842b0dec6aa1e83ccbdea8023dced"
-    pvTestVectors 23, LNG_MODE_Argon2d, Passes:=3, Memory:=1024, Parallelism:=6, Hash:="a3351b0319a53229152023d9206902f4ef59661cdca89481"
-    pvTestVectors 24, LNG_MODE_Argon2id, Passes:=3, Memory:=1024, Parallelism:=6, Hash:="1640b932f4b60e272f5d2207b9a9c626ffa1bd88d2349016"
+    pvTestVectors 1, LNG_MODE_Argon2i, Passes:=1, Memory:=64, Parallelism:=1, HASH:="b9c401d1844a67d50eae3967dc28870b22e508092e861a37"
+    pvTestVectors 2, LNG_MODE_Argon2d, Passes:=1, Memory:=64, Parallelism:=1, HASH:="8727405fd07c32c78d64f547f24150d3f2e703a89f981a19"
+    pvTestVectors 3, LNG_MODE_Argon2id, Passes:=1, Memory:=64, Parallelism:=1, HASH:="655ad15eac652dc59f7170a7332bf49b8469be1fdb9c28bb"
+    pvTestVectors 4, LNG_MODE_Argon2i, Passes:=2, Memory:=64, Parallelism:=1, HASH:="8cf3d8f76a6617afe35fac48eb0b7433a9a670ca4a07ed64"
+    pvTestVectors 5, LNG_MODE_Argon2d, Passes:=2, Memory:=64, Parallelism:=1, HASH:="3be9ec79a69b75d3752acb59a1fbb8b295a46529c48fbb75"
+    pvTestVectors 6, LNG_MODE_Argon2id, Passes:=2, Memory:=64, Parallelism:=1, HASH:="068d62b26455936aa6ebe60060b0a65870dbfa3ddf8d41f7"
+    pvTestVectors 7, LNG_MODE_Argon2i, Passes:=2, Memory:=64, Parallelism:=2, HASH:="2089f3e78a799720f80af806553128f29b132cafe40d059f"
+    pvTestVectors 8, LNG_MODE_Argon2d, Passes:=2, Memory:=64, Parallelism:=2, HASH:="68e2462c98b8bc6bb60ec68db418ae2c9ed24fc6748a40e9"
+    pvTestVectors 9, LNG_MODE_Argon2id, Passes:=2, Memory:=64, Parallelism:=2, HASH:="350ac37222f436ccb5c0972f1ebd3bf6b958bf2071841362"
+    pvTestVectors 10, LNG_MODE_Argon2i, Passes:=3, Memory:=256, Parallelism:=2, HASH:="f5bbf5d4c3836af13193053155b73ec7476a6a2eb93fd5e6"
+    pvTestVectors 11, LNG_MODE_Argon2d, Passes:=3, Memory:=256, Parallelism:=2, HASH:="f4f0669218eaf3641f39cc97efb915721102f4b128211ef2"
+    pvTestVectors 12, LNG_MODE_Argon2id, Passes:=3, Memory:=256, Parallelism:=2, HASH:="4668d30ac4187e6878eedeacf0fd83c5a0a30db2cc16ef0b"
+    pvTestVectors 13, LNG_MODE_Argon2i, Passes:=4, Memory:=4096, Parallelism:=4, HASH:="a11f7b7f3f93f02ad4bddb59ab62d121e278369288a0d0e7"
+    pvTestVectors 14, LNG_MODE_Argon2d, Passes:=4, Memory:=4096, Parallelism:=4, HASH:="935598181aa8dc2b720914aa6435ac8d3e3a4210c5b0fb2d"
+    pvTestVectors 15, LNG_MODE_Argon2id, Passes:=4, Memory:=4096, Parallelism:=4, HASH:="145db9733a9f4ee43edf33c509be96b934d505a4efb33c5a"
+    pvTestVectors 16, LNG_MODE_Argon2i, Passes:=4, Memory:=1024, Parallelism:=8, HASH:="0cdd3956aa35e6b475a7b0c63488822f774f15b43f6e6e17"
+    pvTestVectors 17, LNG_MODE_Argon2d, Passes:=4, Memory:=1024, Parallelism:=8, HASH:="83604fc2ad0589b9d055578f4d3cc55bc616df3578a896e9"
+    pvTestVectors 18, LNG_MODE_Argon2id, Passes:=4, Memory:=1024, Parallelism:=8, HASH:="8dafa8e004f8ea96bf7c0f93eecf67a6047476143d15577f"
+    pvTestVectors 19, LNG_MODE_Argon2i, Passes:=2, Memory:=64, Parallelism:=3, HASH:="5cab452fe6b8479c8661def8cd703b611a3905a6d5477fe6"
+    pvTestVectors 20, LNG_MODE_Argon2d, Passes:=2, Memory:=64, Parallelism:=3, HASH:="22474a423bda2ccd36ec9afd5119e5c8949798cadf659f51"
+    pvTestVectors 21, LNG_MODE_Argon2id, Passes:=2, Memory:=64, Parallelism:=3, HASH:="4a15b31aec7c2590b87d1f520be7d96f56658172deaa3079"
+    pvTestVectors 22, LNG_MODE_Argon2i, Passes:=3, Memory:=1024, Parallelism:=6, HASH:="d236b29c2b2a09babee842b0dec6aa1e83ccbdea8023dced"
+    pvTestVectors 23, LNG_MODE_Argon2d, Passes:=3, Memory:=1024, Parallelism:=6, HASH:="a3351b0319a53229152023d9206902f4ef59661cdca89481"
+    pvTestVectors 24, LNG_MODE_Argon2id, Passes:=3, Memory:=1024, Parallelism:=6, HASH:="1640b932f4b60e272f5d2207b9a9c626ffa1bd88d2349016"
 End Sub

@@ -339,10 +339,10 @@ Private Function ToUtf8Array(sText As String) As Byte()
     Dim baRetVal()      As Byte
     Dim lSize           As Long
     
-    lSize = WideCharToMultiByte(CP_UTF8, 0, StrPtr(sText), Len(sText), ByVal 0, 0, 0, 0)
+    ReDim baRetVal(0 To 4 * Len(sText)) As Byte
+    lSize = WideCharToMultiByte(CP_UTF8, 0, StrPtr(sText), Len(sText), baRetVal(0), UBound(baRetVal) + 1, 0, 0)
     If lSize > 0 Then
-        ReDim baRetVal(0 To lSize - 1) As Byte
-        Call WideCharToMultiByte(CP_UTF8, 0, StrPtr(sText), Len(sText), baRetVal(0), lSize, 0, 0)
+        ReDim Preserve baRetVal(0 To lSize - 1) As Byte
     Else
         baRetVal = vbNullString
     End If
@@ -356,11 +356,7 @@ Private Function ToHex(baData() As Byte) As String
     ToHex = String$(UBound(baData) * 2 + 2, 48)
     For lIdx = 0 To UBound(baData)
         sByte = LCase$(Hex$(baData(lIdx)))
-        If Len(sByte) = 1 Then
-            Mid$(ToHex, lIdx * 2 + 2, 1) = sByte
-        Else
-            Mid$(ToHex, lIdx * 2 + 1, 2) = sByte
-        End If
+        Mid$(ToHex, lIdx * 2 + 3 - Len(sByte)) = sByte
     Next
 End Function
 
