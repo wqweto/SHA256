@@ -1,14 +1,46 @@
 VERSION 5.00
 Begin VB.Form Form5 
    Caption         =   "Form5"
-   ClientHeight    =   4332
+   ClientHeight    =   7224
    ClientLeft      =   108
    ClientTop       =   456
    ClientWidth     =   6012
    LinkTopic       =   "Form5"
-   ScaleHeight     =   4332
+   ScaleHeight     =   7224
    ScaleWidth      =   6012
    StartUpPosition =   3  'Windows Default
+   Begin VB.CommandButton Command9 
+      Caption         =   "HalfSiphash13"
+      Height          =   600
+      Left            =   2940
+      TabIndex        =   9
+      Top             =   4956
+      Width           =   2028
+   End
+   Begin VB.CommandButton Command8 
+      Caption         =   "HalfSiphash24"
+      Height          =   600
+      Left            =   588
+      TabIndex        =   8
+      Top             =   4956
+      Width           =   2028
+   End
+   Begin VB.CommandButton Command7 
+      Caption         =   "Siphash13"
+      Height          =   600
+      Left            =   2940
+      TabIndex        =   7
+      Top             =   4200
+      Width           =   2028
+   End
+   Begin VB.CommandButton Command6 
+      Caption         =   "Siphash24"
+      Height          =   600
+      Left            =   588
+      TabIndex        =   6
+      Top             =   4200
+      Width           =   2028
+   End
    Begin VB.CommandButton Command5 
       Caption         =   "Blake2s"
       Height          =   600
@@ -66,6 +98,7 @@ Attribute VB_Exposed = False
 Option Explicit
 
 Private m_baContents() As Byte
+
 
 Private Sub Form_Load()
     m_baContents = ReadBinaryFile("D:\TEMP\VirtualBox-6.1.34-150636-Win.exe")
@@ -180,3 +213,62 @@ Private Sub Command5_Click()
 End Sub
 
 
+Private Sub Command6_Click()
+    Const ITER As Long = 1
+    Dim lIdx As Long
+    Dim baOutput()  As Byte
+    Dim dblTimer As Double
+    Command6.Caption = "Processing"
+    dblTimer = Timer
+    For lIdx = 1 To ITER
+        baOutput = CryptoSiphash24ByteArray(FromHex(""), m_baContents)
+    Next
+    Caption = Format$(Timer - dblTimer, "0.000") & " sec"
+    Command6.Caption = Format$((UBound(m_baContents) + 1) * ITER / 1024# / 1024# / (Timer - dblTimer), "0.000") & " MB/s"
+End Sub
+
+
+Private Sub Command7_Click()
+    Const ITER As Long = 1
+    Dim lIdx As Long
+    Dim baOutput()  As Byte
+    Dim dblTimer As Double
+    
+    Command7.Caption = "Processing"
+    dblTimer = Timer
+    For lIdx = 1 To ITER
+        baOutput = CryptoSiphash13ByteArray(FromHex(""), m_baContents)
+    Next
+    Caption = Format$(Timer - dblTimer, "0.000") & " sec"
+    Command7.Caption = Format$((UBound(m_baContents) + 1) * ITER / 1024# / 1024# / (Timer - dblTimer), "0.000") & " MB/s"
+End Sub
+
+Private Sub Command8_Click()
+    Const ITER As Long = 1
+    Dim lIdx As Long
+    Dim baOutput()  As Byte
+    Dim dblTimer As Double
+    
+    Command8.Caption = "Processing"
+    dblTimer = Timer
+    For lIdx = 1 To ITER
+        baOutput = CryptoHalfSiphash24ByteArray(FromHex(""), m_baContents)
+    Next
+    Caption = Format$(Timer - dblTimer, "0.000") & " sec"
+    Command8.Caption = Format$((UBound(m_baContents) + 1) * ITER / 1024# / 1024# / (Timer - dblTimer), "0.000") & " MB/s"
+End Sub
+
+Private Sub Command9_Click()
+    Const ITER As Long = 1
+    Dim lIdx As Long
+    Dim baOutput()  As Byte
+    Dim dblTimer As Double
+    
+    Command9.Caption = "Processing"
+    dblTimer = Timer
+    For lIdx = 1 To ITER
+        baOutput = CryptoHalfSiphash13ByteArray(FromHex(""), m_baContents)
+    Next
+    Caption = Format$(Timer - dblTimer, "0.000") & " sec"
+    Command9.Caption = Format$((UBound(m_baContents) + 1) * ITER / 1024# / 1024# / (Timer - dblTimer), "0.000") & " MB/s"
+End Sub

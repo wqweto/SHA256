@@ -426,7 +426,35 @@ Private Sub pvTestArgon2()
     '-> afe22ddd167cacbb9ac102ed56143e54fca5042f29e015954f93b885499a7f8d
 End Sub
 
+Private Sub pvTestSiphash()
+    Dim baKey()         As Byte
+    Dim baOutput()      As Byte
+    
+    
+    Debug.Print CryptoSiphash24Text("123", "123")
+    '-> 171b9ef8c7d20383
+    baKey = FromHex("000102030405060708090A0B0C0D0E0F")
+    baOutput = CryptoSiphash24ByteArray(baKey, FromHex("000102030405060708090A0B0C0D0E0F10111213"))
+    Debug.Print ToHex(baOutput)
+    '-> 98eea21af25cd6be
+    
+    Debug.Print CryptoHalfSiphash24Text("123", "123")
+    '-> 28b6f273 5ea1ceccd121bf6c
+    baOutput = CryptoHalfSiphash24ByteArray(baKey, FromHex("00"))
+    Debug.Print ToHex(baOutput)
+    '-> 27475ab8 be552412f8387315
+    baOutput = CryptoHalfSiphash24ByteArray(baKey, FromHex("000102030405060708090A0B0C0D0E0F10111213"))
+    Debug.Print ToHex(baOutput)
+    '-> e34d1045 1bf52b0a6feea7db
+    Debug.Print Hex(CryptoHalfSiphash24Long(baKey, FromHex("000102030405060708090A0B0C0D0E0F10111213")))
+    '-> 45104DE3
+End Sub
+
 Private Sub Form_Load()
+    pvTestSiphash
+'    Debug.Print Timer
+'    CryptoTestArgon2
+'    Debug.Print Timer
 '    pvTestArgon2
 '    pvTestBlake3
 '    pvTestSha1

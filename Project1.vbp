@@ -1,7 +1,6 @@
 Type=Exe
 Form=Form1.frm
 Reference=*\G{00020430-0000-0000-C000-000000000046}#2.0#0#..\..\..\Windows\SysWOW64\stdole2.tlb#OLE Automation
-Module=Module1; Module1.bas
 Class=clsSHA256; clsSHA256.cls
 Class=cSHA256; cSHA256.cls
 Module=mdJson; ..\..\UcsFP20\src\UcsFP20\Shared\mdJson.bas
@@ -24,6 +23,9 @@ Module=mdBlake2s; mdBlake2s.bas
 Module=mdBlake2b; mdBlake2b.bas
 Module=mdBlake3; mdBlake3.bas
 Module=mdArgon2; mdArgon2.bas
+Module=mdSiphash; mdSiphash.bas
+Module=mdHalfSiphash; mdHalfSiphash.bas
+Module=Module1; Module1.bas
 IconForm="Form1"
 Startup="Form1"
 HelpFile=""
