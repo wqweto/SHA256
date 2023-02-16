@@ -195,6 +195,7 @@ End Sub
 Public Sub CryptoSha3Init(uCtx As CryptoSha3Context, ByVal lBitSize As Long)
     Dim lIdx            As Long
     Dim vElem           As Variant
+    Dim pDummy          As LongPtr
     
     If LNG_ROUND_C(0) = 0 Then
         For Each vElem In Split("1 8082 800000000000808A 8000000080008000 808B 80000001 8000000080008081 8000000000008009 8A 88 80008009 8000000A 8000808B 800000000000008B 8000000000008089 8000000000008003 8000000000008002 8000000000000080 800A 800000008000000A 8000000080008081 8000000000008080 80000001 8000000080008008")
@@ -232,7 +233,6 @@ Public Sub CryptoSha3Init(uCtx As CryptoSha3Context, ByVal lBitSize As Long)
                     .cElements = 8
                 #End If
             End With
-            Dim pDummy As LongPtr
             Call CopyMemory(ByVal ArrPtr(.Bytes), VarPtr(.PeekArray), LenB(pDummy))
         End If
     End With
@@ -280,6 +280,7 @@ End Sub
 Public Sub CryptoSha3Finalize(uCtx As CryptoSha3Context, baOutput() As Byte, Optional ByVal OutSize As Long, Optional ByVal LFSR As Long)
     Dim lIdx            As Long
     Dim lOffset         As Long
+    Dim pDummy          As LongPtr
     Dim uEmpty          As CryptoSha3Context
     
     With uCtx
@@ -322,6 +323,7 @@ Public Sub CryptoSha3Finalize(uCtx As CryptoSha3Context, baOutput() As Byte, Opt
                 lOffset = lOffset + 1
             End If
         Next
+        Call CopyMemory(ByVal ArrPtr(.Bytes), pDummy, LenB(pDummy))
     End With
     uCtx = uEmpty
 End Sub
