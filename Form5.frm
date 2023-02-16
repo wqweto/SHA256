@@ -9,6 +9,22 @@ Begin VB.Form Form5
    ScaleHeight     =   7224
    ScaleWidth      =   6012
    StartUpPosition =   3  'Windows Default
+   Begin VB.CommandButton Command11 
+      Caption         =   "Ascon-AEAD"
+      Height          =   600
+      Left            =   2940
+      TabIndex        =   11
+      Top             =   5712
+      Width           =   2028
+   End
+   Begin VB.CommandButton Command10 
+      Caption         =   "Ascon-Hash"
+      Height          =   600
+      Left            =   588
+      TabIndex        =   10
+      Top             =   5712
+      Width           =   2028
+   End
    Begin VB.CommandButton Command9 
       Caption         =   "HalfSiphash13"
       Height          =   600
@@ -99,9 +115,10 @@ Option Explicit
 
 Private m_baContents() As Byte
 
-
 Private Sub Form_Load()
-    m_baContents = ReadBinaryFile("D:\TEMP\VirtualBox-6.1.34-150636-Win.exe")
+    'm_baContents = ReadBinaryFile("D:\TEMP\VirtualBox-6.1.34-150636-Win.exe")
+    'm_baContents = ReadBinaryFile("D:\TEMP\curl-7.86.0_2-win64-mingw.zip")
+    m_baContents = ReadBinaryFile("D:\TEMP\Panels Tutorial.zip")
     Caption = UBound(m_baContents) + 1 & " bytes ready"
 End Sub
 
@@ -272,3 +289,40 @@ Private Sub Command9_Click()
     Caption = Format$(Timer - dblTimer, "0.000") & " sec"
     Command9.Caption = Format$((UBound(m_baContents) + 1) * ITER / 1024# / 1024# / (Timer - dblTimer), "0.000") & " MB/s"
 End Sub
+
+Private Sub Command10_Click()
+    Const ITER As Long = 1
+    Dim lIdx As Long
+    Dim baOutput()  As Byte
+    Dim dblTimer As Double
+    
+    Command10.Caption = "Processing"
+    dblTimer = Timer
+    For lIdx = 1 To ITER
+        baOutput = CryptoAsconHashByteArray(m_baContents)
+    Next
+    Caption = Format$(Timer - dblTimer, "0.000") & " sec"
+    Command10.Caption = Format$((UBound(m_baContents) + 1) * ITER / 1024# / 1024# / (Timer - dblTimer), "0.000") & " MB/s"
+End Sub
+
+Private Sub Command11_Click()
+    Const ITER As Long = 1
+    Dim lIdx As Long
+    Dim baKey() As Byte
+    Dim baTag() As Byte
+    Dim baOutput()  As Byte
+    Dim dblTimer As Double
+    
+    Command11.Caption = "Processing"
+    dblTimer = Timer
+    baKey = FromHex("000102030405060708090a0b0c0d0e0f")
+    For lIdx = 1 To ITER
+        baOutput = m_baContents
+        CryptoAsconEncrypt baKey, baTag, baOutput
+    Next
+    Caption = Format$(Timer - dblTimer, "0.000") & " sec"
+    Command11.Caption = Format$((UBound(m_baContents) + 1) * ITER / 1024# / 1024# / (Timer - dblTimer), "0.000") & " MB/s"
+End Sub
+
+
+
