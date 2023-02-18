@@ -458,16 +458,18 @@ Private Sub pvTestAsconHash()
     Dim baTag()         As Byte
     Dim bResult         As Boolean
 
-    Debug.Print CryptoAsconHashText(vbNullString, "Ascon-Hash")
-    '-> 7346BC14F036E87AE03D0997913088F5F68411434B3CF8B54FA796A80D251F91
-    Debug.Print CryptoAsconHashText(vbNullString, "Ascon-HashA")
-    '-> aecd027026d0675f9de7a8ad8ccf512db64b1edcf0b20c388a0c7cc617aaa2c4
-    Debug.Print CryptoAsconHashText(vbNullString, "Ascon-Xof")
-    '-> 5d4cbde6350ea4c174bd65b5b332f8408f99740b81aa02735eaefbcf0ba0339e
-    Debug.Print CryptoAsconHashText(vbNullString, "Ascon-XofA")
-    '-> 7c10dffd6bb03be262d72fbe1b0f530013c6c4eadaabde278d6f29d579e3908d
-    Debug.Print CryptoAsconHashText(Chr$(0))
-    '-> 8DD446ADA58A7740ECF56EB638EF775F7D5C0FD5F0C2BBBDFDEC29609D3C43A2
+'    Debug.Print CryptoAsconHashTextSliced(vbNullString, "Ascon-Hash")
+'    '-> 7346BC14F036E87AE03D0997913088F5F68411434B3CF8B54FA796A80D251F91
+'    Debug.Print CryptoAsconHashText(vbNullString, "Ascon-Hash")
+'    '-> 7346BC14F036E87AE03D0997913088F5F68411434B3CF8B54FA796A80D251F91
+'    Debug.Print CryptoAsconHashText(vbNullString, "Ascon-HashA")
+'    '-> aecd027026d0675f9de7a8ad8ccf512db64b1edcf0b20c388a0c7cc617aaa2c4
+'    Debug.Print CryptoAsconHashText(vbNullString, "Ascon-Xof")
+'    '-> 5d4cbde6350ea4c174bd65b5b332f8408f99740b81aa02735eaefbcf0ba0339e
+'    Debug.Print CryptoAsconHashText(vbNullString, "Ascon-XofA")
+'    '-> 7c10dffd6bb03be262d72fbe1b0f530013c6c4eadaabde278d6f29d579e3908d
+'    Debug.Print CryptoAsconHashText(Chr$(0))
+'    '-> 8DD446ADA58A7740ECF56EB638EF775F7D5C0FD5F0C2BBBDFDEC29609D3C43A2
     
     baKey = FromHex("8fe268b5ef2e0a823e54cdfaa3ec792e")
     baNonce = FromHex("32eb4a626ac8d1652197519243ef765f")
@@ -477,6 +479,18 @@ Private Sub pvTestAsconHash()
     Debug.Print ToHex(baInput), ToHex(baTag)
     '-> 0bb750f67d      36d2c79df1b1343c0202c2997b3b46c3
     bResult = CryptoAsconDecrypt(baKey, baTag, baInput, Nonce:=baNonce, AssociatedData:=baAad)
+    Debug.Print ToHex(baInput), bResult
+    '-> 6173636f6e      True
+    Debug.Assert bResult
+
+    baKey = FromHex("8fe268b5ef2e0a823e54cdfaa3ec792e")
+    baNonce = FromHex("32eb4a626ac8d1652197519243ef765f")
+    baAad = FromHex("4153434f4e")
+    baInput = FromHex("6173636f6e")
+    CryptoAsconEncryptSliced baKey, baTag, baInput, Nonce:=baNonce, AssociatedData:=baAad
+    Debug.Print ToHex(baInput), ToHex(baTag)
+    '-> 0bb750f67d      36d2c79df1b1343c0202c2997b3b46c3
+    bResult = CryptoAsconDecryptSliced(baKey, baTag, baInput, Nonce:=baNonce, AssociatedData:=baAad)
     Debug.Print ToHex(baInput), bResult
     '-> 6173636f6e      True
     Debug.Assert bResult

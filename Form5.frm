@@ -299,7 +299,7 @@ Private Sub Command10_Click()
     Command10.Caption = "Processing"
     dblTimer = Timer
     For lIdx = 1 To ITER
-        baOutput = CryptoAsconHashByteArray(m_baContents)
+        baOutput = CryptoAsconHashByteArraySliced(m_baContents)
     Next
     Caption = Format$(Timer - dblTimer, "0.000") & " sec"
     Command10.Caption = Format$((UBound(m_baContents) + 1) * ITER / 1024# / 1024# / (Timer - dblTimer), "0.000") & " MB/s"
@@ -312,17 +312,20 @@ Private Sub Command11_Click()
     Dim baTag() As Byte
     Dim baOutput()  As Byte
     Dim dblTimer As Double
+    Dim bResult As Boolean
     
     Command11.Caption = "Processing"
     dblTimer = Timer
     baKey = FromHex("000102030405060708090a0b0c0d0e0f")
     For lIdx = 1 To ITER
         baOutput = m_baContents
-        CryptoAsconEncrypt baKey, baTag, baOutput
+        CryptoAsconEncryptSliced baKey, baTag, baOutput
     Next
+    Command11.Caption = Format$((UBound(m_baContents) + 1) * ITER / 1024# / 1024# / (Timer - dblTimer), "0.000") & " MB/s"
     Caption = Format$(Timer - dblTimer, "0.000") & " sec"
+    dblTimer = Timer
+    bResult = CryptoAsconDecryptSliced(baKey, baTag, baOutput)
+    Caption = Format$(Timer - dblTimer, "0.000") & " sec - " & bResult
     Command11.Caption = Format$((UBound(m_baContents) + 1) * ITER / 1024# / 1024# / (Timer - dblTimer), "0.000") & " MB/s"
 End Sub
-
-
 
