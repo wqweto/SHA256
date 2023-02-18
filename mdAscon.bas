@@ -5,6 +5,7 @@ DefObj A-Z
 
 #Const HasPtrSafe = (VBA7 <> 0)
 #Const HasOperators = (TWINBASIC <> 0)
+#Const DebugState = False
 
 #If HasPtrSafe Then
 Private Declare PtrSafe Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" (Destination As Any, Source As Any, ByVal Length As LongPtr)
@@ -153,6 +154,9 @@ Private Sub pvPermute(uCtx As CryptoAsconContext, ByVal lRounds As Long)
 #End If
     Dim lIdx            As Long
 
+    #If DebugState Then
+        Debug.Print ToHex(uCtx.Bytes), "before permute " & lRounds
+    #End If
     With uCtx
         S0 = ToLngLng(.Words(0))
         S1 = ToLngLng(.Words(1))
@@ -197,6 +201,9 @@ Private Sub pvPermute(uCtx As CryptoAsconContext, ByVal lRounds As Long)
         .Words(3) = FromLngLng(S3)
         .Words(4) = FromLngLng(S4)
     End With
+    #If DebugState Then
+        Debug.Print ToHex(uCtx.Bytes), "after permute " & lRounds
+    #End If
 End Sub
 #Else
 Private Type ArrayLongLong5
