@@ -26,7 +26,6 @@ Module=mdArgon2; mdArgon2.bas
 Module=mdSiphash; mdSiphash.bas
 Module=mdHalfSiphash; mdHalfSiphash.bas
 Module=Module1; Module1.bas
-Module=mdAscon; mdAscon.bas
 Module=mdAsconSliced; mdAsconSliced.bas
 IconForm="Form1"
 Startup="Form1"

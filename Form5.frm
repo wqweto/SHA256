@@ -1,14 +1,22 @@
 VERSION 5.00
 Begin VB.Form Form5 
    Caption         =   "Form5"
-   ClientHeight    =   7224
+   ClientHeight    =   7248
    ClientLeft      =   108
    ClientTop       =   456
    ClientWidth     =   6012
    LinkTopic       =   "Form5"
-   ScaleHeight     =   7224
+   ScaleHeight     =   7248
    ScaleWidth      =   6012
    StartUpPosition =   3  'Windows Default
+   Begin VB.CommandButton Command12 
+      Caption         =   "ChaCha20-Poly1305"
+      Height          =   600
+      Left            =   2940
+      TabIndex        =   12
+      Top             =   6468
+      Width           =   2028
+   End
    Begin VB.CommandButton Command11 
       Caption         =   "Ascon-AEAD"
       Height          =   600
@@ -116,9 +124,9 @@ Option Explicit
 Private m_baContents() As Byte
 
 Private Sub Form_Load()
-    'm_baContents = ReadBinaryFile("D:\TEMP\VirtualBox-6.1.34-150636-Win.exe")
-    'm_baContents = ReadBinaryFile("D:\TEMP\curl-7.86.0_2-win64-mingw.zip")
-    m_baContents = ReadBinaryFile("D:\TEMP\Panels Tutorial.zip")
+    m_baContents = ReadBinaryFile("D:\TEMP\VirtualBox-6.1.34-150636-Win.exe")
+'    m_baContents = ReadBinaryFile("D:\TEMP\curl-7.86.0_2-win64-mingw.zip")
+'    m_baContents = ReadBinaryFile("D:\TEMP\Panels Tutorial.zip")
     Caption = UBound(m_baContents) + 1 & " bytes ready"
 End Sub
 
@@ -299,13 +307,14 @@ Private Sub Command10_Click()
     Command10.Caption = "Processing"
     dblTimer = Timer
     For lIdx = 1 To ITER
-        baOutput = CryptoAsconSlicedHashByteArray(m_baContents)
+        baOutput = CryptoAsconHashByteArray(m_baContents)
     Next
     Caption = Format$(Timer - dblTimer, "0.000") & " sec"
     Command10.Caption = Format$((UBound(m_baContents) + 1) * ITER / 1024# / 1024# / (Timer - dblTimer), "0.000") & " MB/s"
 End Sub
 
 Private Sub Command11_Click()
+    Const AVARIANT As String = "Ascon-128a"
     Const ITER As Long = 1
     Dim lIdx As Long
     Dim baKey() As Byte
@@ -319,12 +328,12 @@ Private Sub Command11_Click()
     baKey = FromHex("000102030405060708090a0b0c0d0e0f")
     For lIdx = 1 To ITER
         baOutput = m_baContents
-        CryptoAsconSlicedEncrypt baKey, baTag, baOutput
+        CryptoAsconEncrypt baKey, baTag, baOutput, AsconVariant:=AVARIANT
     Next
     Command11.Caption = Format$((UBound(m_baContents) + 1) * ITER / 1024# / 1024# / (Timer - dblTimer), "0.000") & " MB/s"
     Caption = Format$(Timer - dblTimer, "0.000") & " sec"
     dblTimer = Timer
-    bResult = CryptoAsconSlicedDecrypt(baKey, baTag, baOutput)
+    bResult = CryptoAsconDecrypt(baKey, baTag, baOutput, AsconVariant:=AVARIANT)
     Caption = Format$(Timer - dblTimer, "0.000") & " sec - " & bResult
     Command11.Caption = Format$((UBound(m_baContents) + 1) * ITER / 1024# / 1024# / (Timer - dblTimer), "0.000") & " MB/s"
 End Sub

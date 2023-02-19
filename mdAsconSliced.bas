@@ -29,6 +29,33 @@ Private Const LNG_HASHSZ                As Long = 32
 Private Const LNG_ROUNDS                As Long = 12
 Private Const LNG_STATESZ               As Long = 40
 Private Const LNG_BLOCKSZ               As Long = 8
+Private Const LNG_POW2_1                As Long = 2 ^ 1
+Private Const LNG_POW2_2                As Long = 2 ^ 2
+Private Const LNG_POW2_3                As Long = 2 ^ 3
+Private Const LNG_POW2_4                As Long = 2 ^ 4
+Private Const LNG_POW2_5                As Long = 2 ^ 5
+Private Const LNG_POW2_8                As Long = 2 ^ 8
+Private Const LNG_POW2_9                As Long = 2 ^ 9
+Private Const LNG_POW2_10               As Long = 2 ^ 10
+Private Const LNG_POW2_11               As Long = 2 ^ 11
+Private Const LNG_POW2_12               As Long = 2 ^ 12
+Private Const LNG_POW2_13               As Long = 2 ^ 13
+Private Const LNG_POW2_14               As Long = 2 ^ 14
+Private Const LNG_POW2_15               As Long = 2 ^ 15
+Private Const LNG_POW2_16               As Long = 2 ^ 16
+Private Const LNG_POW2_17               As Long = 2 ^ 17
+Private Const LNG_POW2_18               As Long = 2 ^ 18
+Private Const LNG_POW2_19               As Long = 2 ^ 19
+Private Const LNG_POW2_20               As Long = 2 ^ 20
+Private Const LNG_POW2_21               As Long = 2 ^ 21
+Private Const LNG_POW2_22               As Long = 2 ^ 22
+Private Const LNG_POW2_23               As Long = 2 ^ 23
+Private Const LNG_POW2_26               As Long = 2 ^ 26
+Private Const LNG_POW2_27               As Long = 2 ^ 27
+Private Const LNG_POW2_28               As Long = 2 ^ 28
+Private Const LNG_POW2_29               As Long = 2 ^ 29
+Private Const LNG_POW2_30               As Long = 2 ^ 30
+Private Const LNG_POW2_31               As Long = &H80000000
 
 Private Type SAFEARRAY1D
     cDims               As Integer
@@ -44,9 +71,9 @@ Private Type ArrayLong10
     Item(0 To 9)        As Long
 End Type
 
-Public Type CryptoAsconSlicedContext
+Public Type CryptoAsconContext
     State               As ArrayLong10
-    Bytes()             As Byte                     '--- overlaying Words array above
+    Bytes()             As Byte                     '--- overlaying State array above
     ArrayBytes          As SAFEARRAY1D
     Absorbed            As Long
     RoundsItermediate   As Long
@@ -60,69 +87,64 @@ Private LNG_RC(0 To 23)             As Long
 Private m_aPeek()                   As Long
 Private m_uArrayPeek                As SAFEARRAY1D
 
-#If Not HasOperators Then
-Private LNG_POW2(0 To 31)           As Long
-
-Private Function RotR32(ByVal lX As Long, ByVal lN As Long) As Long
-    '--- RotR32 = RShift32(X, n) Or LShift32(X, 32 - n)
-    Debug.Assert lN <> 0
-    RotR32 = ((lX And &H7FFFFFFF) \ LNG_POW2(lN) - (lX < 0) * LNG_POW2(31 - lN)) Or _
-        ((lX And (LNG_POW2(lN - 1) - 1)) * LNG_POW2(32 - lN) Or -((lX And LNG_POW2(lN - 1)) <> 0) * &H80000000)
-End Function
-
 Private Function BSwap32(ByVal lX As Long) As Long
-    BSwap32 = (lX And &H7F) * &H1000000 Or (lX And &HFF00&) * &H100 Or (lX And &HFF0000) \ &H100 Or _
-              (lX And &HFF000000) \ &H1000000 And &HFF Or -((lX And &H80) <> 0) * &H80000000
-End Function
-
-Private Function LShift32(ByVal lX As Long, ByVal lN As Long) As Long
-    If lN = 0 Then
-        LShift32 = lX
-    Else
-        LShift32 = (lX And (LNG_POW2(31 - lN) - 1)) * LNG_POW2(lN) Or -((lX And LNG_POW2(31 - lN)) <> 0) * &H80000000
-    End If
-End Function
-
-Private Function RShift32(ByVal lX As Long, ByVal lN As Long) As Long
-    If lN = 0 Then
-        RShift32 = lX
-    Else
-        RShift32 = (lX And &H7FFFFFFF) \ LNG_POW2(lN) Or -(lX < 0) * LNG_POW2(31 - lN)
-    End If
-End Function
-#Else
-Private Function BSwap32(ByVal lX As Long) As Long
-    Return ((lX And &H000000FF&) << 24) Or _
-           ((lX And &H0000FF00&) << 8) Or _
-           ((lX And &H00FF0000&) >> 8) Or _
-           ((lX And &HFF000000&) >> 24)
-End Function
-#End If
-
-Private Function pvBitPerm32(ByVal lX As Long, ByVal lMask As Long, ByVal lN As Long) As Long
-    Dim lTemp           As Long
-    
     #If Not HasOperators Then
-        lTemp = (RShift32(lX, lN) Xor lX) And lMask
-        pvBitPerm32 = (lX Xor lTemp) Xor LShift32(lTemp, lN)
+        BSwap32 = (lX And &H7F) * &H1000000 Or (lX And &HFF00&) * &H100 Or (lX And &HFF0000) \ &H100 Or _
+                  (lX And &HFF000000) \ &H1000000 And &HFF Or -((lX And &H80) <> 0) * &H80000000
     #Else
-        lTemp = ((lX >> lN) Xor lX) And lMask
-        pvBitPerm32 = (lX Xor lTemp) Xor (lTemp << lN)
+        Return ((lX And &H000000FF&) << 24) Or _
+               ((lX And &H0000FF00&) << 8) Or _
+               ((lX And &H00FF0000&) >> 8) Or _
+               ((lX And &HFF000000&) >> 24)
     #End If
 End Function
 
 Private Function pvSeparate(ByVal lX As Long) As Long
-    lX = pvBitPerm32(lX, &H22222222, 1)
-    lX = pvBitPerm32(lX, &HC0C0C0C, 2)
-    lX = pvBitPerm32(lX, &HF000F0, 4)
-    pvSeparate = pvBitPerm32(lX, &HFF00&, 8)
+    Dim lTemp           As Long
+    
+    #If Not HasOperators Then
+        lTemp = (((lX And &H7FFFFFFF) \ LNG_POW2_1 Or -(lX < 0) * LNG_POW2_30) Xor lX) And &H22222222
+        lX = (lX Xor lTemp) Xor ((lTemp And (LNG_POW2_30 - 1)) * LNG_POW2_1 Or -((lTemp And LNG_POW2_30) <> 0) * &H80000000)
+        lTemp = (((lX And &H7FFFFFFF) \ LNG_POW2_2 Or -(lX < 0) * LNG_POW2_29) Xor lX) And &HC0C0C0C
+        lX = (lX Xor lTemp) Xor ((lTemp And (LNG_POW2_29 - 1)) * LNG_POW2_2 Or -((lTemp And LNG_POW2_29) <> 0) * &H80000000)
+        lTemp = (((lX And &H7FFFFFFF) \ LNG_POW2_4 Or -(lX < 0) * LNG_POW2_27) Xor lX) And &HF000F0
+        lX = (lX Xor lTemp) Xor ((lTemp And (LNG_POW2_27 - 1)) * LNG_POW2_4 Or -((lTemp And LNG_POW2_27) <> 0) * &H80000000)
+        lTemp = (((lX And &H7FFFFFFF) \ LNG_POW2_8 Or -(lX < 0) * LNG_POW2_23) Xor lX) And &HFF00&
+        pvSeparate = (lX Xor lTemp) Xor ((lTemp And (LNG_POW2_23 - 1)) * LNG_POW2_8 Or -((lTemp And LNG_POW2_23) <> 0) * &H80000000)
+    #Else
+        lTemp = ((lX >> 1) Xor lX) And &H22222222
+        lX = (lX Xor lTemp) Xor (lTemp << 1)
+        lTemp = ((lX >> 2) Xor lX) And &HC0C0C0C
+        lX = (lX Xor lTemp) Xor (lTemp << 2)
+        lTemp = ((lX >> 4) Xor lX) And &HF000F0
+        lX = (lX Xor lTemp) Xor (lTemp << 4)
+        lTemp = ((lX >> 8) Xor lX) And &HFF00&
+        pvSeparate = (lX Xor lTemp) Xor (lTemp << 8)
+    #End If
 End Function
 
 Private Function pvCombine(ByVal lX As Long) As Long
-    lX = pvBitPerm32(lX, &HAAAA&, 15)
-    lX = pvBitPerm32(lX, &HCCCC&, 14)
-    lX = pvBitPerm32(lX, &HF0F0&, 12)
-    pvCombine = pvBitPerm32(lX, &HFF00&, 8)
+    Dim lTemp           As Long
+    
+    #If Not HasOperators Then
+        lTemp = (((lX And &H7FFFFFFF) \ LNG_POW2_15 Or -(lX < 0) * LNG_POW2_16) Xor lX) And &HAAAA&
+        lX = (lX Xor lTemp) Xor ((lTemp And (LNG_POW2_16 - 1)) * LNG_POW2_15 Or -((lTemp And LNG_POW2_16) <> 0) * &H80000000)
+        lTemp = (((lX And &H7FFFFFFF) \ LNG_POW2_14 Or -(lX < 0) * LNG_POW2_17) Xor lX) And &HCCCC&
+        lX = (lX Xor lTemp) Xor ((lTemp And (LNG_POW2_17 - 1)) * LNG_POW2_14 Or -((lTemp And LNG_POW2_17) <> 0) * &H80000000)
+        lTemp = (((lX And &H7FFFFFFF) \ LNG_POW2_12 Or -(lX < 0) * LNG_POW2_19) Xor lX) And &HF0F0&
+        lX = (lX Xor lTemp) Xor ((lTemp And (LNG_POW2_19 - 1)) * LNG_POW2_12 Or -((lTemp And LNG_POW2_19) <> 0) * &H80000000)
+        lTemp = (((lX And &H7FFFFFFF) \ LNG_POW2_8 Or -(lX < 0) * LNG_POW2_23) Xor lX) And &HFF00&
+        pvCombine = (lX Xor lTemp) Xor ((lTemp And (LNG_POW2_23 - 1)) * LNG_POW2_8 Or -((lTemp And LNG_POW2_23) <> 0) * &H80000000)
+    #Else
+        lTemp = ((lX >> 15) Xor lX) And &HAAAA&
+        lX = (lX Xor lTemp) Xor (lTemp << 15)
+        lTemp = ((lX >> 14) Xor lX) And &HCCCC&
+        lX = (lX Xor lTemp) Xor (lTemp << 14)
+        lTemp = ((lX >> 12) Xor lX) And &HF0F0&
+        lX = (lX Xor lTemp) Xor (lTemp << 12)
+        lTemp = ((lX >> 8) Xor lX) And &HFF00&
+        pvCombine = (lX Xor lTemp) Xor (lTemp << 8)
+    #End If
 End Function
 
 Private Sub pvToSliced(uState As ArrayLong10)
@@ -135,8 +157,8 @@ Private Sub pvToSliced(uState As ArrayLong10)
             lHigh = pvSeparate(BSwap32(.Item(lIdx)))
             lLow = pvSeparate(BSwap32(.Item(lIdx + 1)))
             #If Not HasOperators Then
-                .Item(lIdx) = LShift32(lHigh, 16) Or (lLow And &HFFFF&)
-                .Item(lIdx + 1) = (lHigh And &HFFFF0000) Or RShift32(lLow, 16)
+                .Item(lIdx) = ((lHigh And (LNG_POW2_15 - 1)) * LNG_POW2_16 Or -((lHigh And LNG_POW2_15) <> 0) * &H80000000) Or (lLow And &HFFFF&)
+                .Item(lIdx + 1) = (lHigh And &HFFFF0000) Or ((lLow And &H7FFFFFFF) \ LNG_POW2_16 Or -(lLow < 0) * LNG_POW2_15)
             #Else
                 .Item(lIdx) = (lHigh << 16) Or (lLow And &HFFFF&)
                 .Item(lIdx + 1) = (lHigh And &HFFFF0000) Or (lLow >> 16)
@@ -153,8 +175,8 @@ Private Sub pvFromSliced(uState As ArrayLong10)
     With uState
         For lIdx = 0 To UBound(.Item) Step 2
             #If Not HasOperators Then
-                lHigh = RShift32(.Item(lIdx), 16) Or (.Item(lIdx + 1) And &HFFFF0000)
-                lLow = (.Item(lIdx) And &HFFFF&) Or LShift32(.Item(lIdx + 1), 16)
+                lHigh = ((.Item(lIdx) And &H7FFFFFFF) \ LNG_POW2_16 Or -(.Item(lIdx) < 0) * LNG_POW2_15) Or (.Item(lIdx + 1) And &HFFFF0000)
+                lLow = (.Item(lIdx) And &HFFFF&) Or ((.Item(lIdx + 1) And (LNG_POW2_15 - 1)) * LNG_POW2_16 Or -((.Item(lIdx + 1) And LNG_POW2_15) <> 0) * &H80000000)
             #Else
                 lHigh = (.Item(lIdx) >> 16) Or (.Item(lIdx + 1) And &HFFFF0000)
                 lLow = (.Item(lIdx) And &HFFFF&) Or (.Item(lIdx + 1) << 16)
@@ -175,8 +197,8 @@ Private Sub pvAbsorbSliced(uState As ArrayLong10, ByVal lHigh As Long, ByVal lLo
         lHigh = pvSeparate(BSwap32(lHigh))
         lLow = pvSeparate(BSwap32(lLow))
         #If Not HasOperators Then
-            .Item(lOffset) = .Item(lOffset) Xor (LShift32(lHigh, 16) Or (lLow And &HFFFF&))
-            .Item(lOffset + 1) = .Item(lOffset + 1) Xor ((lHigh And &HFFFF0000) Or RShift32(lLow, 16))
+            .Item(lOffset) = .Item(lOffset) Xor (((lHigh And (LNG_POW2_15 - 1)) * LNG_POW2_16 Or -((lHigh And LNG_POW2_15) <> 0) * &H80000000) Or (lLow And &HFFFF&))
+            .Item(lOffset + 1) = .Item(lOffset + 1) Xor ((lHigh And &HFFFF0000) Or ((lLow And &H7FFFFFFF) \ LNG_POW2_16 Or -(lLow < 0) * LNG_POW2_15))
         #Else
             .Item(lOffset) = .Item(lOffset) Xor ((lHigh << 16) Or (lLow And &HFFFF&))
             .Item(lOffset + 1) = .Item(lOffset + 1) Xor ((lHigh And &HFFFF0000) Or (lLow >> 16))
@@ -191,8 +213,8 @@ Private Sub pvSqueezeSliced(uState As ArrayLong10, lHigh As Long, lLow As Long, 
     lOffset = 2 * lOffset
     With uState
         #If Not HasOperators Then
-            lHigh = RShift32(.Item(lOffset), 16) Or (.Item(lOffset + 1) And &HFFFF0000)
-            lLow = (.Item(lOffset) And &HFFFF&) Or LShift32(.Item(lOffset + 1), 16)
+            lHigh = ((.Item(lOffset) And &H7FFFFFFF) \ LNG_POW2_16 Or -(.Item(lOffset) < 0) * LNG_POW2_15) Or (.Item(lOffset + 1) And &HFFFF0000)
+            lLow = (.Item(lOffset) And &HFFFF&) Or ((.Item(lOffset + 1) And (LNG_POW2_15 - 1)) * LNG_POW2_16 Or -((.Item(lOffset + 1) And LNG_POW2_15) <> 0) * &H80000000)
         #Else
             lHigh = (.Item(lOffset) >> 16) Or (.Item(lOffset + 1) And &HFFFF0000)
             lLow = (.Item(lOffset) And &HFFFF&) Or (.Item(lOffset + 1) << 16)
@@ -211,8 +233,8 @@ Private Sub pvDecryptSliced(uState As ArrayLong10, lHigh As Long, lLow As Long, 
         lHigh2 = pvSeparate(BSwap32(lHigh))
         lLow2 = pvSeparate(BSwap32(lLow))
         #If Not HasOperators Then
-            lHigh = lHigh2 Xor RShift32(.Item(lOffset), 16) Or (.Item(lOffset + 1) And &HFFFF0000)
-            lLow = lLow2 Xor (.Item(lOffset) And &HFFFF&) Or LShift32(.Item(lOffset + 1), 16)
+            lHigh = lHigh2 Xor ((.Item(lOffset) And &H7FFFFFFF) \ LNG_POW2_16 Or -(.Item(lOffset) < 0) * LNG_POW2_15) Or (.Item(lOffset + 1) And &HFFFF0000)
+            lLow = lLow2 Xor (.Item(lOffset) And &HFFFF&) Or ((.Item(lOffset + 1) And (LNG_POW2_15 - 1)) * LNG_POW2_16 Or -((.Item(lOffset + 1) And LNG_POW2_15) <> 0) * &H80000000)
         #Else
             lHigh = lHigh2 Xor (.Item(lOffset) >> 16) Or (.Item(lOffset + 1) And &HFFFF0000)
             lLow = lLow2 Xor (.Item(lOffset) And &HFFFF&) Or (.Item(lOffset + 1) << 16)
@@ -220,8 +242,8 @@ Private Sub pvDecryptSliced(uState As ArrayLong10, lHigh As Long, lLow As Long, 
         lHigh = BSwap32(pvCombine(lHigh))
         lLow = BSwap32(pvCombine(lLow))
         #If Not HasOperators Then
-            .Item(lOffset) = (LShift32(lHigh2, 16) Or (lLow2 And &HFFFF&))
-            .Item(lOffset + 1) = ((lHigh2 And &HFFFF0000) Or RShift32(lLow2, 16))
+            .Item(lOffset) = (((lHigh2 And (LNG_POW2_15 - 1)) * LNG_POW2_16 Or -((lHigh2 And LNG_POW2_15) <> 0) * &H80000000) Or (lLow2 And &HFFFF&))
+            .Item(lOffset + 1) = ((lHigh2 And &HFFFF0000) Or ((lLow2 And &H7FFFFFFF) \ LNG_POW2_16 Or -(lLow2 < 0) * LNG_POW2_15))
         #Else
             .Item(lOffset) = ((lHigh2 << 16) Or (lLow2 And &HFFFF&))
             .Item(lOffset + 1) = ((lHigh2 And &HFFFF0000) Or (lLow2 >> 16))
@@ -292,26 +314,45 @@ Private Sub pvPermuteSliced(uState As ArrayLong10, ByVal lRounds As Long)
             S2_o = Not S2_o
             '--- linear diffusion layer
             #If Not HasOperators Then
-                lTemp0 = S0_e Xor RotR32(S0_o, 4)
-                lTemp1 = S0_o Xor RotR32(S0_e, 5)
-                S0_e = S0_e Xor RotR32(lTemp1, 9)
-                S0_o = S0_o Xor RotR32(lTemp0, 10)
-                lTemp0 = S1_e Xor RotR32(S1_e, 11)
-                lTemp1 = S1_o Xor RotR32(S1_o, 11)
-                S1_e = S1_e Xor RotR32(lTemp1, 19)
-                S1_o = S1_o Xor RotR32(lTemp0, 20)
-                lTemp0 = S2_e Xor RotR32(S2_o, 2)
-                lTemp1 = S2_o Xor RotR32(S2_e, 3)
-                S2_e = S2_e Xor lTemp1
-                S2_o = S2_o Xor RotR32(lTemp0, 1)
-                lTemp0 = S3_e Xor RotR32(S3_o, 3)
-                lTemp1 = S3_o Xor RotR32(S3_e, 4)
-                S3_e = S3_e Xor RotR32(lTemp0, 5)
-                S3_o = S3_o Xor RotR32(lTemp1, 5)
-                lTemp0 = S4_e Xor RotR32(S4_e, 17)
-                lTemp1 = S4_o Xor RotR32(S4_o, 17)
-                S4_e = S4_e Xor RotR32(lTemp1, 3)
-                S4_o = S4_o Xor RotR32(lTemp0, 4)
+                lTemp0 = ((S0_o And &H7FFFFFFF) \ LNG_POW2_4 - (S0_o < 0) * LNG_POW2_27) Or _
+                        ((S0_o And (LNG_POW2_3 - 1)) * LNG_POW2_28 Or -((S0_o And LNG_POW2_3) <> 0) * &H80000000) Xor S0_e
+                lTemp1 = ((S0_e And &H7FFFFFFF) \ LNG_POW2_5 - (S0_e < 0) * LNG_POW2_26) Or _
+                        ((S0_e And (LNG_POW2_4 - 1)) * LNG_POW2_27 Or -((S0_e And LNG_POW2_4) <> 0) * &H80000000) Xor S0_o
+                S0_e = ((lTemp1 And &H7FFFFFFF) \ LNG_POW2_9 - (lTemp1 < 0) * LNG_POW2_22) Or _
+                        ((lTemp1 And (LNG_POW2_8 - 1)) * LNG_POW2_23 Or -((lTemp1 And LNG_POW2_8) <> 0) * &H80000000) Xor S0_e
+                S0_o = ((lTemp0 And &H7FFFFFFF) \ LNG_POW2_10 - (lTemp0 < 0) * LNG_POW2_21) Or _
+                        ((lTemp0 And (LNG_POW2_9 - 1)) * LNG_POW2_22 Or -((lTemp0 And LNG_POW2_9) <> 0) * &H80000000) Xor S0_o
+                lTemp0 = ((S1_e And &H7FFFFFFF) \ LNG_POW2_11 - (S1_e < 0) * LNG_POW2_20) Or _
+                        ((S1_e And (LNG_POW2_10 - 1)) * LNG_POW2_21 Or -((S1_e And LNG_POW2_10) <> 0) * &H80000000) Xor S1_e
+                lTemp1 = ((S1_o And &H7FFFFFFF) \ LNG_POW2_11 - (S1_o < 0) * LNG_POW2_20) Or _
+                        ((S1_o And (LNG_POW2_10 - 1)) * LNG_POW2_21 Or -((S1_o And LNG_POW2_10) <> 0) * &H80000000) Xor S1_o
+                S1_e = ((lTemp1 And &H7FFFFFFF) \ LNG_POW2_19 - (lTemp1 < 0) * LNG_POW2_12) Or _
+                        ((lTemp1 And (LNG_POW2_18 - 1)) * LNG_POW2_13 Or -((lTemp1 And LNG_POW2_18) <> 0) * &H80000000) Xor S1_e
+                S1_o = ((lTemp0 And &H7FFFFFFF) \ LNG_POW2_20 - (lTemp0 < 0) * LNG_POW2_11) Or _
+                        ((lTemp0 And (LNG_POW2_19 - 1)) * LNG_POW2_12 Or -((lTemp0 And LNG_POW2_19) <> 0) * &H80000000) Xor S1_o
+                lTemp0 = ((S2_o And &H7FFFFFFF) \ LNG_POW2_2 - (S2_o < 0) * LNG_POW2_29) Or _
+                        ((S2_o And (LNG_POW2_1 - 1)) * LNG_POW2_30 Or -((S2_o And LNG_POW2_1) <> 0) * &H80000000) Xor S2_e
+                lTemp1 = ((S2_e And &H7FFFFFFF) \ LNG_POW2_3 - (S2_e < 0) * LNG_POW2_28) Or _
+                        ((S2_e And (LNG_POW2_2 - 1)) * LNG_POW2_29 Or -((S2_e And LNG_POW2_2) <> 0) * &H80000000) Xor S2_o
+                S2_e = lTemp1 Xor S2_e
+                S2_o = ((lTemp0 And &H7FFFFFFF) \ LNG_POW2_1 - (lTemp0 < 0) * LNG_POW2_30) Or _
+                        ((lTemp0 And 0) * LNG_POW2_31 Or -((lTemp0 And 1) <> 0) * &H80000000) Xor S2_o
+                lTemp0 = ((S3_o And &H7FFFFFFF) \ LNG_POW2_3 - (S3_o < 0) * LNG_POW2_28) Or _
+                        ((S3_o And (LNG_POW2_2 - 1)) * LNG_POW2_29 Or -((S3_o And LNG_POW2_2) <> 0) * &H80000000) Xor S3_e
+                lTemp1 = ((S3_e And &H7FFFFFFF) \ LNG_POW2_4 - (S3_e < 0) * LNG_POW2_27) Or _
+                        ((S3_e And (LNG_POW2_3 - 1)) * LNG_POW2_28 Or -((S3_e And LNG_POW2_3) <> 0) * &H80000000) Xor S3_o
+                S3_e = ((lTemp0 And &H7FFFFFFF) \ LNG_POW2_5 - (lTemp0 < 0) * LNG_POW2_26) Or _
+                        ((lTemp0 And (LNG_POW2_4 - 1)) * LNG_POW2_27 Or -((lTemp0 And LNG_POW2_4) <> 0) * &H80000000) Xor S3_e
+                S3_o = ((lTemp1 And &H7FFFFFFF) \ LNG_POW2_5 - (lTemp1 < 0) * LNG_POW2_26) Or _
+                        ((lTemp1 And (LNG_POW2_4 - 1)) * LNG_POW2_27 Or -((lTemp1 And LNG_POW2_4) <> 0) * &H80000000) Xor S3_o
+                lTemp0 = ((S4_e And &H7FFFFFFF) \ LNG_POW2_17 - (S4_e < 0) * LNG_POW2_14) Or _
+                        ((S4_e And (LNG_POW2_16 - 1)) * LNG_POW2_15 Or -((S4_e And LNG_POW2_16) <> 0) * &H80000000) Xor S4_e
+                lTemp1 = ((S4_o And &H7FFFFFFF) \ LNG_POW2_17 - (S4_o < 0) * LNG_POW2_14) Or _
+                        ((S4_o And (LNG_POW2_16 - 1)) * LNG_POW2_15 Or -((S4_o And LNG_POW2_16) <> 0) * &H80000000) Xor S4_o
+                S4_e = ((lTemp1 And &H7FFFFFFF) \ LNG_POW2_3 - (lTemp1 < 0) * LNG_POW2_28) Or _
+                        ((lTemp1 And (LNG_POW2_2 - 1)) * LNG_POW2_29 Or -((lTemp1 And LNG_POW2_2) <> 0) * &H80000000) Xor S4_e
+                S4_o = ((lTemp0 And &H7FFFFFFF) \ LNG_POW2_4 - (lTemp0 < 0) * LNG_POW2_27) Or _
+                        ((lTemp0 And (LNG_POW2_3 - 1)) * LNG_POW2_28 Or -((lTemp0 And LNG_POW2_3) <> 0) * &H80000000) Xor S4_o
             #Else
                 lTemp0 = S0_e Xor (S0_o >> 4 Or S0_o << 28)
                 lTemp1 = S0_o Xor (S0_e >> 5 Or S0_e << 27)
@@ -361,7 +402,7 @@ Private Sub pvInitPeek(uArray As SAFEARRAY1D, baInput() As Byte, Optional ByVal 
     End With
 End Sub
 
-Private Function pvDumpState(uCtx As CryptoAsconSlicedContext) As String
+Private Function pvDumpState(uCtx As CryptoAsconContext) As String
     Dim uCopy           As ArrayLong10
     
     uCopy = uCtx.State
@@ -370,22 +411,13 @@ Private Function pvDumpState(uCtx As CryptoAsconSlicedContext) As String
     uCtx.State = uCopy
 End Function
 
-Private Sub pvInit(uCtx As CryptoAsconSlicedContext)
+Private Sub pvInit(uCtx As CryptoAsconContext)
     Const FADF_AUTO     As Long = 1
     Dim lIdx            As Long
     Dim vElem           As Variant
-    Dim uEmpty          As CryptoAsconSlicedContext
+    Dim uEmpty          As CryptoAsconContext
     Dim pDummy          As LongPtr
     
-    #If Not HasOperators Then
-        If LNG_POW2(0) = 0 Then
-            LNG_POW2(0) = 1
-            For lIdx = 1 To 30
-                LNG_POW2(lIdx) = CVar(LNG_POW2(lIdx - 1)) * 2
-            Next
-            LNG_POW2(31) = &H80000000
-        End If
-    #End If
     If LNG_RC(0) = 0 Then
         lIdx = 0
         For Each vElem In Split("12 12 9 12 12 9 9 9 6 12 3 12 6 9 3 9 12 6 9 6 12 3 9 3")
@@ -414,7 +446,7 @@ Private Sub pvInit(uCtx As CryptoAsconSlicedContext)
     End With
 End Sub
 
-Private Sub pvInitHash(uCtx As CryptoAsconSlicedContext, Optional AsconVariant As String)
+Private Sub pvInitHash(uCtx As CryptoAsconContext, Optional AsconVariant As String)
     Dim sState          As Variant
     Dim vElem           As Variant
     Dim lIdx            As Long
@@ -449,7 +481,7 @@ Private Sub pvInitHash(uCtx As CryptoAsconSlicedContext, Optional AsconVariant A
     End With
 End Sub
 
-Private Sub pvInitAead(uCtx As CryptoAsconSlicedContext, baKey() As Byte, Nonce As Variant, AssociatedData As Variant, AsconVariant As String, Optional ByVal Encrypt As Boolean)
+Private Sub pvInitAead(uCtx As CryptoAsconContext, baKey() As Byte, Nonce As Variant, AssociatedData As Variant, AsconVariant As String, Optional ByVal Encrypt As Boolean)
     Dim baNonce()       As Byte
     Dim baAad()         As Byte
     Dim lKeySize        As Long
@@ -517,7 +549,7 @@ Private Sub pvInitAead(uCtx As CryptoAsconSlicedContext, baKey() As Byte, Nonce 
     End With
 End Sub
 
-Private Sub pvUpdate(uCtx As CryptoAsconSlicedContext, baInput() As Byte, ByVal Pos As Long, ByVal Size As Long, Optional ByVal Aead As Boolean, Optional ByVal Final As Long)
+Private Sub pvUpdate(uCtx As CryptoAsconContext, baBuffer() As Byte, ByVal Pos As Long, ByVal Size As Long, Optional ByVal Aead As Boolean, Optional ByVal Final As Long)
     Dim aTemp(0 To 3)   As Long
     Dim aLongs(0 To 3)  As Long
     Dim lIdx            As Long
@@ -526,7 +558,7 @@ Private Sub pvUpdate(uCtx As CryptoAsconSlicedContext, baInput() As Byte, ByVal 
     Dim bDecrypt        As Boolean
 
     If Size < 0 Then
-        Size = UBound(baInput) + 1 - Pos
+        Size = UBound(baBuffer) + 1 - Pos
     End If
     With uCtx
         If Aead Then
@@ -538,8 +570,8 @@ Private Sub pvUpdate(uCtx As CryptoAsconSlicedContext, baInput() As Byte, ByVal 
             If lTemp > Size Then
                 lTemp = Size
             End If
-            Debug.Assert UBound(baInput) + 1 >= Pos + lTemp
-            Call CopyMemory(ByVal VarPtr(aTemp(0)) + .Absorbed, baInput(Pos), lTemp)
+            Debug.Assert UBound(baBuffer) + 1 >= Pos + lTemp
+            Call CopyMemory(ByVal VarPtr(aTemp(0)) + .Absorbed, baBuffer(Pos), lTemp)
             pvAbsorbSliced .State, aTemp(0), aTemp(1), 0
             If .Rate > LNG_BLOCKSZ Then
                 pvAbsorbSliced .State, aTemp(2), aTemp(3), 1
@@ -553,7 +585,7 @@ Private Sub pvUpdate(uCtx As CryptoAsconSlicedContext, baInput() As Byte, ByVal 
             Size = Size - lTemp
         End If
         If Size > 0 Then
-            pvInitPeek m_uArrayPeek, baInput, Pos, Size
+            pvInitPeek m_uArrayPeek, baBuffer, Pos, Size
             If .Rate = LNG_BLOCKSZ Then
                 For lIdx = 0 To UBound(m_aPeek) - 1 Step 2
                     If bDecrypt Then
@@ -585,8 +617,8 @@ Private Sub pvUpdate(uCtx As CryptoAsconSlicedContext, baInput() As Byte, ByVal 
             .Absorbed = Size - lIdx * 4
             lIdx = Pos + lIdx * 4
             If .Absorbed > 0 Then
-                Debug.Assert UBound(baInput) + 1 >= lIdx + .Absorbed
-                Call CopyMemory(aLongs(0), baInput(lIdx), .Absorbed)
+                Debug.Assert UBound(baBuffer) + 1 >= lIdx + .Absorbed
+                Call CopyMemory(aLongs(0), baBuffer(lIdx), .Absorbed)
             End If
         End If
         Debug.Assert .Absorbed < .Rate
@@ -617,8 +649,8 @@ Private Sub pvUpdate(uCtx As CryptoAsconSlicedContext, baInput() As Byte, ByVal 
                             pvSqueezeSliced .State, aLongs(2), aLongs(3), 1
                         End If
                     End If
-                    Debug.Assert UBound(baInput) + 1 >= lIdx + .Absorbed
-                    Call CopyMemory(baInput(lIdx), aLongs(0), .Absorbed)
+                    Debug.Assert UBound(baBuffer) + 1 >= lIdx + .Absorbed
+                    Call CopyMemory(baBuffer(lIdx), aLongs(0), .Absorbed)
                 End If
                 pvInitPeek m_uArrayPeek, .Key
                 pvAbsorbSliced .State, m_aPeek(0), m_aPeek(1), 1
@@ -629,7 +661,7 @@ Private Sub pvUpdate(uCtx As CryptoAsconSlicedContext, baInput() As Byte, ByVal 
             End If
             pvPermuteSliced .State, Final
         ElseIf .Absorbed > 0 Then
-            Call CopyMemory(aLongs(0), baInput(lIdx), .Absorbed)
+            Call CopyMemory(aLongs(0), baBuffer(lIdx), .Absorbed)
             pvAbsorbSliced .State, aLongs(0), aLongs(1), 0
             If .Rate > LNG_BLOCKSZ Then
                 pvAbsorbSliced .State, aLongs(2), aLongs(3), 1
@@ -638,12 +670,12 @@ Private Sub pvUpdate(uCtx As CryptoAsconSlicedContext, baInput() As Byte, ByVal 
     End With
 End Sub
 
-Private Sub pvFinalizeHash(uCtx As CryptoAsconSlicedContext, baOutput() As Byte, Optional ByVal OutSize As Long)
+Private Sub pvFinalizeHash(uCtx As CryptoAsconContext, baOutput() As Byte, Optional ByVal OutSize As Long)
     Dim aTemp(0 To 1)   As Long
     Dim lIdx            As Long
     Dim lSize           As Long
     Dim pDummy          As LongPtr
-    Dim uEmpty          As CryptoAsconSlicedContext
+    Dim uEmpty          As CryptoAsconContext
 
     If OutSize <= 0 Then
         OutSize = LNG_HASHSZ
@@ -664,10 +696,10 @@ Private Sub pvFinalizeHash(uCtx As CryptoAsconSlicedContext, baOutput() As Byte,
     uCtx = uEmpty
 End Sub
 
-Private Sub pvFinalizeAead(uCtx As CryptoAsconSlicedContext, baOutput() As Byte)
+Private Sub pvFinalizeAead(uCtx As CryptoAsconContext, baOutput() As Byte)
     Dim lIdx            As Long
     Dim pDummy          As LongPtr
-    Dim uEmpty          As CryptoAsconSlicedContext
+    Dim uEmpty          As CryptoAsconContext
     
     With uCtx
         pvInitPeek m_uArrayPeek, .Key
@@ -718,51 +750,51 @@ Private Function ToHex(baData() As Byte) As String
     Next
 End Function
 
-Public Sub CryptoAsconSlicedHashInit(uCtx As CryptoAsconSlicedContext, Optional AsconVariant As String)
+Public Sub CryptoAsconHashInit(uCtx As CryptoAsconContext, Optional AsconVariant As String)
     pvInitHash uCtx, AsconVariant
 End Sub
 
-Public Sub CryptoAsconSlicedHashUpdate(uCtx As CryptoAsconSlicedContext, baInput() As Byte, Optional ByVal Pos As Long, Optional ByVal Size As Long = -1)
+Public Sub CryptoAsconHashUpdate(uCtx As CryptoAsconContext, baInput() As Byte, Optional ByVal Pos As Long, Optional ByVal Size As Long = -1)
     pvUpdate uCtx, baInput, Pos, Size
 End Sub
 
-Public Sub CryptoAsconSlicedHashFinalize(uCtx As CryptoAsconSlicedContext, baOutput() As Byte, Optional ByVal OutSize As Long)
+Public Sub CryptoAsconHashFinalize(uCtx As CryptoAsconContext, baOutput() As Byte, Optional ByVal OutSize As Long)
     pvUpdate uCtx, uCtx.Bytes, 0, 0, Final:=uCtx.RoundsFinal
     pvFinalizeHash uCtx, baOutput, OutSize
 End Sub
 
-Public Function CryptoAsconSlicedHashByteArray(baInput() As Byte, Optional ByVal Pos As Long, Optional ByVal Size As Long = -1, Optional AsconVariant As String, Optional OutSize As Long) As Byte()
-    Dim uCtx            As CryptoAsconSlicedContext
+Public Function CryptoAsconHashByteArray(baInput() As Byte, Optional ByVal Pos As Long, Optional ByVal Size As Long = -1, Optional AsconVariant As String, Optional OutSize As Long) As Byte()
+    Dim uCtx            As CryptoAsconContext
     
     pvInitHash uCtx, AsconVariant
     pvUpdate uCtx, baInput, Pos, Size, Final:=uCtx.RoundsFinal
-    pvFinalizeHash uCtx, CryptoAsconSlicedHashByteArray, OutSize
+    pvFinalizeHash uCtx, CryptoAsconHashByteArray, OutSize
 End Function
 
-Public Function CryptoAsconSlicedHashText(sText As String, Optional AsconVariant As String) As String
-    CryptoAsconSlicedHashText = ToHex(CryptoAsconSlicedHashByteArray(ToUtf8Array(sText), AsconVariant:=AsconVariant))
+Public Function CryptoAsconHashText(sText As String, Optional AsconVariant As String) As String
+    CryptoAsconHashText = ToHex(CryptoAsconHashByteArray(ToUtf8Array(sText), AsconVariant:=AsconVariant))
 End Function
 
-Public Sub CryptoAsconSlicedEncrypt(baKey() As Byte, baTag() As Byte, _
-            baInput() As Byte, Optional ByVal Pos As Long, Optional ByVal Size As Long = -1, _
+Public Sub CryptoAsconEncrypt(baKey() As Byte, baTag() As Byte, _
+            baBuffer() As Byte, Optional ByVal Pos As Long, Optional ByVal Size As Long = -1, _
             Optional Nonce As Variant, Optional AssociatedData As Variant, Optional AsconVariant As String)
-    Dim uCtx            As CryptoAsconSlicedContext
+    Dim uCtx            As CryptoAsconContext
     
     pvInitAead uCtx, baKey, Nonce, AssociatedData, AsconVariant, Encrypt:=True
-    pvUpdate uCtx, baInput, Pos, Size, Aead:=True, Final:=uCtx.RoundsFinal
+    pvUpdate uCtx, baBuffer, Pos, Size, Aead:=True, Final:=uCtx.RoundsFinal
     pvFinalizeAead uCtx, baTag
 End Sub
 
-Public Function CryptoAsconSlicedDecrypt(baKey() As Byte, baTag() As Byte, _
-            baInput() As Byte, Optional ByVal Pos As Long, Optional ByVal Size As Long = -1, _
+Public Function CryptoAsconDecrypt(baKey() As Byte, baTag() As Byte, _
+            baBuffer() As Byte, Optional ByVal Pos As Long, Optional ByVal Size As Long = -1, _
             Optional Nonce As Variant, Optional AssociatedData As Variant, Optional AsconVariant As String) As Boolean
-    Dim uCtx            As CryptoAsconSlicedContext
+    Dim uCtx            As CryptoAsconContext
     Dim baTemp()        As Byte
 
     pvInitAead uCtx, baKey, Nonce, AssociatedData, AsconVariant
-    pvUpdate uCtx, baInput, Pos, Size, Aead:=True, Final:=uCtx.RoundsFinal
+    pvUpdate uCtx, baBuffer, Pos, Size, Aead:=True, Final:=uCtx.RoundsFinal
     pvFinalizeAead uCtx, baTemp
     If UBound(baTemp) = UBound(baTag) Then
-        CryptoAsconSlicedDecrypt = (InStrB(baTemp, baTag) = 1)
+        CryptoAsconDecrypt = (InStrB(baTemp, baTag) = 1)
     End If
 End Function
