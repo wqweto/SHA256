@@ -20,7 +20,6 @@ Option Explicit
 Private Sub Form_Load()
     pvTestMd5
     pvTestSha1
-    Exit Sub
     pvTestBase64
     pvTestChaCha20
     pvTestPoly1305
@@ -67,7 +66,7 @@ Private Sub pvTestChaCha20()
     ReDim baText(0 To 249)
     CryptoChaCha20Init uCtx, baKey, baNonce
     CryptoChaCha20Cipher uCtx, baText
-    Debug.Print ToHex(baText)
+    Debug.Assert ToHex(baText) = "f798a189f195e66982105ffb640bb7757f579da31602fc93ec01ac56f85ac3c134a4547b733b46413042c9440049176905d3be59ea1c53f15916155c2be8241a38008b9a26bc35941e2444177c8ade6689de95264986d95889fb60e84629c9bd9a5acb1cc118be563eb9b3a4a472f82e09a7e778492b562ef7130e88dfe031c79db9d4f7c7a899151b9a475032b63fc385245fe054e3dd5a97a5f576fe064025d3ce042c566ab2c507b138db853e3d6959660996546cc9c4a6eafdc777c040d70eaf46f76dad3979e5c5360c3317166a1c894c94a371876a94df7628fe4eaaf2ccb27d5aaae0ad7ad0f9d4b6ad3b54098746d4524d38407a6deb"
     '-> f798a189f195e66982105ffb640bb7757f579da31602fc93ec01ac56f85ac3c134a4547b733b46413042c9440049176905d3be59ea1c53f15916155c2be8241a38008b9a26bc35941e2444177c8ade6689de95264986d95889fb60e84629c9bd9a5acb1cc118be563eb9b3a4a472f82e09a7e778492b562ef7130e88dfe031c79db9d4f7c7a899151b9a475032b63fc385245fe054e3dd5a97a5f576fe064025d3ce042c566ab2c507b138db853e3d6959660996546cc9c4a6eafdc777c040d70eaf46f76dad3979e5c5360c3317166a1c894c94a371876a94df7628fe4eaaf2ccb27d5aaae0ad7ad0f9d4b6ad3b54098746d4524d38407a6deb
 End Sub
 
@@ -119,7 +118,7 @@ Private Sub pvTestChaCha20Poly1305(oJson As Object)
             baEncr = FromHex(JsonValue(oTest, "ct"))
             baCheckTag = FromHex(JsonValue(oTest, "tag"))
             sResult = "valid"
-            If Not CryptoChaCha20Poly1305Encrypt(baKey, baIV, baAad, baTag, baBuffer) Then
+            If Not CryptoChaCha20Poly1305Encrypt(baKey, baTag, baBuffer, Nonce:=baIV, AssociatedData:=baAad) Then
                 sResult = "invalid"
             End If
             If Not pvArrayEqual(baBuffer, baEncr) Then
@@ -139,7 +138,7 @@ Private Sub pvTestChaCha20Poly1305(oJson As Object)
             baDecr = FromHex(JsonValue(oTest, "msg"))
             baTag = FromHex(JsonValue(oTest, "tag"))
             sResult = "valid"
-            If Not CryptoChaCha20Poly1305Decrypt(baKey, baIV, baAad, baTag, baBuffer) Then
+            If Not CryptoChaCha20Poly1305Decrypt(baKey, baTag, baBuffer, Nonce:=baIV, AssociatedData:=baAad) Then
                 sResult = "invalid"
             End If
             If Not pvArrayEqual(baBuffer, baDecr) Then

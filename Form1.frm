@@ -569,12 +569,12 @@ Private Sub Form_Load()
 '    pvTestPbkdf2HmacSha1
 '    pvTestPbkdf2HmacSha2
 '    pvTestScryptKdf
-    pvTestRipeMd160
-    pvTestHkdfSha2
-    pvTestSha3
-    pvTestSha512
-    pvTestCryptoEd25519
-    pvTestHmacSha2 JsonParseObject(ReadTextFile("C:\Work\Temp\wycheproof\testvectors\hmac_sha512_test.json")), 512
-    pvTestHmacSha2 JsonParseObject(ReadTextFile("C:\Work\Temp\wycheproof\testvectors\hmac_sha384_test.json")), 384
-    pvTestHmacSha2 JsonParseObject(ReadTextFile("C:\Work\Temp\wycheproof\testvectors\hmac_sha256_test.json")), 256
+'    pvTestRipeMd160
+'    pvTestHkdfSha2
+'    pvTestSha3
+'    pvTestSha512
+'    pvTestCryptoEd25519
+'    pvTestHmacSha2 JsonParseObject(ReadTextFile("C:\Work\Temp\wycheproof\testvectors\hmac_sha512_test.json")), 512
+'    pvTestHmacSha2 JsonParseObject(ReadTextFile("C:\Work\Temp\wycheproof\testvectors\hmac_sha384_test.json")), 384
+'    pvTestHmacSha2 JsonParseObject(ReadTextFile("C:\Work\Temp\wycheproof\testvectors\hmac_sha256_test.json")), 256
 End Sub

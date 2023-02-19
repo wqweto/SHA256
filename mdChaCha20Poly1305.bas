@@ -4,6 +4,7 @@ Option Explicit
 DefObj A-Z
 
 #Const HasPtrSafe = (VBA7 <> 0)
+#Const HasOperators = (TWINBASIC <> 0)
 
 #If HasPtrSafe Then
 Private Declare PtrSafe Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" (Destination As Any, Source As Any, ByVal Length As LongPtr)
@@ -11,7 +12,28 @@ Private Declare PtrSafe Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" (Des
 Private Declare Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" (Destination As Any, Source As Any, ByVal Length As Long)
 #End If
 
-Private LNG_POW2(0 To 31)   As Long
+Private Const LNG_KEYSZ                 As Long = 32
+Private Const LNG_BLOCKSZ               As Long = 64
+Private Const LNG_NONCESZ               As Long = 12
+Private Const LNG_MACKEYSZ              As Long = 32
+Private Const LNG_MACBLOCKSZ            As Long = 16
+Private Const LNG_POW2_6                As Long = 2 ^ 6
+Private Const LNG_POW2_7                As Long = 2 ^ 7
+Private Const LNG_POW2_8                As Long = 2 ^ 8
+Private Const LNG_POW2_11               As Long = 2 ^ 11
+Private Const LNG_POW2_12               As Long = 2 ^ 12
+Private Const LNG_POW2_15               As Long = 2 ^ 15
+Private Const LNG_POW2_16               As Long = 2 ^ 16
+Private Const LNG_POW2_19               As Long = 2 ^ 19
+Private Const LNG_POW2_20               As Long = 2 ^ 20
+Private Const LNG_POW2_23               As Long = 2 ^ 23
+Private Const LNG_POW2_24               As Long = 2 ^ 24
+Private Const LNG_POW2_25               As Long = 2 ^ 25
+Private Const LNG_POW2_31               As Long = &H80000000
+
+Private Type ArrayLong17
+    Item(0 To 16)       As Long
+End Type
 
 Public Type CryptoChaCha20Context
     Constant(0 To 3)    As Long
@@ -22,25 +44,15 @@ Public Type CryptoChaCha20Context
     NCounter            As Long
 End Type
 
-Private Type FieldElement
-    Item(0 To 16)       As Long
-End Type
-
 Public Type CryptoPoly1305Context
-    H                   As FieldElement
-    R                   As FieldElement
+    H                   As ArrayLong17
+    R                   As ArrayLong17
     S(0 To 15)          As Byte
     Partial(0 To 15)    As Byte
     NPartial            As Long
 End Type
 
-Private Function RotL32(ByVal lX As Long, ByVal lN As Long) As Long
-    '--- RotL32 = LShift(X, n) Or RShift(X, 32 - n)
-    Debug.Assert lN <> 0
-    RotL32 = ((lX And (LNG_POW2(31 - lN) - 1)) * LNG_POW2(lN) Or -((lX And LNG_POW2(31 - lN)) <> 0) * LNG_POW2(31)) Or _
-        ((lX And (LNG_POW2(31) Xor -1)) \ LNG_POW2(32 - lN) Or -(lX < 0) * LNG_POW2(lN - 1))
-End Function
-
+#If Not HasOperators Then
 Private Function UAdd32(ByVal lX As Long, ByVal lY As Long) As Long
     If (lX Xor lY) >= 0 Then
         UAdd32 = ((lX Xor &H80000000) + lY) Xor &H80000000
@@ -49,25 +61,53 @@ Private Function UAdd32(ByVal lX As Long, ByVal lY As Long) As Long
     End If
 End Function
 
-Private Sub pvInit()
-    Dim lIdx            As Long
-    
-    If LNG_POW2(0) = 0 Then
-        LNG_POW2(0) = 1
-        For lIdx = 1 To 30
-            LNG_POW2(lIdx) = LNG_POW2(lIdx - 1) * 2
-        Next
-        LNG_POW2(31) = &H80000000
-    End If
-End Sub
-
 Private Sub pvChaCha20Quarter(lA As Long, lB As Long, lC As Long, lD As Long)
-    lA = UAdd32(lA, lB): lD = RotL32(lD Xor lA, 16)
-    lC = UAdd32(lC, lD): lB = RotL32(lB Xor lC, 12)
-    lA = UAdd32(lA, lB): lD = RotL32(lD Xor lA, 8)
-    lC = UAdd32(lC, lD): lB = RotL32(lB Xor lC, 7)
+    If (lA Xor lB) >= 0 Then
+        lA = ((lA Xor &H80000000) + lB) Xor &H80000000
+    Else
+        lA = lA + lB
+    End If
+    lD = lD Xor lA
+    lD = ((lD And (LNG_POW2_15 - 1)) * LNG_POW2_16 Or -((lD And LNG_POW2_15) <> 0) * LNG_POW2_31) Or _
+         ((lD And (LNG_POW2_31 Xor -1)) \ LNG_POW2_16 Or -(lD < 0) * LNG_POW2_15)
+    If (lC Xor lD) >= 0 Then
+        lC = ((lC Xor &H80000000) + lD) Xor &H80000000
+    Else
+        lC = lC + lD
+    End If
+    lB = lB Xor lC
+    lB = ((lB And (LNG_POW2_19 - 1)) * LNG_POW2_12 Or -((lB And LNG_POW2_19) <> 0) * LNG_POW2_31) Or _
+         ((lB And (LNG_POW2_31 Xor -1)) \ LNG_POW2_20 Or -(lB < 0) * LNG_POW2_11)
+    If (lA Xor lB) >= 0 Then
+        lA = ((lA Xor &H80000000) + lB) Xor &H80000000
+    Else
+        lA = lA + lB
+    End If
+    lD = lD Xor lA
+    lD = ((lD And (LNG_POW2_23 - 1)) * LNG_POW2_8 Or -((lD And LNG_POW2_23) <> 0) * LNG_POW2_31) Or _
+         ((lD And (LNG_POW2_31 Xor -1)) \ LNG_POW2_24 Or -(lD < 0) * LNG_POW2_7)
+    If (lC Xor lD) >= 0 Then
+        lC = ((lC Xor &H80000000) + lD) Xor &H80000000
+    Else
+        lC = lC + lD
+    End If
+    lB = lB Xor lC
+    lB = ((lB And (LNG_POW2_24 - 1)) * LNG_POW2_7 Or -((lB And LNG_POW2_24) <> 0) * LNG_POW2_31) Or _
+         ((lB And (LNG_POW2_31 Xor -1)) \ LNG_POW2_25 Or -(lB < 0) * LNG_POW2_6)
 End Sub
+#Else
+[ IntegerOverflowChecks (False) ]
+Private Sub pvChaCha20Quarter(lA As Long, lB As Long, lC As Long, lD As Long)
+    lA += lB: lD = ((lD Xor lA) << 16) Or ((lD Xor lA) >> 16)
+    lC += lD: lB = ((lB Xor lC) << 12) Or ((lB Xor lC) >> 20)
+    lA += lB: lD = ((lD Xor lA) << 8) Or ((lD Xor lA) >> 24)
+    lC += lD: lB = ((lB Xor lC) << 7) Or ((lB Xor lC) >> 25)
+End Sub
+#End If
 
+#If HasOperators Then
+[ IntegerOverflowChecks (False) ]
+#End If
 Private Sub pvChaCha20Core(uCtx As CryptoChaCha20Context, baOutput() As Byte)
     Static lZ(0 To 15)  As Long
     Static lX(0 To 15)  As Long
@@ -86,7 +126,11 @@ Private Sub pvChaCha20Core(uCtx As CryptoChaCha20Context, baOutput() As Byte)
         pvChaCha20Quarter lZ(3), lZ(4), lZ(9), lZ(14)
     Next
     For lIdx = 0 To 15
-        lX(lIdx) = UAdd32(lX(lIdx), lZ(lIdx))
+        #If Not HasOperators Then
+            lX(lIdx) = UAdd32(lX(lIdx), lZ(lIdx))
+        #Else
+            lX(lIdx) += lZ(lIdx)
+        #End If
     Next
     Call CopyMemory(baOutput(0), lX(0), 16 * 4)
 End Sub
@@ -97,7 +141,6 @@ Public Sub CryptoChaCha20Init(uCtx As CryptoChaCha20Context, baKey() As Byte, ba
     
     Debug.Assert UBound(baKey) + 1 = 16 Or UBound(baKey) + 1 = 32
     With uCtx
-        pvInit
         If UBound(baKey) = 31 Then
             Call CopyMemory(.Key(0), baKey(0), 32)
             sConstant = "expand 32-byte k"
@@ -118,8 +161,10 @@ Public Sub CryptoChaCha20Init(uCtx As CryptoChaCha20Context, baKey() As Byte, ba
     End With
 End Sub
 
+#If HasOperators Then
+[ IntegerOverflowChecks (False) ]
+#End If
 Public Sub CryptoChaCha20Cipher(uCtx As CryptoChaCha20Context, baInput() As Byte, Optional ByVal Pos As Long, Optional ByVal Size As Long = -1)
-    Const BLOCKSZ       As Long = 64
     Dim lOffset         As Long
     Dim lTaken          As Long
     Dim lIdx            As Long
@@ -132,14 +177,18 @@ Public Sub CryptoChaCha20Cipher(uCtx As CryptoChaCha20Context, baInput() As Byte
             If .NBlock = 0 Then
                 pvChaCha20Core uCtx, .Block
                 For lIdx = 0 To .NCounter - 1
-                    uCtx.Nonce(lIdx) = UAdd32(uCtx.Nonce(lIdx), 1)
+                    #If Not HasOperators Then
+                        uCtx.Nonce(lIdx) = UAdd32(uCtx.Nonce(lIdx), 1)
+                    #Else
+                        uCtx.Nonce(lIdx) += 1
+                    #End If
                     If uCtx.Nonce(lIdx) <> 0 Then
                         Exit For
                     End If
                 Next
-                .NBlock = BLOCKSZ
+                .NBlock = LNG_BLOCKSZ
             End If
-            lOffset = BLOCKSZ - .NBlock
+            lOffset = LNG_BLOCKSZ - .NBlock
             lTaken = .NBlock
             If Size < lTaken Then
                 lTaken = Size
@@ -157,7 +206,7 @@ End Sub
 
 '= Poly1305 ==============================================================
 
-Private Sub pvPoly1305Add(uX As FieldElement, uY As FieldElement)
+Private Sub pvPoly1305Add(uX As ArrayLong17, uY As ArrayLong17)
     Dim lIdx            As Long
     Dim lCarry          As Long
     
@@ -168,11 +217,11 @@ Private Sub pvPoly1305Add(uX As FieldElement, uY As FieldElement)
     Next
 End Sub
 
-Private Sub pvPoly1305Mul(uX As FieldElement, uY As FieldElement)
+Private Sub pvPoly1305Mul(uX As ArrayLong17, uY As ArrayLong17)
     Dim lIdx            As Long
     Dim lJdx            As Long
     Dim lAccum          As Long
-    Dim uR              As FieldElement
+    Dim uR              As ArrayLong17
     
     For lIdx = 0 To 16
         For lJdx = 0 To 16
@@ -189,7 +238,7 @@ Private Sub pvPoly1305Mul(uX As FieldElement, uY As FieldElement)
     uX = uR
 End Sub
 
-Private Sub pvPoly1305MinReduce(uX As FieldElement)
+Private Sub pvPoly1305MinReduce(uX As ArrayLong17)
     Dim lIdx            As Long
     Dim lCarry          As Long
     
@@ -209,10 +258,10 @@ Private Sub pvPoly1305MinReduce(uX As FieldElement)
     uX.Item(16) = lCarry + uX.Item(16)
 End Sub
 
-Private Sub pvPoly1305FullReduce(uX As FieldElement)
+Private Sub pvPoly1305FullReduce(uX As ArrayLong17)
     Dim lIdx            As Long
-    Dim uSub            As FieldElement
-    Dim uNeg            As FieldElement '-> -(2^130-5)
+    Dim uSub            As ArrayLong17
+    Dim uNeg            As ArrayLong17 '-> -(2^130-5)
     Dim lMask           As Long
     
     uSub = uX
@@ -227,7 +276,7 @@ End Sub
 
 Private Sub pvPoly1305Block(uCtx As CryptoPoly1305Context, baBuffer() As Byte, ByVal lPos As Long, ByVal lSize As Long)
     Dim lIdx            As Long
-    Dim uX              As FieldElement
+    Dim uX              As ArrayLong17
     
     For lIdx = 0 To lSize - 1
         uX.Item(lIdx) = baBuffer(lPos + lIdx)
@@ -238,10 +287,9 @@ Private Sub pvPoly1305Block(uCtx As CryptoPoly1305Context, baBuffer() As Byte, B
 End Sub
 
 Public Sub CryptoPoly1305Init(uCtx As CryptoPoly1305Context, baKey() As Byte)
-    Const KEYSZ         As Long = 32
     Dim lIdx            As Long
     
-    Debug.Assert UBound(baKey) + 1 = KEYSZ
+    Debug.Assert UBound(baKey) + 1 = LNG_KEYSZ
     With uCtx
         For lIdx = 0 To UBound(.H.Item)
             .H.Item(lIdx) = 0
@@ -256,13 +304,12 @@ Public Sub CryptoPoly1305Init(uCtx As CryptoPoly1305Context, baKey() As Byte)
                 .R.Item(lIdx) = baKey(lIdx)
             End Select
         Next
-        Call CopyMemory(.S(0), baKey(KEYSZ \ 2), KEYSZ \ 2)
+        Call CopyMemory(.S(0), baKey(LNG_KEYSZ \ 2), LNG_KEYSZ \ 2)
         .NPartial = 0
     End With
 End Sub
 
 Public Sub CryptoPoly1305Update(uCtx As CryptoPoly1305Context, baInput() As Byte, Optional ByVal Pos As Long, Optional ByVal Size As Long = -1)
-    Const BLOCKSZ       As Long = 16
     Dim lTaken          As Long
     
     With uCtx
@@ -270,7 +317,7 @@ Public Sub CryptoPoly1305Update(uCtx As CryptoPoly1305Context, baInput() As Byte
             Size = UBound(baInput) + 1 - Pos
         End If
         If .NPartial > 0 And Size > 0 Then
-            lTaken = BLOCKSZ - .NPartial
+            lTaken = LNG_MACBLOCKSZ - .NPartial
             If lTaken > Size Then
                 lTaken = Size
             End If
@@ -278,45 +325,44 @@ Public Sub CryptoPoly1305Update(uCtx As CryptoPoly1305Context, baInput() As Byte
             Pos = Pos + lTaken
             Size = Size - lTaken
             .NPartial = .NPartial + lTaken
-            If .NPartial = BLOCKSZ Then
+            If .NPartial = LNG_MACBLOCKSZ Then
                 pvPoly1305Block uCtx, .Partial, 0, .NPartial
                 .NPartial = 0
             End If
         End If
-        Do While Size >= BLOCKSZ
+        Do While Size >= LNG_MACBLOCKSZ
             Debug.Assert .NPartial = 0
-            pvPoly1305Block uCtx, baInput, Pos, BLOCKSZ
-            Pos = Pos + BLOCKSZ
-            Size = Size - BLOCKSZ
+            pvPoly1305Block uCtx, baInput, Pos, LNG_MACBLOCKSZ
+            Pos = Pos + LNG_MACBLOCKSZ
+            Size = Size - LNG_MACBLOCKSZ
         Loop
         If Size > 0 Then
-            lTaken = BLOCKSZ - .NPartial
+            lTaken = LNG_MACBLOCKSZ - .NPartial
             If lTaken > Size Then
                 lTaken = Size
             End If
             Call CopyMemory(.Partial(.NPartial), baInput(Pos), lTaken)
             .NPartial = .NPartial + lTaken
-            Debug.Assert .NPartial < BLOCKSZ
+            Debug.Assert .NPartial < LNG_MACBLOCKSZ
         End If
     End With
 End Sub
 
 Public Sub CryptoPoly1305Finalize(uCtx As CryptoPoly1305Context, baOutput() As Byte)
-    Const BLOCKSZ       As Long = 16
     Dim lIdx            As Long
-    Dim uX              As FieldElement
+    Dim uX              As ArrayLong17
     
     With uCtx
         If .NPartial > 0 Then
             pvPoly1305Block uCtx, .Partial, 0, .NPartial
         End If
-        For lIdx = 0 To BLOCKSZ - 1
+        For lIdx = 0 To LNG_MACBLOCKSZ - 1
             uX.Item(lIdx) = .S(lIdx)
         Next
         pvPoly1305FullReduce .H
         pvPoly1305Add .H, uX
-        ReDim baOutput(0 To BLOCKSZ - 1) As Byte
-        For lIdx = 0 To BLOCKSZ - 1
+        ReDim baOutput(0 To LNG_MACBLOCKSZ - 1) As Byte
+        For lIdx = 0 To LNG_MACBLOCKSZ - 1
             baOutput(lIdx) = .H.Item(lIdx)
         Next
     End With
@@ -324,34 +370,44 @@ End Sub
 
 '= ChaCha20Poly1305 ======================================================
 
-Private Function Process(baKey() As Byte, baNonce() As Byte, baAad() As Byte, baTag() As Byte, baBuffer() As Byte, ByVal lPos As Long, ByVal lSize As Long, ByVal Encrypt As Boolean) As Boolean
+Private Function Process(baKey() As Byte, Nonce As Variant, AssociatedData As Variant, baTag() As Byte, baBuffer() As Byte, ByVal lPos As Long, ByVal lSize As Long, ByVal Encrypt As Boolean) As Boolean
     Dim uChaCha         As CryptoChaCha20Context
     Dim uPoly           As CryptoPoly1305Context
-    Dim baPolyKey(0 To 31) As Byte
-    Dim baPad(0 To 15)  As Byte
+    Dim baNonce()       As Byte
+    Dim baAad()         As Byte
+    Dim baMacKey(0 To LNG_MACKEYSZ - 1) As Byte
+    Dim baPad(0 To LNG_MACBLOCKSZ - 1) As Byte
     Dim baTemp()        As Byte
     
-    If UBound(baNonce) + 1 <> 12 Then
-        GoTo QH
+    If IsMissing(Nonce) Then
+        baNonce = vbNullString
+    Else
+        baNonce = Nonce
+    End If
+    ReDim Preserve baNonce(0 To LNG_NONCESZ - 1) As Byte
+    If IsMissing(AssociatedData) Then
+        baAad = vbNullString
+    Else
+        baAad = AssociatedData
     End If
     If lSize < 0 Then
         lSize = UBound(baBuffer) + 1 - lPos
     End If
     CryptoChaCha20Init uChaCha, baKey, baNonce, 1
-    CryptoChaCha20Cipher uChaCha, baPolyKey
-    CryptoPoly1305Init uPoly, baPolyKey
+    CryptoChaCha20Cipher uChaCha, baMacKey
+    CryptoPoly1305Init uPoly, baMacKey
     '--- discard 32 bytes from chacha20 key stream
-    CryptoChaCha20Cipher uChaCha, baPolyKey
+    CryptoChaCha20Cipher uChaCha, baMacKey
     If Encrypt Then
         '--- encrypt then MAC
         CryptoChaCha20Cipher uChaCha, baBuffer, Pos:=lPos, Size:=lSize
     End If
     '--- ADD || pad(AAD)
     CryptoPoly1305Update uPoly, baAad
-    CryptoPoly1305Update uPoly, baPad, Size:=(16 - (UBound(baAad) + 1) And 15) And 15
+    CryptoPoly1305Update uPoly, baPad, Size:=(LNG_MACBLOCKSZ - (UBound(baAad) + 1) And (LNG_MACBLOCKSZ - 1)) And (LNG_MACBLOCKSZ - 1)
     '--- cipher || pad(cipher)
     CryptoPoly1305Update uPoly, baBuffer, Pos:=lPos, Size:=lSize
-    CryptoPoly1305Update uPoly, baPad, Size:=(16 - lSize And 15) And 15
+    CryptoPoly1305Update uPoly, baPad, Size:=(LNG_MACBLOCKSZ - lSize And (LNG_MACBLOCKSZ - 1)) And (LNG_MACBLOCKSZ - 1)
     '--- len_64(aad) || len_64(cipher)
     Call CopyMemory(baPad(0), UBound(baAad) + 1, 4)
     Call CopyMemory(baPad(8), lSize, 4)
@@ -372,12 +428,14 @@ Private Function Process(baKey() As Byte, baNonce() As Byte, baAad() As Byte, ba
 QH:
 End Function
 
-Public Function CryptoChaCha20Poly1305Encrypt(baKey() As Byte, baNonce() As Byte, baAad() As Byte, baTag() As Byte, _
-            baBuffer() As Byte, Optional ByVal Pos As Long, Optional ByVal Size As Long = -1) As Boolean
-    CryptoChaCha20Poly1305Encrypt = Process(baKey, baNonce, baAad, baTag, baBuffer, Pos, Size, Encrypt:=True)
+Public Function CryptoChaCha20Poly1305Encrypt(baKey() As Byte, baTag() As Byte, _
+            baBuffer() As Byte, Optional ByVal Pos As Long, Optional ByVal Size As Long = -1, _
+            Optional Nonce As Variant, Optional AssociatedData As Variant) As Boolean
+    CryptoChaCha20Poly1305Encrypt = Process(baKey, Nonce, AssociatedData, baTag, baBuffer, Pos, Size, Encrypt:=True)
 End Function
 
-Public Function CryptoChaCha20Poly1305Decrypt(baKey() As Byte, baNonce() As Byte, baAad() As Byte, baTag() As Byte, _
-            baBuffer() As Byte, Optional ByVal Pos As Long, Optional ByVal Size As Long = -1) As Boolean
-    CryptoChaCha20Poly1305Decrypt = Process(baKey, baNonce, baAad, baTag, baBuffer, Pos, Size, Encrypt:=False)
+Public Function CryptoChaCha20Poly1305Decrypt(baKey() As Byte, baTag() As Byte, _
+            baBuffer() As Byte, Optional ByVal Pos As Long, Optional ByVal Size As Long = -1, _
+            Optional Nonce As Variant, Optional AssociatedData As Variant) As Boolean
+    CryptoChaCha20Poly1305Decrypt = Process(baKey, Nonce, AssociatedData, baTag, baBuffer, Pos, Size, Encrypt:=False)
 End Function
