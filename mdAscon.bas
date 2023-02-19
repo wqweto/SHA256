@@ -41,12 +41,12 @@ End Type
 
 Public Type CryptoAsconContext
     Words(0 To LNG_STATESZ \ 8 - 1) As Currency
+    Bytes()             As Byte                     '--- overlaying Words array above
+    ArrayBytes          As SAFEARRAY1D
     Absorbed            As Long
     RoundsItermediate   As Long
     RoundsFinal         As Long
     Rate                As Long
-    Bytes()             As Byte
-    PeekArray           As SAFEARRAY1D
 End Type
 
 #If Not HasOperators Then
@@ -305,8 +305,8 @@ Private Sub pvInit(uCtx As CryptoAsconContext)
         End If
     #End If
     With uCtx
-        If .PeekArray.cDims = 0 Then
-            With .PeekArray
+        If .ArrayBytes.cDims = 0 Then
+            With .ArrayBytes
                 .cDims = 1
                 .fFeatures = FADF_AUTO
                 .cbElements = 1
@@ -314,7 +314,7 @@ Private Sub pvInit(uCtx As CryptoAsconContext)
                 .pvData = VarPtr(uCtx.Words(0))
                 .cElements = LNG_STATESZ
             End With
-            Call CopyMemory(ByVal ArrPtr(.Bytes), VarPtr(.PeekArray), LenB(pDummy))
+            Call CopyMemory(ByVal ArrPtr(.Bytes), VarPtr(.ArrayBytes), LenB(pDummy))
         End If
     End With
 End Sub
