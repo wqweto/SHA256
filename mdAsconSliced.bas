@@ -23,7 +23,6 @@ Private Declare Function WideCharToMultiByte Lib "kernel32" (ByVal CodePage As L
 #End If
 
 Private Const LNG_KEYSZ                 As Long = 16
-Private Const LNG_LONGKEYSZ             As Long = 20
 Private Const LNG_NONCESZ               As Long = 16
 Private Const LNG_TAGSZ                 As Long = 16
 Private Const LNG_HASHSZ                As Long = 32
@@ -41,17 +40,20 @@ Private Type SAFEARRAY1D
     lLbound             As Long
 End Type
 
+Private Type ArrayLong10
+    Item(0 To 9)        As Long
+End Type
+
 Public Type CryptoAsconSlicedContext
-    State(0 To LNG_STATESZ \ 8 - 1) As Currency
+    State               As ArrayLong10
+    Bytes()             As Byte                     '--- overlaying Words array above
+    ArrayBytes          As SAFEARRAY1D
+    Absorbed            As Long
     RoundsItermediate   As Long
     RoundsFinal         As Long
     Rate                As Long
-    Bytes()             As Byte
-    Words()             As Long
-    ArrayBytes          As SAFEARRAY1D
-    ArrayWords          As SAFEARRAY1D
-    Partial(0 To LNG_BLOCKSZ - 1) As Byte
-    NPartial            As Long
+    Key()               As Byte                     '--- only for AEAD
+    Encrypt             As Boolean                  '--- only for AEAD
 End Type
 
 Private LNG_RC(0 To 23)             As Long
@@ -97,97 +99,87 @@ Private Function BSwap32(ByVal lX As Long) As Long
 End Function
 #End If
 
-Private Function pvBitPermute(ByVal lX As Long, ByVal lMask As Long, ByVal lShift As Long) As Long
+Private Function pvBitPerm32(ByVal lX As Long, ByVal lMask As Long, ByVal lN As Long) As Long
     Dim lTemp           As Long
     
     #If Not HasOperators Then
-        lTemp = (RShift32(lX, lShift) Xor lX) And lMask
-        pvBitPermute = (lX Xor lTemp) Xor LShift32(lTemp, lShift)
+        lTemp = (RShift32(lX, lN) Xor lX) And lMask
+        pvBitPerm32 = (lX Xor lTemp) Xor LShift32(lTemp, lN)
     #Else
-        lTemp = ((lX >> lShift) Xor lX) And lMask
-        pvBitPermute = (lX Xor lTemp) Xor (lTemp << lShift)
+        lTemp = ((lX >> lN) Xor lX) And lMask
+        pvBitPerm32 = (lX Xor lTemp) Xor (lTemp << lN)
     #End If
 End Function
 
 Private Function pvSeparate(ByVal lX As Long) As Long
-'    Dim lTemp           As Long
-'
-'    lTemp = (RShift32(lX, 1) Xor lX) And &H22222222
-'    lX = (lX Xor lTemp) Xor LShift32(lTemp, 1)
-'    lTemp = (RShift32(lX, 2) Xor lX) And &HC0C0C0C
-'    lX = (lX Xor lTemp) Xor LShift32(lTemp, 2)
-'    lTemp = (RShift32(lX, 4) Xor lX) And &HF000F0
-'    lX = (lX Xor lTemp) Xor LShift32(lTemp, 4)
-'    lTemp = (RShift32(lX, 8) Xor lX) And &HFF00&
-'    pvSeparate = (lX Xor lTemp) Xor LShift32(lTemp, 8)
-    lX = pvBitPermute(lX, &H22222222, 1)
-    lX = pvBitPermute(lX, &HC0C0C0C, 2)
-    lX = pvBitPermute(lX, &HF000F0, 4)
-    pvSeparate = pvBitPermute(lX, &HFF00&, 8)
+    lX = pvBitPerm32(lX, &H22222222, 1)
+    lX = pvBitPerm32(lX, &HC0C0C0C, 2)
+    lX = pvBitPerm32(lX, &HF000F0, 4)
+    pvSeparate = pvBitPerm32(lX, &HFF00&, 8)
 End Function
 
 Private Function pvCombine(ByVal lX As Long) As Long
-    lX = pvBitPermute(lX, &HAAAA&, 15)
-    lX = pvBitPermute(lX, &HCCCC&, 14)
-    lX = pvBitPermute(lX, &HF0F0&, 12)
-    pvCombine = pvBitPermute(lX, &HFF00&, 8)
+    lX = pvBitPerm32(lX, &HAAAA&, 15)
+    lX = pvBitPerm32(lX, &HCCCC&, 14)
+    lX = pvBitPerm32(lX, &HF0F0&, 12)
+    pvCombine = pvBitPerm32(lX, &HFF00&, 8)
 End Function
 
-Private Sub pvToSliced(uCtx As CryptoAsconSlicedContext)
+Private Sub pvToSliced(uState As ArrayLong10)
     Dim lIdx            As Long
     Dim lHigh           As Long
     Dim lLow            As Long
     
-    With uCtx
-        For lIdx = 0 To UBound(.Words) Step 2
-            lHigh = pvSeparate(BSwap32(.Words(lIdx)))
-            lLow = pvSeparate(BSwap32(.Words(lIdx + 1)))
+    With uState
+        For lIdx = 0 To UBound(.Item) Step 2
+            lHigh = pvSeparate(BSwap32(.Item(lIdx)))
+            lLow = pvSeparate(BSwap32(.Item(lIdx + 1)))
             #If Not HasOperators Then
-                .Words(lIdx) = LShift32(lHigh, 16) Or (lLow And &HFFFF&)
-                .Words(lIdx + 1) = (lHigh And &HFFFF0000) Or RShift32(lLow, 16)
+                .Item(lIdx) = LShift32(lHigh, 16) Or (lLow And &HFFFF&)
+                .Item(lIdx + 1) = (lHigh And &HFFFF0000) Or RShift32(lLow, 16)
             #Else
-                .Words(lIdx) = (lHigh << 16) Or (lLow And &HFFFF&)
-                .Words(lIdx + 1) = (lHigh And &HFFFF0000) Or (lLow >> 16)
+                .Item(lIdx) = (lHigh << 16) Or (lLow And &HFFFF&)
+                .Item(lIdx + 1) = (lHigh And &HFFFF0000) Or (lLow >> 16)
             #End If
         Next
     End With
 End Sub
 
-Private Sub pvFromSliced(uCtx As CryptoAsconSlicedContext)
+Private Sub pvFromSliced(uState As ArrayLong10)
     Dim lIdx            As Long
     Dim lHigh           As Long
     Dim lLow            As Long
     
-    With uCtx
-        For lIdx = 0 To UBound(.Words) Step 2
+    With uState
+        For lIdx = 0 To UBound(.Item) Step 2
             #If Not HasOperators Then
-                lHigh = RShift32(.Words(lIdx), 16) Or (.Words(lIdx + 1) And &HFFFF0000)
-                lLow = (.Words(lIdx) And &HFFFF&) Or LShift32(.Words(lIdx + 1), 16)
+                lHigh = RShift32(.Item(lIdx), 16) Or (.Item(lIdx + 1) And &HFFFF0000)
+                lLow = (.Item(lIdx) And &HFFFF&) Or LShift32(.Item(lIdx + 1), 16)
             #Else
-                lHigh = (.Words(lIdx) >> 16) Or (.Words(lIdx + 1) And &HFFFF0000)
-                lLow = (.Words(lIdx) And &HFFFF&) Or (.Words(lIdx + 1) << 16)
+                lHigh = (.Item(lIdx) >> 16) Or (.Item(lIdx + 1) And &HFFFF0000)
+                lLow = (.Item(lIdx) And &HFFFF&) Or (.Item(lIdx + 1) << 16)
             #End If
-            .Words(lIdx) = BSwap32(pvCombine(lHigh))
-            .Words(lIdx + 1) = BSwap32(pvCombine(lLow))
+            .Item(lIdx) = BSwap32(pvCombine(lHigh))
+            .Item(lIdx + 1) = BSwap32(pvCombine(lLow))
         Next
     End With
 End Sub
 
-Private Sub pvAbsorbSliced(uCtx As CryptoAsconSlicedContext, ByVal lHigh As Long, ByVal lLow As Long, ByVal lOffset As Long)
+Private Sub pvAbsorbSliced(uState As ArrayLong10, ByVal lHigh As Long, ByVal lLow As Long, ByVal lOffset As Long)
 #If DebugState Then
     Dim lTemp0      As Long: lTemp0 = lHigh
     Dim lTemp1      As Long: lTemp1 = lLow
 #End If
     lOffset = 2 * lOffset
-    With uCtx
+    With uState
         lHigh = pvSeparate(BSwap32(lHigh))
         lLow = pvSeparate(BSwap32(lLow))
         #If Not HasOperators Then
-            .Words(lOffset) = .Words(lOffset) Xor (LShift32(lHigh, 16) Or (lLow And &HFFFF&))
-            .Words(lOffset + 1) = .Words(lOffset + 1) Xor ((lHigh And &HFFFF0000) Or RShift32(lLow, 16))
+            .Item(lOffset) = .Item(lOffset) Xor (LShift32(lHigh, 16) Or (lLow And &HFFFF&))
+            .Item(lOffset + 1) = .Item(lOffset + 1) Xor ((lHigh And &HFFFF0000) Or RShift32(lLow, 16))
         #Else
-            .Words(lOffset) = .Words(lOffset) Xor ((lHigh << 16) Or (lLow And &HFFFF&))
-            .Words(lOffset + 1) = .Words(lOffset + 1) Xor ((lHigh And &HFFFF0000) Or (lLow >> 16))
+            .Item(lOffset) = .Item(lOffset) Xor ((lHigh << 16) Or (lLow And &HFFFF&))
+            .Item(lOffset + 1) = .Item(lOffset + 1) Xor ((lHigh And &HFFFF0000) Or (lLow >> 16))
         #End If
     End With
     #If DebugState Then
@@ -195,44 +187,44 @@ Private Sub pvAbsorbSliced(uCtx As CryptoAsconSlicedContext, ByVal lHigh As Long
     #End If
 End Sub
 
-Private Sub pvSqueezeSliced(uCtx As CryptoAsconSlicedContext, lHigh As Long, lLow As Long, ByVal lOffset As Long)
+Private Sub pvSqueezeSliced(uState As ArrayLong10, lHigh As Long, lLow As Long, ByVal lOffset As Long)
     lOffset = 2 * lOffset
-    With uCtx
+    With uState
         #If Not HasOperators Then
-            lHigh = RShift32(.Words(lOffset), 16) Or (.Words(lOffset + 1) And &HFFFF0000)
-            lLow = (.Words(lOffset) And &HFFFF&) Or LShift32(.Words(lOffset + 1), 16)
+            lHigh = RShift32(.Item(lOffset), 16) Or (.Item(lOffset + 1) And &HFFFF0000)
+            lLow = (.Item(lOffset) And &HFFFF&) Or LShift32(.Item(lOffset + 1), 16)
         #Else
-            lHigh = (.Words(lOffset) >> 16) Or (.Words(lOffset + 1) And &HFFFF0000)
-            lLow = (.Words(lOffset) And &HFFFF&) Or (.Words(lOffset + 1) << 16)
+            lHigh = (.Item(lOffset) >> 16) Or (.Item(lOffset + 1) And &HFFFF0000)
+            lLow = (.Item(lOffset) And &HFFFF&) Or (.Item(lOffset + 1) << 16)
         #End If
         lHigh = BSwap32(pvCombine(lHigh))
         lLow = BSwap32(pvCombine(lLow))
     End With
 End Sub
 
-Private Sub pvDecryptSliced(uCtx As CryptoAsconSlicedContext, lHigh As Long, lLow As Long, ByVal lOffset As Long)
+Private Sub pvDecryptSliced(uState As ArrayLong10, lHigh As Long, lLow As Long, ByVal lOffset As Long)
     Dim lHigh2      As Long
     Dim lLow2       As Long
     
     lOffset = 2 * lOffset
-    With uCtx
+    With uState
         lHigh2 = pvSeparate(BSwap32(lHigh))
         lLow2 = pvSeparate(BSwap32(lLow))
         #If Not HasOperators Then
-            lHigh = lHigh2 Xor RShift32(.Words(lOffset), 16) Or (.Words(lOffset + 1) And &HFFFF0000)
-            lLow = lLow2 Xor (.Words(lOffset) And &HFFFF&) Or LShift32(.Words(lOffset + 1), 16)
+            lHigh = lHigh2 Xor RShift32(.Item(lOffset), 16) Or (.Item(lOffset + 1) And &HFFFF0000)
+            lLow = lLow2 Xor (.Item(lOffset) And &HFFFF&) Or LShift32(.Item(lOffset + 1), 16)
         #Else
-            lHigh = lHigh2 Xor (.Words(lOffset) >> 16) Or (.Words(lOffset + 1) And &HFFFF0000)
-            lLow = lLow2 Xor (.Words(lOffset) And &HFFFF&) Or (.Words(lOffset + 1) << 16)
+            lHigh = lHigh2 Xor (.Item(lOffset) >> 16) Or (.Item(lOffset + 1) And &HFFFF0000)
+            lLow = lLow2 Xor (.Item(lOffset) And &HFFFF&) Or (.Item(lOffset + 1) << 16)
         #End If
         lHigh = BSwap32(pvCombine(lHigh))
         lLow = BSwap32(pvCombine(lLow))
         #If Not HasOperators Then
-            .Words(lOffset) = (LShift32(lHigh2, 16) Or (lLow2 And &HFFFF&))
-            .Words(lOffset + 1) = ((lHigh2 And &HFFFF0000) Or RShift32(lLow2, 16))
+            .Item(lOffset) = (LShift32(lHigh2, 16) Or (lLow2 And &HFFFF&))
+            .Item(lOffset + 1) = ((lHigh2 And &HFFFF0000) Or RShift32(lLow2, 16))
         #Else
-            .Words(lOffset) = ((lHigh2 << 16) Or (lLow2 And &HFFFF&))
-            .Words(lOffset + 1) = ((lHigh2 And &HFFFF0000) Or (lLow2 >> 16))
+            .Item(lOffset) = ((lHigh2 << 16) Or (lLow2 And &HFFFF&))
+            .Item(lOffset + 1) = ((lHigh2 And &HFFFF0000) Or (lLow2 >> 16))
         #End If
     End With
     #If DebugState Then
@@ -240,7 +232,7 @@ Private Sub pvDecryptSliced(uCtx As CryptoAsconSlicedContext, lHigh As Long, lLo
     #End If
 End Sub
 
-Private Sub pvPermuteSliced(uCtx As CryptoAsconSlicedContext, ByVal lRounds As Long)
+Private Sub pvPermuteSliced(uState As ArrayLong10, ByVal lRounds As Long)
     Dim S0_e            As Long
     Dim S0_o            As Long
     Dim S1_e            As Long
@@ -255,17 +247,17 @@ Private Sub pvPermuteSliced(uCtx As CryptoAsconSlicedContext, ByVal lRounds As L
     Dim lTemp1          As Long
     Dim lIdx            As Long
 
-    With uCtx
-        S0_e = .Words(0)
-        S0_o = .Words(1)
-        S1_e = .Words(2)
-        S1_o = .Words(3)
-        S2_e = .Words(4)
-        S2_o = .Words(5)
-        S3_e = .Words(6)
-        S3_o = .Words(7)
-        S4_e = .Words(8)
-        S4_o = .Words(9)
+    With uState
+        S0_e = .Item(0)
+        S0_o = .Item(1)
+        S1_e = .Item(2)
+        S1_o = .Item(3)
+        S2_e = .Item(4)
+        S2_o = .Item(5)
+        S3_e = .Item(6)
+        S3_o = .Item(7)
+        S4_e = .Item(8)
+        S4_o = .Item(9)
         For lIdx = LNG_ROUNDS - lRounds To LNG_ROUNDS - 1
             '--- round constant
             S2_e = S2_e Xor LNG_RC(2 * lIdx)
@@ -343,32 +335,46 @@ Private Sub pvPermuteSliced(uCtx As CryptoAsconSlicedContext, ByVal lRounds As L
                 S4_o = S4_o Xor (lTemp0 >> 4 Or lTemp0 << 28)
             #End If
         Next
-        .Words(0) = S0_e
-        .Words(1) = S0_o
-        .Words(2) = S1_e
-        .Words(3) = S1_o
-        .Words(4) = S2_e
-        .Words(5) = S2_o
-        .Words(6) = S3_e
-        .Words(7) = S3_o
-        .Words(8) = S4_e
-        .Words(9) = S4_o
+        .Item(0) = S0_e
+        .Item(1) = S0_o
+        .Item(2) = S1_e
+        .Item(3) = S1_o
+        .Item(4) = S2_e
+        .Item(5) = S2_o
+        .Item(6) = S3_e
+        .Item(7) = S3_o
+        .Item(8) = S4_e
+        .Item(9) = S4_o
     End With
     #If DebugState Then
         Debug.Print pvDumpState(uCtx), "sliced permute " & lRounds
     #End If
 End Sub
 
+Private Sub pvInitPeek(uArray As SAFEARRAY1D, baInput() As Byte, Optional ByVal Pos As Long, Optional ByVal Size As Long = -1)
+    If Size < 0 Then
+        Size = UBound(baInput) + 1 - Pos
+    End If
+    With uArray
+        .pvData = VarPtr(baInput(Pos))
+        .cElements = Size \ .cbElements
+    End With
+End Sub
+
 Private Function pvDumpState(uCtx As CryptoAsconSlicedContext) As String
-    pvFromSliced uCtx
+    Dim uCopy           As ArrayLong10
+    
+    uCopy = uCtx.State
+    pvFromSliced uCtx.State
     pvDumpState = ToHex(uCtx.Bytes)
-    pvToSliced uCtx
+    uCtx.State = uCopy
 End Function
 
 Private Sub pvInit(uCtx As CryptoAsconSlicedContext)
     Const FADF_AUTO     As Long = 1
     Dim lIdx            As Long
     Dim vElem           As Variant
+    Dim uEmpty          As CryptoAsconSlicedContext
     Dim pDummy          As LongPtr
     
     #If Not HasOperators Then
@@ -394,35 +400,17 @@ Private Sub pvInit(uCtx As CryptoAsconSlicedContext)
         End With
         Call CopyMemory(ByVal ArrPtr(m_aPeek), VarPtr(m_uArrayPeek), LenB(pDummy))
     End If
+    uCtx = uEmpty
     With uCtx
         With .ArrayBytes
             .cDims = 1
             .fFeatures = FADF_AUTO
             .cbElements = 1
             .cLocks = 1
-            .pvData = VarPtr(uCtx.State(0))
+            .pvData = VarPtr(uCtx.State.Item(0))
             .cElements = LNG_STATESZ \ .cbElements
         End With
         Call CopyMemory(ByVal ArrPtr(.Bytes), VarPtr(.ArrayBytes), LenB(pDummy))
-        With .ArrayWords
-            .cDims = 1
-            .fFeatures = FADF_AUTO
-            .cbElements = 4
-            .cLocks = 1
-            .pvData = VarPtr(uCtx.State(0))
-            .cElements = LNG_STATESZ \ .cbElements
-        End With
-        Call CopyMemory(ByVal ArrPtr(.Words), VarPtr(.ArrayWords), LenB(pDummy))
-    End With
-End Sub
-
-Private Sub pvInitPeek(uArray As SAFEARRAY1D, baInput() As Byte, Optional ByVal Pos As Long, Optional ByVal Size As Long = -1)
-    If Size < 0 Then
-        Size = UBound(baInput) + 1 - Pos
-    End If
-    With uArray
-        .pvData = VarPtr(baInput(Pos))
-        .cElements = Size \ .cbElements
     End With
 End Sub
 
@@ -436,36 +424,35 @@ Private Sub pvInitHash(uCtx As CryptoAsconSlicedContext, Optional AsconVariant A
         Select Case LCase$(AsconVariant)
         Case "ascon-hash", vbNullString
             .RoundsItermediate = LNG_ROUNDS
-            sState = "446318142388178.635 14863613160486.9771 712324061313542.0084 -166521396747559.9293 467505948832861.778"
+            sState = "AA9893EE 3DF067DB 3118B28B 2100FC6 DB928AB4 62DAD598 21991843 E8E3F8B8 C9A58F34 40E125D5"
         Case "ascon-hasha"
-            .RoundsItermediate = 8
-            sState = "-647381232885581.2351 -634115870784097.1149 549226995250965.9182 902277108517712.4566 -867907184661769.5071"
+            .RoundsItermediate = LNG_ROUNDS \ 2 + 2
+            sState = "94014701 A62865FC 8AC38E73 A7FFADC0 29E3C82E 4C38766C 4DA5F6D6 7D37527F A2423CA1 878DBE23"
         Case "ascon-xof"
             .RoundsItermediate = LNG_ROUNDS
-            sState = "164502388182400.9909 231616784492634.5515 173919820479251.3382 89321191666631.817 -529072205218721.0161"
+            sState = "3B277EB5 16D44C81 2504512B 2024AE62 76A7A366 1822DF8D 7A0AAD5A C655381 320E3E4F B6939453"
         Case "ascon-xofa"
-            .RoundsItermediate = 8
-            sState = "364579992601713.466 362688130062775.4445 296372296757763.8391 656682645757712.1828 458221163737440.5544"
+            .RoundsItermediate = LNG_ROUNDS \ 2 + 2
+            sState = "68659044 32987BB7 AE6C8DCD 32554553 2721B5F7 29214256 E1856824 5B220DDE E35CCBA8 3F974934"
         Case Else
             Err.Raise vbObjectError, , "Invalid variant for Ascon hash (" & AsconVariant & ")"
         End Select
-        .Rate = 8
+        .Rate = LNG_BLOCKSZ
         .RoundsFinal = LNG_ROUNDS
+        .Key = vbNullString
         '--- init state
-        lIdx = 0
         For Each vElem In Split(sState)
-            .State(lIdx) = vElem
+            .State.Item(lIdx) = "&H" & vElem
             lIdx = lIdx + 1
         Next
-        pvToSliced uCtx
+        pvToSliced .State
     End With
 End Sub
 
-Private Sub pvInitAead(uCtx As CryptoAsconSlicedContext, baKey() As Byte, Nonce As Variant, AssociatedData As Variant, AsconVariant As String)
+Private Sub pvInitAead(uCtx As CryptoAsconSlicedContext, baKey() As Byte, Nonce As Variant, AssociatedData As Variant, AsconVariant As String, Optional ByVal Encrypt As Boolean)
     Dim baNonce()       As Byte
     Dim baAad()         As Byte
-    Dim lIdx            As Long
-    Dim lSize           As Long
+    Dim lKeySize        As Long
     
     pvInit uCtx
     If IsMissing(Nonce) Then
@@ -482,150 +469,179 @@ Private Sub pvInitAead(uCtx As CryptoAsconSlicedContext, baKey() As Byte, Nonce 
     With uCtx
         Select Case LCase$(AsconVariant)
         Case "ascon-128", vbNullString
+            lKeySize = LNG_KEYSZ
             .RoundsItermediate = LNG_ROUNDS \ 2
-            .Rate = 8
-            .State(0) = 10146.624@
-            Debug.Assert UBound(baKey) + 1 = LNG_KEYSZ
-            ReDim Preserve baKey(0 To LNG_KEYSZ - 1) As Byte
+            .Rate = LNG_BLOCKSZ
+            .State.Item(0) = &H60C4080
         Case "ascon-128a"
-            .RoundsItermediate = 8
-            .Rate = 16
-            .State(0) = 13503.7056@
-            Debug.Assert UBound(baKey) + 1 = LNG_KEYSZ
-            ReDim Preserve baKey(0 To LNG_KEYSZ - 1) As Byte
+            lKeySize = LNG_KEYSZ
+            .RoundsItermediate = LNG_ROUNDS \ 2 + 2
+            .Rate = 2 * LNG_BLOCKSZ
+            .State.Item(0) = &H80C8080
         Case "ascon-80pq"
+            lKeySize = LNG_KEYSZ + 4
             .RoundsItermediate = LNG_ROUNDS \ 2
-            .Rate = 8
-            .State(0) = 10146.6272@
-            Debug.Assert UBound(baKey) + 1 = LNG_LONGKEYSZ
-            ReDim Preserve baKey(0 To LNG_LONGKEYSZ - 1) As Byte
+            .Rate = LNG_BLOCKSZ
+            .State.Item(0) = &H60C40A0
         Case Else
             Err.Raise vbObjectError, , "Invalid variant for Ascon AEAD (" & AsconVariant & ")"
         End Select
         .RoundsFinal = LNG_ROUNDS
+        .Key = baKey
+        .Encrypt = Encrypt
+        Debug.Assert UBound(.Key) + 1 = lKeySize
+        If UBound(.Key) + 1 <> lKeySize Then
+            ReDim Preserve .Key(0 To lKeySize - 1) As Byte
+        End If
         '--- init state
-        For lIdx = 1 To UBound(.State)
-            .State(lIdx) = 0
-        Next
-        lSize = UBound(baKey) + 1
-        Call CopyMemory(.Bytes(LNG_STATESZ - LNG_NONCESZ - lSize), baKey(0), lSize)
+        Call CopyMemory(.Bytes(LNG_STATESZ - LNG_NONCESZ - lKeySize), .Key(0), lKeySize)
         Call CopyMemory(.Bytes(LNG_STATESZ - LNG_NONCESZ), baNonce(0), LNG_NONCESZ)
-        pvToSliced uCtx
-        pvPermuteSliced uCtx, .RoundsFinal
-        pvInitPeek m_uArrayPeek, baKey
-        If UBound(baKey) + 1 = LNG_KEYSZ Then
-            pvAbsorbSliced uCtx, m_aPeek(0), m_aPeek(1), 3
-            pvAbsorbSliced uCtx, m_aPeek(2), m_aPeek(3), 4
+        pvToSliced .State
+        pvPermuteSliced .State, .RoundsFinal
+        pvInitPeek m_uArrayPeek, .Key
+        If lKeySize = LNG_KEYSZ Then
+            pvAbsorbSliced .State, m_aPeek(0), m_aPeek(1), 3
+            pvAbsorbSliced .State, m_aPeek(2), m_aPeek(3), 4
         Else
-            pvAbsorbSliced uCtx, 0, m_aPeek(0), 2
-            pvAbsorbSliced uCtx, m_aPeek(1), m_aPeek(2), 3
-            pvAbsorbSliced uCtx, m_aPeek(3), m_aPeek(4), 4
+            pvAbsorbSliced .State, 0, m_aPeek(0), 2
+            pvAbsorbSliced .State, m_aPeek(1), m_aPeek(2), 3
+            pvAbsorbSliced .State, m_aPeek(3), m_aPeek(4), 4
         End If
         '--- process associated data
         If UBound(baAad) >= 0 Then
             pvUpdate uCtx, baAad, 0, UBound(baAad) + 1, Final:=.RoundsItermediate
+            .Absorbed = 0
         End If
         '--- separator
-        .Words(8) = .Words(8) Xor 1
+        .State.Item(8) = .State.Item(8) Xor 1
     End With
 End Sub
 
-Private Sub pvUpdate(uCtx As CryptoAsconSlicedContext, baInput() As Byte, ByVal Pos As Long, ByVal Size As Long, Optional ByVal Encrypt As Boolean, Optional ByVal Decrypt As Boolean, Optional ByVal Final As Long, Optional Key As Variant)
+Private Sub pvUpdate(uCtx As CryptoAsconSlicedContext, baInput() As Byte, ByVal Pos As Long, ByVal Size As Long, Optional ByVal Aead As Boolean, Optional ByVal Final As Long)
+    Dim aTemp(0 To 3)   As Long
     Dim aLongs(0 To 3)  As Long
     Dim lIdx            As Long
-    Dim baKey()         As Byte
-    Dim aTemp(0 To 3)   As Long
+    Dim lTemp           As Long
+    Dim bEncrypt        As Boolean
+    Dim bDecrypt        As Boolean
 
     If Size < 0 Then
         Size = UBound(baInput) + 1 - Pos
     End If
     With uCtx
+        If Aead Then
+            bEncrypt = .Encrypt
+            bDecrypt = Not .Encrypt
+        End If
+        If Size > 0 And .Absorbed > 0 Then
+            lTemp = .Rate - .Absorbed
+            If lTemp > Size Then
+                lTemp = Size
+            End If
+            Debug.Assert UBound(baInput) + 1 >= Pos + lTemp
+            Call CopyMemory(ByVal VarPtr(aTemp(0)) + .Absorbed, baInput(Pos), lTemp)
+            pvAbsorbSliced .State, aTemp(0), aTemp(1), 0
+            If .Rate > LNG_BLOCKSZ Then
+                pvAbsorbSliced .State, aTemp(2), aTemp(3), 1
+            End If
+            .Absorbed = .Absorbed + lTemp
+            If .Absorbed = .Rate Then
+                pvPermuteSliced .State, .RoundsItermediate
+                .Absorbed = 0
+            End If
+            Pos = Pos + lTemp
+            Size = Size - lTemp
+        End If
         If Size > 0 Then
             pvInitPeek m_uArrayPeek, baInput, Pos, Size
-            If .Rate = 8 Then
+            If .Rate = LNG_BLOCKSZ Then
                 For lIdx = 0 To UBound(m_aPeek) - 1 Step 2
-                    If Decrypt Then
-                        pvDecryptSliced uCtx, m_aPeek(lIdx + 0), m_aPeek(lIdx + 1), 0
+                    If bDecrypt Then
+                        pvDecryptSliced .State, m_aPeek(lIdx + 0), m_aPeek(lIdx + 1), 0
                     Else
-                        pvAbsorbSliced uCtx, m_aPeek(lIdx + 0), m_aPeek(lIdx + 1), 0
-                        If Encrypt Then
-                            pvSqueezeSliced uCtx, m_aPeek(lIdx + 0), m_aPeek(lIdx + 1), 0
+                        pvAbsorbSliced .State, m_aPeek(lIdx + 0), m_aPeek(lIdx + 1), 0
+                        If bEncrypt Then
+                            pvSqueezeSliced .State, m_aPeek(lIdx + 0), m_aPeek(lIdx + 1), 0
                         End If
                     End If
-                    pvPermuteSliced uCtx, .RoundsItermediate
+                    pvPermuteSliced .State, .RoundsItermediate
                 Next
             Else
                 For lIdx = 0 To UBound(m_aPeek) - 3 Step 4
-                    If Decrypt Then
-                        pvDecryptSliced uCtx, m_aPeek(lIdx + 0), m_aPeek(lIdx + 1), 0
-                        pvDecryptSliced uCtx, m_aPeek(lIdx + 2), m_aPeek(lIdx + 3), 1
+                    If bDecrypt Then
+                        pvDecryptSliced .State, m_aPeek(lIdx + 0), m_aPeek(lIdx + 1), 0
+                        pvDecryptSliced .State, m_aPeek(lIdx + 2), m_aPeek(lIdx + 3), 1
                     Else
-                        pvAbsorbSliced uCtx, m_aPeek(lIdx + 0), m_aPeek(lIdx + 1), 0
-                        pvAbsorbSliced uCtx, m_aPeek(lIdx + 2), m_aPeek(lIdx + 3), 1
-                        If Encrypt Then
-                            pvSqueezeSliced uCtx, m_aPeek(lIdx + 0), m_aPeek(lIdx + 1), 0
-                            pvSqueezeSliced uCtx, m_aPeek(lIdx + 2), m_aPeek(lIdx + 3), 1
+                        pvAbsorbSliced .State, m_aPeek(lIdx + 0), m_aPeek(lIdx + 1), 0
+                        pvAbsorbSliced .State, m_aPeek(lIdx + 2), m_aPeek(lIdx + 3), 1
+                        If bEncrypt Then
+                            pvSqueezeSliced .State, m_aPeek(lIdx + 0), m_aPeek(lIdx + 1), 0
+                            pvSqueezeSliced .State, m_aPeek(lIdx + 2), m_aPeek(lIdx + 3), 1
                         End If
                     End If
-                    pvPermuteSliced uCtx, .RoundsItermediate
+                    pvPermuteSliced .State, .RoundsItermediate
                 Next
             End If
+            .Absorbed = Size - lIdx * 4
+            lIdx = Pos + lIdx * 4
+            If .Absorbed > 0 Then
+                Debug.Assert UBound(baInput) + 1 >= lIdx + .Absorbed
+                Call CopyMemory(aLongs(0), baInput(lIdx), .Absorbed)
+            End If
         End If
+        Debug.Assert .Absorbed < .Rate
         If Final > 0 Then
-            lIdx = lIdx * 4
-            If Size - lIdx > 0 Then
-                Call CopyMemory(aLongs(0), baInput(lIdx), Size - lIdx)
-                If Decrypt Then
-                    pvSqueezeSliced uCtx, aTemp(0), aTemp(1), 0
-                    If .Rate > 8 Then
-                        pvSqueezeSliced uCtx, aTemp(2), aTemp(3), 1
+            If .Absorbed > 0 And bDecrypt Then
+                pvSqueezeSliced .State, aTemp(0), aTemp(1), 0
+                If .Rate > LNG_BLOCKSZ Then
+                    pvSqueezeSliced .State, aTemp(2), aTemp(3), 1
+                End If
+                Call FillMemory(ByVal VarPtr(aTemp(0)) + .Absorbed, .Rate - .Absorbed, 0)
+                aLongs(0) = aLongs(0) Xor aTemp(0)
+                aLongs(1) = aLongs(1) Xor aTemp(1)
+                If .Rate > LNG_BLOCKSZ Then
+                    aLongs(2) = aLongs(2) Xor aTemp(2)
+                    aLongs(3) = aLongs(3) Xor aTemp(3)
+                End If
+            End If
+            Call CopyMemory(ByVal VarPtr(aLongs(0)) + .Absorbed, &H80&, 1)
+            pvAbsorbSliced .State, aLongs(0), aLongs(1), 0
+            If .Rate > LNG_BLOCKSZ Then
+                pvAbsorbSliced .State, aLongs(2), aLongs(3), 1
+            End If
+            If Aead Then
+                If .Absorbed > 0 Then
+                    If bEncrypt Then
+                        pvSqueezeSliced .State, aLongs(0), aLongs(1), 0
+                        If .Rate > LNG_BLOCKSZ Then
+                            pvSqueezeSliced .State, aLongs(2), aLongs(3), 1
+                        End If
                     End If
-                    Call FillMemory(ByVal VarPtr(aTemp(0)) + Size - lIdx, 16 - Size + lIdx, 0)
-                    aLongs(0) = aLongs(0) Xor aTemp(0)
-                    aLongs(1) = aLongs(1) Xor aTemp(1)
-                    If .Rate > 8 Then
-                        aLongs(2) = aLongs(2) Xor aTemp(2)
-                        aLongs(3) = aLongs(3) Xor aTemp(3)
-                    End If
+                    Debug.Assert UBound(baInput) + 1 >= lIdx + .Absorbed
+                    Call CopyMemory(baInput(lIdx), aLongs(0), .Absorbed)
+                End If
+                pvInitPeek m_uArrayPeek, .Key
+                pvAbsorbSliced .State, m_aPeek(0), m_aPeek(1), 1
+                pvAbsorbSliced .State, m_aPeek(2), m_aPeek(3), 2
+                If UBound(.Key) + 1 > LNG_KEYSZ Then
+                    pvAbsorbSliced .State, m_aPeek(4), 0, 3
                 End If
             End If
-            Call CopyMemory(ByVal VarPtr(aLongs(0)) + Size - lIdx, &H80&, 1)
-            pvAbsorbSliced uCtx, aLongs(0), aLongs(1), 0
-            If .Rate > 8 Then
-                pvAbsorbSliced uCtx, aLongs(2), aLongs(3), 1
+            pvPermuteSliced .State, Final
+        ElseIf .Absorbed > 0 Then
+            Call CopyMemory(aLongs(0), baInput(lIdx), .Absorbed)
+            pvAbsorbSliced .State, aLongs(0), aLongs(1), 0
+            If .Rate > LNG_BLOCKSZ Then
+                pvAbsorbSliced .State, aLongs(2), aLongs(3), 1
             End If
-            If Size - lIdx > 0 Then
-                If Encrypt Then
-                    pvSqueezeSliced uCtx, aLongs(0), aLongs(1), 0
-                    If .Rate > 8 Then
-                        pvSqueezeSliced uCtx, aLongs(2), aLongs(3), 1
-                    End If
-                End If
-                If Encrypt Or Decrypt Then
-                    Call CopyMemory(baInput(lIdx), aLongs(0), Size - lIdx)
-                End If
-            End If
-            If Not IsMissing(Key) Then
-                baKey = Key
-                pvInitPeek m_uArrayPeek, baKey
-                pvAbsorbSliced uCtx, m_aPeek(0), m_aPeek(1), 1
-                pvAbsorbSliced uCtx, m_aPeek(2), m_aPeek(3), 2
-                If UBound(baKey) + 1 > LNG_KEYSZ Then
-                    pvAbsorbSliced uCtx, m_aPeek(4), 0, 3
-                End If
-            End If
-            pvPermuteSliced uCtx, Final
-        Else
-            '--- ToDo: preserve Partial
-            Debug.Assert False
         End If
     End With
 End Sub
 
 Private Sub pvFinalizeHash(uCtx As CryptoAsconSlicedContext, baOutput() As Byte, Optional ByVal OutSize As Long)
+    Dim aTemp(0 To 1)   As Long
     Dim lIdx            As Long
-    Dim aLongs(0 To 1)  As Long
-    Dim lTemp           As Long
+    Dim lSize           As Long
     Dim pDummy          As LongPtr
     Dim uEmpty          As CryptoAsconSlicedContext
 
@@ -633,42 +649,45 @@ Private Sub pvFinalizeHash(uCtx As CryptoAsconSlicedContext, baOutput() As Byte,
         OutSize = LNG_HASHSZ
     End If
     ReDim baOutput(0 To OutSize - 1) As Byte
-    For lIdx = 0 To OutSize - 1 Step 8
-        pvSqueezeSliced uCtx, aLongs(0), aLongs(1), 0
-        lTemp = OutSize - lIdx
-        If lTemp > 8 Then
-            lTemp = 8
-            pvPermuteSliced uCtx, uCtx.RoundsItermediate
-        End If
-        Call CopyMemory(baOutput(lIdx), aLongs(0), lTemp)
-    Next
     With uCtx
+        For lIdx = 0 To OutSize - 1 Step LNG_BLOCKSZ
+            pvSqueezeSliced .State, aTemp(0), aTemp(1), 0
+            lSize = OutSize - lIdx
+            If lSize > LNG_BLOCKSZ Then
+                lSize = LNG_BLOCKSZ
+                pvPermuteSliced .State, .RoundsItermediate
+            End If
+            Call CopyMemory(baOutput(lIdx), aTemp(0), lSize)
+        Next
         Call CopyMemory(ByVal ArrPtr(.Bytes), pDummy, LenB(pDummy))
-        Call CopyMemory(ByVal ArrPtr(.Words), pDummy, LenB(pDummy))
     End With
     uCtx = uEmpty
 End Sub
 
-Private Sub pvFinalizeAead(uCtx As CryptoAsconSlicedContext, baKey() As Byte, baTag() As Byte)
+Private Sub pvFinalizeAead(uCtx As CryptoAsconSlicedContext, baOutput() As Byte)
+    Dim lIdx            As Long
     Dim pDummy          As LongPtr
     Dim uEmpty          As CryptoAsconSlicedContext
-
+    
     With uCtx
-        pvInitPeek m_uArrayPeek, baKey
-        If UBound(baKey) + 1 = LNG_KEYSZ Then
-            pvAbsorbSliced uCtx, m_aPeek(0), m_aPeek(1), 3
-            pvAbsorbSliced uCtx, m_aPeek(2), m_aPeek(3), 4
+        pvInitPeek m_uArrayPeek, .Key
+        If UBound(.Key) + 1 = LNG_KEYSZ Then
+            pvAbsorbSliced .State, m_aPeek(0), m_aPeek(1), 3
+            pvAbsorbSliced .State, m_aPeek(2), m_aPeek(3), 4
         Else
-            pvAbsorbSliced uCtx, 0, m_aPeek(0), 2
-            pvAbsorbSliced uCtx, m_aPeek(1), m_aPeek(2), 3
-            pvAbsorbSliced uCtx, m_aPeek(3), m_aPeek(4), 4
+            pvAbsorbSliced .State, 0, m_aPeek(0), 2
+            pvAbsorbSliced .State, m_aPeek(1), m_aPeek(2), 3
+            pvAbsorbSliced .State, m_aPeek(3), m_aPeek(4), 4
         End If
-        ReDim baTag(0 To LNG_TAGSZ - 1) As Byte
-        pvInitPeek m_uArrayPeek, baTag
-        pvSqueezeSliced uCtx, m_aPeek(0), m_aPeek(1), 3
-        pvSqueezeSliced uCtx, m_aPeek(2), m_aPeek(3), 4
+        ReDim baOutput(0 To LNG_TAGSZ - 1) As Byte
+        pvInitPeek m_uArrayPeek, baOutput
+        pvSqueezeSliced .State, m_aPeek(0), m_aPeek(1), 3
+        pvSqueezeSliced .State, m_aPeek(2), m_aPeek(3), 4
+        '--- wipe key
+        For lIdx = 0 To UBound(.Key)
+            .Key(lIdx) = 0
+        Next
         Call CopyMemory(ByVal ArrPtr(.Bytes), pDummy, LenB(pDummy))
-        Call CopyMemory(ByVal ArrPtr(.Words), pDummy, LenB(pDummy))
     End With
     uCtx = uEmpty
 End Sub
@@ -699,50 +718,51 @@ Private Function ToHex(baData() As Byte) As String
     Next
 End Function
 
-'Public Sub CryptoAsconHashInit(uCtx As CryptoAsconSlicedContext, Optional AsconVariant As String)
-'    pvInitHash uCtx, AsconVariant
-'End Sub
-'
-'Public Sub CryptoAsconHashUpdate(uCtx As CryptoAsconSlicedContext, baInput() As Byte, Optional ByVal Pos As Long, Optional ByVal Size As Long = -1)
-'    pvUpdate uCtx, baInput, Pos, Size
-'End Sub
-'
-'Public Sub CryptoAsconHashFinalize(uCtx As CryptoAsconSlicedContext, baOutput() As Byte, Optional ByVal OutSize As Long)
-'    pvFinalizeHash uCtx, baOutput, OutSize
-'End Sub
+Public Sub CryptoAsconSlicedHashInit(uCtx As CryptoAsconSlicedContext, Optional AsconVariant As String)
+    pvInitHash uCtx, AsconVariant
+End Sub
 
-Public Function CryptoAsconHashByteArraySliced(baInput() As Byte, Optional ByVal Pos As Long, Optional ByVal Size As Long = -1, Optional AsconVariant As String, Optional OutSize As Long) As Byte()
+Public Sub CryptoAsconSlicedHashUpdate(uCtx As CryptoAsconSlicedContext, baInput() As Byte, Optional ByVal Pos As Long, Optional ByVal Size As Long = -1)
+    pvUpdate uCtx, baInput, Pos, Size
+End Sub
+
+Public Sub CryptoAsconSlicedHashFinalize(uCtx As CryptoAsconSlicedContext, baOutput() As Byte, Optional ByVal OutSize As Long)
+    pvUpdate uCtx, uCtx.Bytes, 0, 0, Final:=uCtx.RoundsFinal
+    pvFinalizeHash uCtx, baOutput, OutSize
+End Sub
+
+Public Function CryptoAsconSlicedHashByteArray(baInput() As Byte, Optional ByVal Pos As Long, Optional ByVal Size As Long = -1, Optional AsconVariant As String, Optional OutSize As Long) As Byte()
     Dim uCtx            As CryptoAsconSlicedContext
     
     pvInitHash uCtx, AsconVariant
     pvUpdate uCtx, baInput, Pos, Size, Final:=uCtx.RoundsFinal
-    pvFinalizeHash uCtx, CryptoAsconHashByteArraySliced, OutSize
+    pvFinalizeHash uCtx, CryptoAsconSlicedHashByteArray, OutSize
 End Function
 
-Public Function CryptoAsconHashTextSliced(sText As String, Optional AsconVariant As String) As String
-    CryptoAsconHashTextSliced = ToHex(CryptoAsconHashByteArraySliced(ToUtf8Array(sText), AsconVariant:=AsconVariant))
+Public Function CryptoAsconSlicedHashText(sText As String, Optional AsconVariant As String) As String
+    CryptoAsconSlicedHashText = ToHex(CryptoAsconSlicedHashByteArray(ToUtf8Array(sText), AsconVariant:=AsconVariant))
 End Function
 
-Public Sub CryptoAsconEncryptSliced(baKey() As Byte, baTag() As Byte, _
+Public Sub CryptoAsconSlicedEncrypt(baKey() As Byte, baTag() As Byte, _
             baInput() As Byte, Optional ByVal Pos As Long, Optional ByVal Size As Long = -1, _
             Optional Nonce As Variant, Optional AssociatedData As Variant, Optional AsconVariant As String)
     Dim uCtx            As CryptoAsconSlicedContext
     
-    pvInitAead uCtx, baKey, Nonce, AssociatedData, AsconVariant
-    pvUpdate uCtx, baInput, Pos, Size, Encrypt:=True, Final:=uCtx.RoundsFinal, Key:=baKey
-    pvFinalizeAead uCtx, baKey, baTag
+    pvInitAead uCtx, baKey, Nonce, AssociatedData, AsconVariant, Encrypt:=True
+    pvUpdate uCtx, baInput, Pos, Size, Aead:=True, Final:=uCtx.RoundsFinal
+    pvFinalizeAead uCtx, baTag
 End Sub
 
-Public Function CryptoAsconDecryptSliced(baKey() As Byte, baTag() As Byte, _
+Public Function CryptoAsconSlicedDecrypt(baKey() As Byte, baTag() As Byte, _
             baInput() As Byte, Optional ByVal Pos As Long, Optional ByVal Size As Long = -1, _
             Optional Nonce As Variant, Optional AssociatedData As Variant, Optional AsconVariant As String) As Boolean
     Dim uCtx            As CryptoAsconSlicedContext
     Dim baTemp()        As Byte
 
     pvInitAead uCtx, baKey, Nonce, AssociatedData, AsconVariant
-    pvUpdate uCtx, baInput, Pos, Size, Decrypt:=True, Final:=uCtx.RoundsFinal, Key:=baKey
-    pvFinalizeAead uCtx, baKey, baTemp
+    pvUpdate uCtx, baInput, Pos, Size, Aead:=True, Final:=uCtx.RoundsFinal
+    pvFinalizeAead uCtx, baTemp
     If UBound(baTemp) = UBound(baTag) Then
-        CryptoAsconDecryptSliced = (InStrB(baTemp, baTag) = 1)
+        CryptoAsconSlicedDecrypt = (InStrB(baTemp, baTag) = 1)
     End If
 End Function
