@@ -447,7 +447,7 @@ Private Sub pvInit(uCtx As CryptoAsconContext)
 End Sub
 
 Private Sub pvInitHash(uCtx As CryptoAsconContext, Optional AsconVariant As String)
-    Dim sState          As Variant
+    Dim vSplit          As Variant
     Dim vElem           As Variant
     Dim lIdx            As Long
     
@@ -456,16 +456,16 @@ Private Sub pvInitHash(uCtx As CryptoAsconContext, Optional AsconVariant As Stri
         Select Case LCase$(AsconVariant)
         Case "ascon-hash", vbNullString
             .RoundsItermediate = LNG_ROUNDS
-            sState = "AA9893EE 3DF067DB 3118B28B 2100FC6 DB928AB4 62DAD598 21991843 E8E3F8B8 C9A58F34 40E125D5"
+            vSplit = Split("AA9893EE 3DF067DB 3118B28B 2100FC6 DB928AB4 62DAD598 21991843 E8E3F8B8 C9A58F34 40E125D5")
         Case "ascon-hasha"
             .RoundsItermediate = LNG_ROUNDS \ 2 + 2
-            sState = "94014701 A62865FC 8AC38E73 A7FFADC0 29E3C82E 4C38766C 4DA5F6D6 7D37527F A2423CA1 878DBE23"
+            vSplit = Split("94014701 A62865FC 8AC38E73 A7FFADC0 29E3C82E 4C38766C 4DA5F6D6 7D37527F A2423CA1 878DBE23")
         Case "ascon-xof"
             .RoundsItermediate = LNG_ROUNDS
-            sState = "3B277EB5 16D44C81 2504512B 2024AE62 76A7A366 1822DF8D 7A0AAD5A C655381 320E3E4F B6939453"
+            vSplit = Split("3B277EB5 16D44C81 2504512B 2024AE62 76A7A366 1822DF8D 7A0AAD5A C655381 320E3E4F B6939453")
         Case "ascon-xofa"
             .RoundsItermediate = LNG_ROUNDS \ 2 + 2
-            sState = "68659044 32987BB7 AE6C8DCD 32554553 2721B5F7 29214256 E1856824 5B220DDE E35CCBA8 3F974934"
+            vSplit = Split("68659044 32987BB7 AE6C8DCD 32554553 2721B5F7 29214256 E1856824 5B220DDE E35CCBA8 3F974934")
         Case Else
             Err.Raise vbObjectError, , "Invalid variant for Ascon hash (" & AsconVariant & ")"
         End Select
@@ -473,7 +473,7 @@ Private Sub pvInitHash(uCtx As CryptoAsconContext, Optional AsconVariant As Stri
         .RoundsFinal = LNG_ROUNDS
         .Key = vbNullString
         '--- init state
-        For Each vElem In Split(sState)
+        For Each vElem In vSplit
             .State.Item(lIdx) = "&H" & vElem
             lIdx = lIdx + 1
         Next
