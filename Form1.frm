@@ -188,13 +188,13 @@ Private Function pvArrayEqual(baFirst() As Byte, baSecond() As Byte) As Boolean
 End Function
 
 Private Sub pvTestSha3()
-    Dim sMessage        As String
     Dim baInput()       As Byte
     Dim baHash()        As Byte
 
-'    sMessage = "Rosetta code"
-'    baHash = CryptoSha2ByteArray(256, StrConv(sMessage, vbFromUnicode))
-'    Debug.Assert LCase$(ToHex(baHash)) = "764faf5c61ac315f1497f9dfa542713965b785e5cc2f707d6468d7d1124cdfcf"
+    baInput = StrConv("Rosetta code", vbFromUnicode)
+    baHash = CryptoSha3ByteArray(256, baInput)
+    Debug.Print ToHex(baHash)
+    Debug.Assert LCase$(ToHex(baHash)) = "b22d04f91ad2e7fe2dc0084666f9ddc7534c1e5df85d736a7a43dd4ad8758ee3"
 '
 '    sMessage = Replace(String(1000, " "), " ", "Rosetta code")
 '    baHash = CryptoSha2ByteArray(256, StrConv(sMessage, vbFromUnicode))
@@ -557,7 +557,7 @@ Private Sub pvTestAsconHash()
 End Sub
 
 Private Sub Form_Load()
-    pvTestAsconHash
+'    pvTestAsconHash
 '    pvTestSiphash
 '    Debug.Print Timer
 '    CryptoTestArgon2
@@ -573,8 +573,8 @@ Private Sub Form_Load()
 '    pvTestScryptKdf
 '    pvTestRipeMd160
 '    pvTestHkdfSha2
-'    pvTestSha3
-    pvTestSha512
+    pvTestSha3
+'    pvTestSha512
 '    pvTestCryptoEd25519
 '    pvTestHmacSha2 JsonParseObject(ReadTextFile("C:\Work\Temp\wycheproof\testvectors\hmac_sha512_test.json")), 512
 '    pvTestHmacSha2 JsonParseObject(ReadTextFile("C:\Work\Temp\wycheproof\testvectors\hmac_sha384_test.json")), 384

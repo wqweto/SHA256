@@ -113,6 +113,16 @@ Begin VB.Form Form5
       Top             =   420
       Width           =   2028
    End
+   Begin VB.Label Label1 
+      AutoSize        =   -1  'True
+      BackStyle       =   0  'Transparent
+      Height          =   192
+      Left            =   0
+      TabIndex        =   13
+      Top             =   0
+      UseMnemonic     =   0   'False
+      Width           =   36
+   End
 End
 Attribute VB_Name = "Form5"
 Attribute VB_GlobalNameSpace = False
@@ -158,6 +168,7 @@ Private Sub Command1_Click()
     For lIdx = 1 To ITER
         baOutput = CryptoMd5ByteArray(m_baContents)
     Next
+    Label1.Caption = ToHex(baOutput)
     Caption = Format$(Timer - dblTimer, "0.000") & " sec"
     Command1.Caption = Format$((UBound(m_baContents) + 1) * ITER / 1024# / 1024# / (Timer - dblTimer), "0.000") & " MB/s"
 End Sub
@@ -173,6 +184,7 @@ Private Sub Command2_Click()
     For lIdx = 1 To ITER
         baOutput = CryptoSha1ByteArray(m_baContents)
     Next
+    Label1.Caption = ToHex(baOutput)
     Caption = Format$(Timer - dblTimer, "0.000") & " sec"
     Command2.Caption = Format$((UBound(m_baContents) + 1) * ITER / 1024# / 1024# / (Timer - dblTimer), "0.000") & " MB/s"
 End Sub
@@ -188,6 +200,7 @@ Private Sub Command3_Click()
     For lIdx = 1 To ITER
         baOutput = CryptoSha2ByteArray(256, m_baContents)
     Next
+    Label1.Caption = ToHex(baOutput)
     Caption = Format$(Timer - dblTimer, "0.000") & " sec"
     Command3.Caption = Format$((UBound(m_baContents) + 1) * ITER / 1024# / 1024# / (Timer - dblTimer), "0.000") & " MB/s"
 End Sub
@@ -203,6 +216,7 @@ Private Sub Command3b_Click()
     For lIdx = 1 To ITER
         baOutput = CryptoSha2ByteArray(512, m_baContents)
     Next
+    Label1.Caption = ToHex(baOutput)
     Caption = Format$(Timer - dblTimer, "0.000") & " sec"
     Command3b.Caption = Format$((UBound(m_baContents) + 1) * ITER / 1024# / 1024# / (Timer - dblTimer), "0.000") & " MB/s"
 End Sub
@@ -218,6 +232,7 @@ Private Sub Command4_Click()
     For lIdx = 1 To ITER
         baOutput = CryptoSha3ByteArray(256, m_baContents)
     Next
+    Label1.Caption = ToHex(baOutput)
     Caption = Format$(Timer - dblTimer, "0.000") & " sec"
     Command4.Caption = Format$((UBound(m_baContents) + 1) * ITER / 1024# / 1024# / (Timer - dblTimer), "0.000") & " MB/s"
 End Sub
@@ -233,6 +248,7 @@ Private Sub Command5_Click()
     For lIdx = 1 To ITER
         baOutput = CryptoBlake2sByteArray(256, m_baContents)
     Next
+    Label1.Caption = ToHex(baOutput)
     Caption = Format$(Timer - dblTimer, "0.000") & " sec"
     Command5.Caption = Format$((UBound(m_baContents) + 1) * ITER / 1024# / 1024# / (Timer - dblTimer), "0.000") & " MB/s"
 End Sub
@@ -248,6 +264,7 @@ Private Sub Command6_Click()
     For lIdx = 1 To ITER
         baOutput = CryptoSiphash24ByteArray(FromHex(""), m_baContents)
     Next
+    Label1.Caption = ToHex(baOutput)
     Caption = Format$(Timer - dblTimer, "0.000") & " sec"
     Command6.Caption = Format$((UBound(m_baContents) + 1) * ITER / 1024# / 1024# / (Timer - dblTimer), "0.000") & " MB/s"
 End Sub
@@ -264,6 +281,7 @@ Private Sub Command7_Click()
     For lIdx = 1 To ITER
         baOutput = CryptoSiphash13ByteArray(FromHex(""), m_baContents)
     Next
+    Label1.Caption = ToHex(baOutput)
     Caption = Format$(Timer - dblTimer, "0.000") & " sec"
     Command7.Caption = Format$((UBound(m_baContents) + 1) * ITER / 1024# / 1024# / (Timer - dblTimer), "0.000") & " MB/s"
 End Sub
@@ -279,6 +297,7 @@ Private Sub Command8_Click()
     For lIdx = 1 To ITER
         baOutput = CryptoHalfSiphash24ByteArray(FromHex(""), m_baContents)
     Next
+    Label1.Caption = ToHex(baOutput)
     Caption = Format$(Timer - dblTimer, "0.000") & " sec"
     Command8.Caption = Format$((UBound(m_baContents) + 1) * ITER / 1024# / 1024# / (Timer - dblTimer), "0.000") & " MB/s"
 End Sub
@@ -294,6 +313,7 @@ Private Sub Command9_Click()
     For lIdx = 1 To ITER
         baOutput = CryptoHalfSiphash13ByteArray(FromHex(""), m_baContents)
     Next
+    Label1.Caption = ToHex(baOutput)
     Caption = Format$(Timer - dblTimer, "0.000") & " sec"
     Command9.Caption = Format$((UBound(m_baContents) + 1) * ITER / 1024# / 1024# / (Timer - dblTimer), "0.000") & " MB/s"
 End Sub
@@ -309,6 +329,7 @@ Private Sub Command10_Click()
     For lIdx = 1 To ITER
         baOutput = CryptoAsconHashByteArray(m_baContents)
     Next
+    Label1.Caption = ToHex(baOutput)
     Caption = Format$(Timer - dblTimer, "0.000") & " sec"
     Command10.Caption = Format$((UBound(m_baContents) + 1) * ITER / 1024# / 1024# / (Timer - dblTimer), "0.000") & " MB/s"
 End Sub
