@@ -5,6 +5,7 @@ DefObj A-Z
 
 #Const HasPtrSafe = (VBA7 <> 0)
 #Const HasOperators = (TWINBASIC <> 0)
+#Const HasLongLong = (VBA7 <> 0 And WIN64 <> 0 Or TWINBASIC <> 0)
 #Const DebugMode = False
 
 #If HasPtrSafe Then
@@ -30,7 +31,7 @@ Private Enum Argon2ModeEnum
 End Enum
 
 Private Type ArrayLong128
-#If HasPtrSafe Then
+#If HasLongLong Then
     Item(0 To LNG_ARRAYSZ - 1)  As LongLong
 #Else
     Item(0 To LNG_ARRAYSZ - 1)  As Variant
@@ -38,7 +39,7 @@ Private Type ArrayLong128
 End Type
 
 #If Not HasOperators Then
-#If HasPtrSafe Then
+#If HasLongLong Then
 Private LNG_ZERO                    As LongLong
 Private LNG_POW2(0 To 63)           As LongLong
 Private LNG_SIGN_BIT                As LongLong ' 2 ^ 63
@@ -50,7 +51,7 @@ Private LNG_SIGN_BIT                As Variant
 Private LNG_UINT_MAX                As Variant
 #End If
 
-#If HasPtrSafe Then
+#If HasLongLong Then
 Private Function RotR64(ByVal lX As LongLong, ByVal lN As Long) As LongLong
 #Else
 Private Function RotR64(lX As Variant, ByVal lN As Long) As Variant
@@ -61,7 +62,7 @@ Private Function RotR64(lX As Variant, ByVal lN As Long) As Variant
         ((lX And (LNG_POW2(lN - 1) - 1)) * LNG_POW2(64 - lN) Or -((lX And LNG_POW2(lN - 1)) <> 0) * LNG_SIGN_BIT)
 End Function
 
-#If HasPtrSafe Then
+#If HasLongLong Then
 Private Function RShift64(ByVal lX As LongLong, ByVal lN As Long) As LongLong
 #Else
 Private Function RShift64(lX As Variant, ByVal lN As Long) As Variant
@@ -73,7 +74,7 @@ Private Function RShift64(lX As Variant, ByVal lN As Long) As Variant
     End If
 End Function
 
-#If HasPtrSafe Then
+#If HasLongLong Then
 Private Function UAdd64(ByVal lX As LongLong, ByVal lY As LongLong) As LongLong
 #Else
 Private Function UAdd64(lX As Variant, lY As Variant) As Variant
@@ -85,7 +86,7 @@ Private Function UAdd64(lX As Variant, lY As Variant) As Variant
     End If
 End Function
 
-#If HasPtrSafe Then
+#If HasLongLong Then
 Private Function UMul64(ByVal lX As LongLong, ByVal lY As LongLong) As LongLong
 #Else
 Private Function UMul64(lX As Variant, lY As Variant) As Variant
@@ -96,7 +97,7 @@ Private Function UMul64(lX As Variant, lY As Variant) As Variant
     End If
 End Function
 
-#If HasPtrSafe Then
+#If HasLongLong Then
 Private Sub pvQuarter64(lA As LongLong, lB As LongLong, lC As LongLong, lD As LongLong)
     Dim lX              As LongLong
 #Else
@@ -139,7 +140,7 @@ Private Sub pvQuarter64(lA As LongLong, lB As LongLong, lC As LongLong, lD As Lo
 End Sub
 #End If
 
-#If Not HasPtrSafe Then
+#If Not HasLongLong Then
 Private Function CLngLng(vValue As Variant) As Variant
     Const VT_I8 As Long = &H14
     Call VariantChangeType(CLngLng, vValue, 0, VT_I8)
@@ -189,7 +190,7 @@ End Sub
 #If HasOperators Then
 [ IntegerOverflowChecks (False) ]
 #End If
-#If HasPtrSafe Then
+#If HasLongLong Then
 Private Function pvIndexAlpha(ByVal lRandom As LongLong, ByVal lLanes As Long, ByVal lSegments As Long, ByVal lThreads As Long, ByVal lN As Long, ByVal lSlice As Long, ByVal lLane As Long, ByVal lIndex As Long) As Long
     Dim lP              As LongLong
 #Else
@@ -325,7 +326,7 @@ Private Sub pvInitBlocks(baHash() As Byte, ByVal lMemory As Long, ByVal lThreads
             Call CopyMemory(baHash(LNG_HASHSZ), lKdx, 4)
             pvExtendedHash baHash, baTemp
             With uOutput(lJdx + lKdx)
-                #If HasPtrSafe Then
+                #If HasLongLong Then
                     Call CopyMemory(.Item(0), baTemp(0), LNG_BLOCKSZ)
                 #Else
                     Static B2(0 To LNG_ARRAYSZ - 1) As Currency
@@ -351,7 +352,7 @@ End Function
 #End If
 
 Private Sub pvProcessBlocks(uBlocks() As ArrayLong128, ByVal lPasses As Long, ByVal lMemory As Long, ByVal lThreads As Long, ByVal eMode As Argon2ModeEnum)
-#If HasPtrSafe Then
+#If HasLongLong Then
     Dim lRandom         As LongLong
 #Else
     Dim lRandom         As Variant
@@ -448,7 +449,7 @@ Private Sub pvExtractKey(uBlocks() As ArrayLong128, ByVal lMemory As Long, ByVal
                 .Item(lIdx) = .Item(lIdx) Xor uBlocks(lJdx).Item(lIdx)
             Next
         Next
-        #If HasPtrSafe Then
+        #If HasLongLong Then
             Call CopyMemory(baTemp(0), .Item(0), LNG_BLOCKSZ)
         #Else
             For lIdx = 0 To LNG_ARRAYSZ - 1

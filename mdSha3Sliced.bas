@@ -598,7 +598,7 @@ Public Sub CryptoSha3Update(uCtx As CryptoSha3Context, baBuffer() As Byte, Optio
     End With
 End Sub
 
-Public Sub CryptoSha3Finalize(uCtx As CryptoSha3Context, baOutput() As Byte, Optional ByVal OutSize As Long, Optional ByVal LFSR As Long)
+Public Sub CryptoSha3Finalize(uCtx As CryptoSha3Context, baOutput() As Byte, Optional ByVal OutSize As Long, Optional ByVal Delimiter As Long)
     Dim lIdx            As Long
     Dim lOffset         As Long
     Dim pDummy          As LongPtr
@@ -609,10 +609,10 @@ Public Sub CryptoSha3Finalize(uCtx As CryptoSha3Context, baOutput() As Byte, Opt
             OutSize = .DigestSize
         End If
         ReDim baOutput(0 To OutSize - 1) As Byte
-        If LFSR = 0 Then
-            LFSR = &H6
+        If Delimiter = 0 Then
+            Delimiter = &H6
         End If
-        .Bytes(.Absorbed) = .Bytes(.Absorbed) Xor LFSR
+        .Bytes(.Absorbed) = .Bytes(.Absorbed) Xor Delimiter
         lOffset = .Capacity - 1
         .Bytes(lOffset) = .Bytes(lOffset) Xor &H80
         For lIdx = 0 To UBound(baOutput)

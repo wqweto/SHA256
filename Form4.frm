@@ -9,6 +9,14 @@ Begin VB.Form Form4
    ScaleHeight     =   2316
    ScaleWidth      =   3624
    StartUpPosition =   3  'Windows Default
+   Begin VB.CommandButton Command1 
+      Caption         =   "Form5"
+      Height          =   516
+      Left            =   504
+      TabIndex        =   0
+      Top             =   504
+      Width           =   1608
+   End
 End
 Attribute VB_Name = "Form4"
 Attribute VB_GlobalNameSpace = False
@@ -17,7 +25,16 @@ Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 Option Explicit
 
+Private Declare Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" (Destination As Any, Source As Any, ByVal Length As Long)
+
+Private Sub Command1_Click()
+    Form5.Show
+    Unload Me
+End Sub
+
 Private Sub Form_Load()
+    pvTestAes
+    Exit Sub
     pvTestMd5
     pvTestSha1
     pvTestBase64
@@ -153,4 +170,118 @@ Private Sub pvTestChaCha20Poly1305(oJson As Object)
             End If
         Next
     Next
+End Sub
+
+Private Sub pvTestAes()
+    Dim uCtx            As CryptoAesContext
+    Dim baKey()         As Byte
+    Dim baNonce()       As Byte
+    Dim baAad()         As Byte
+    Dim baBlock()       As Byte
+    Dim baBuffer()      As Byte
+    Dim baAppend()      As Byte
+    Dim baTag()         As Byte
+    
+    baKey = FromHex("00112233445566778899aabbccddeeff")
+    CryptoAesInit uCtx, baKey
+    baBlock = baKey
+    CryptoAesProcess uCtx, False, baBlock
+    Debug.Print ToHex(baBlock)
+    '-> 7a4e30dbc7c4219e746f2d8b1d169cb1
+    CryptoAesProcess uCtx, True, baBlock
+    Debug.Print ToHex(baBlock)
+    '-> 00112233445566778899aabbccddeeff
+    
+    '--- https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-38a.pdf
+    '--- F.2.1 CBC-AES128.Encrypt
+    baKey = FromHex("2b7e151628aed2a6abf7158809cf4f3c")
+    baNonce = FromHex("000102030405060708090a0b0c0d0e0f")
+    CryptoAesInit uCtx, baKey, baNonce
+    baBuffer = FromHex("6bc1bee22e409f96e93d7e117393172a")
+    CryptoAesCbcEncrypt uCtx, baBuffer, Final:=False
+    Debug.Assert ToHex(baBuffer) = "7649abac8119b246cee98e9b12e9197d"
+    '-> 7649abac8119b246cee98e9b12e9197d
+    baAppend = vbNullString
+    'baAppend = StrConv("0123", vbFromUnicode)
+    CryptoAesCbcEncrypt uCtx, baAppend
+    Debug.Assert ToHex(baAppend) = "8964e0b149c10b7b682e6e39aaeb731c"
+    'Debug.Assert ToHex(baAppend) = "09fd79c936a0416df86153e8715da8c1"
+    
+    CryptoAesInit uCtx, baKey, baNonce
+'    pvConcat baBuffer, baAppend
+    If CryptoAesCbcDecrypt(uCtx, baBuffer, Final:=False) Then
+        Debug.Assert ToHex(baBuffer) = "6bc1bee22e409f96e93d7e117393172a"
+        '-> "00112233445566778899aabbccddeeff"
+    Else
+        Debug.Assert Len("CryptoAesCbcDecrypt failed") = 0
+    End If
+    If CryptoAesCbcDecrypt(uCtx, baAppend) Then
+        Debug.Assert ToHex(baAppend) = ""
+        'Debug.Assert ToHex(baAppend) = "30313233"
+    Else
+        Debug.Assert Len("CryptoAesCbcDecrypt failed") = 0
+    End If
+    
+    '--- F.2.3 CBC-AES192.Encrypt
+    baKey = FromHex("8e73b0f7da0e6452c810f32b809079e562f8ead2522c6b7b")
+    baNonce = FromHex("000102030405060708090a0b0c0d0e0f")
+    CryptoAesInit uCtx, baKey, baNonce
+    baBuffer = FromHex("6bc1bee22e409f96e93d7e117393172aae2d8a571e03ac9c9eb76fac45af8e5130c81c46a35ce411e5fbc1191a0a52eff69f2445df4f9b17ad2b417be66c3710")
+    CryptoAesCbcEncrypt uCtx, baBuffer
+    Debug.Assert ToHex(baBuffer) = "4f021db243bc633d7178183a9fa071e8b4d9ada9ad7dedf4e5e738763f69145a571b242012fb7ae07fa9baac3df102e008b0e27988598881d920a9e64f5615cd612ccd79224b350935d45dd6a98f8176"
+    CryptoAesInit uCtx, baKey, baNonce
+    CryptoAesCbcDecrypt uCtx, baBuffer
+    Debug.Assert ToHex(baBuffer) = "6bc1bee22e409f96e93d7e117393172aae2d8a571e03ac9c9eb76fac45af8e5130c81c46a35ce411e5fbc1191a0a52eff69f2445df4f9b17ad2b417be66c3710"
+    
+    '--- F.2.5 CBC-AES256.Encrypt
+    baKey = FromHex("603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4")
+    baNonce = FromHex("000102030405060708090a0b0c0d0e0f")
+    CryptoAesInit uCtx, baKey, baNonce
+    baBuffer = FromHex("6bc1bee22e409f96e93d7e117393172aae2d8a571e03ac9c9eb76fac45af8e5130c81c46a35ce411e5fbc1191a0a52eff69f2445df4f9b17ad2b417be66c3710")
+    CryptoAesCbcEncrypt uCtx, baBuffer
+    Debug.Assert ToHex(baBuffer) = "f58c4c04d6e5f1ba779eabfb5f7bfbd69cfc4e967edb808d679f777bc6702c7d39f23369a9d9bacfa530e26304231461b2eb05e2c39be9fcda6c19078c6a9d1b3f461796d6b0d6b2e0c2a72b4d80e644"
+    CryptoAesInit uCtx, baKey, baNonce
+    Debug.Assert CryptoAesCbcDecrypt(uCtx, baBuffer)
+    Debug.Assert ToHex(baBuffer) = "6bc1bee22e409f96e93d7e117393172aae2d8a571e03ac9c9eb76fac45af8e5130c81c46a35ce411e5fbc1191a0a52eff69f2445df4f9b17ad2b417be66c3710"
+        
+    '--- F.5.1 CTR-AES128.Encrypt
+    baKey = FromHex("2b7e151628aed2a6abf7158809cf4f3c")
+    baNonce = FromHex("f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff")
+    CryptoAesInit uCtx, baKey, baNonce
+    baBuffer = FromHex("6bc1bee22e409f96e93d7e117393172a")
+    CryptoAesCtrCrypt uCtx, baBuffer
+    Debug.Assert ToHex(baBuffer) = "874d6191b620e3261bef6864990db6ce"
+    CryptoAesInit uCtx, baKey, baNonce
+    CryptoAesCtrCrypt uCtx, baBuffer
+    Debug.Assert ToHex(baBuffer) = "6bc1bee22e409f96e93d7e117393172a"
+    
+    '--- F.5.5 CTR-AES256.Encrypt
+    baKey = FromHex("603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4")
+    baNonce = FromHex("f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff")
+    CryptoAesInit uCtx, baKey, baNonce
+    baBuffer = FromHex("6bc1bee22e409f96e93d7e117393172aae2d8a571e03ac9c9eb76fac45af8e5130c81c46a35ce411e5fbc1191a0a52eff69f2445df4f9b17ad2b417be66c3710")
+    CryptoAesCtrCrypt uCtx, baBuffer
+    Debug.Assert ToHex(baBuffer) = "601ec313775789a5b7a7f504bbf3d228f443e3ca4d62b59aca84e990cacaf5c52b0930daa23de94ce87017ba2d84988ddfc9c58db67aada613c2dd08457941a6"
+    CryptoAesInit uCtx, baKey, baNonce
+    CryptoAesCtrCrypt uCtx, baBuffer
+    Debug.Assert ToHex(baBuffer) = "6bc1bee22e409f96e93d7e117393172aae2d8a571e03ac9c9eb76fac45af8e5130c81c46a35ce411e5fbc1191a0a52eff69f2445df4f9b17ad2b417be66c3710"
+
+    Dim uGcmCtx As CryptoAesGcmContext
+    baKey = FromHex("603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4")
+    baNonce = FromHex("f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff")
+    baAad = vbNullString
+    CryptoAesGcmInit uGcmCtx, baKey, baNonce, baAad
+    baBuffer = FromHex("6bc1bee22e409f96e93d7e117393172aae2d8a571e03ac9c9eb76fac45af8e5130c81c46a35ce411e5fbc1191a0a52eff69f2445df4f9b17ad2b417be66c3710")
+    CryptoAesGcmEncrypt uGcmCtx, baBuffer, TagSize:=16, Tag:=baTag
+    
+    CryptoAesGcmInit uGcmCtx, baKey, baNonce, baAad
+    CryptoAesGcmDecrypt uGcmCtx, baBuffer, Tag:=baTag
+    Debug.Print ToHex(baBuffer)
+End Sub
+
+Private Sub pvConcat(baBuffer() As Byte, baAppend() As Byte)
+    Dim lPos As Long
+    lPos = UBound(baBuffer) + 1
+    ReDim Preserve baBuffer(0 To lPos + UBound(baAppend)) As Byte
+    Call CopyMemory(baBuffer(lPos), baAppend(0), UBound(baAppend) + 1)
 End Sub

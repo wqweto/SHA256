@@ -560,7 +560,8 @@ Private Sub Form_Load()
 '    pvTestAsconHash
 '    pvTestSiphash
 '    Debug.Print Timer
-'    CryptoTestArgon2
+    pvTestArgon2
+    CryptoTestArgon2
 '    Debug.Print Timer
 '    pvTestArgon2
 '    pvTestBlake3
