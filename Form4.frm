@@ -186,8 +186,8 @@ Private Sub pvTestAes()
     CryptoAesInit uCtx, baKey
     baBlock = baKey
     CryptoAesProcess uCtx, False, baBlock
-    Debug.Print ToHex(baBlock)
-    '-> 7a4e30dbc7c4219e746f2d8b1d169cb1
+    Debug.Assert ToHex(baBlock) = "b8f21a70bc9cee25249e2761fcbb7a34"
+    '-> b8f21a70bc9cee25249e2761fcbb7a34
     CryptoAesProcess uCtx, True, baBlock
     Debug.Print ToHex(baBlock)
     '-> 00112233445566778899aabbccddeeff
