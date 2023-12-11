@@ -380,6 +380,18 @@ Public Sub CryptoAesProcess(uCtx As CryptoAesContext, ByVal Encrypt As Boolean, 
     pvProcess uCtx, Encrypt, m_aBlock(0), m_aBlock(0)
 End Sub
 
+Public Sub CryptoAesNextNonce(uCtx As CryptoAesContext, baNonce() As Byte)
+    With uCtx
+        If UBound(baNonce) <> LNG_BLOCKSZ - 1 Then
+            ReDim Preserve baNonce(0 To LNG_BLOCKSZ - 1) As Byte
+        End If
+        Call CopyMemory(.Nonce, baNonce(0), LNG_BLOCKSZ)
+        If pvUnsignedInc(.Nonce.Item(3)) Then
+            pvUnsignedInc .Nonce.Item(2)
+        End If
+    End With
+End Sub
+
 Public Sub CryptoAesCbcEncrypt(uCtx As CryptoAesContext, baBuffer() As Byte, Optional ByVal Pos As Long, Optional ByVal Size As Long = -1, Optional ByVal Final As Boolean = True)
     Dim lIdx            As Long
     Dim lJdx            As Long

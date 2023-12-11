@@ -196,17 +196,7 @@ Private Function pvUpdate(uKeyTable As ShoupTable, uArray As ArrayByte16, baInpu
     pvUpdate = Offset
 End Function
 
-Private Function pvUnsignedInc(lValue As Long) As Boolean
-    If lValue <> -1 Then
-        lValue = BSwap32((BSwap32(lValue) Xor &H80000000) + 1 Xor &H80000000)
-    Else
-        lValue = 0
-        '--- signal carry
-        pvUnsignedInc = True
-    End If
-End Function
-
-Public Sub CryptoGhashInit(uCtx As CryptoGhashContext, baKey() As Byte, baIV() As Byte)
+Public Sub CryptoGhashInit(uCtx As CryptoGhashContext, baKey() As Byte, baNonce() As Byte)
     Dim uArray          As ArrayByte16
     Dim lSize           As Long
     
@@ -218,12 +208,12 @@ Public Sub CryptoGhashInit(uCtx As CryptoGhashContext, baKey() As Byte, baIV() A
         .NonceArray = uArray
         .HashArray = uArray
         .NPosition = 0
-        lSize = UBound(baIV) + 1
+        lSize = UBound(baNonce) + 1
         If lSize = 12 Then '--- 96 bits
-            Call CopyMemory(.NonceArray.Item(0), baIV(0), lSize)
+            Call CopyMemory(.NonceArray.Item(0), baNonce(0), lSize)
             .NonceArray.Item(LNG_BLOCKSZ - 1) = 1
         Else
-            pvUpdate .KeyTable, .NonceArray, baIV, 0, lSize
+            pvUpdate .KeyTable, .NonceArray, baNonce, 0, lSize
             If lSize Mod LNG_BLOCKSZ <> 0 Then
                 pvUpdate .KeyTable, .NonceArray, uArray.Item, 0, LNG_BLOCKSZ - lSize Mod LNG_BLOCKSZ, lSize Mod LNG_BLOCKSZ
             End If
@@ -258,20 +248,19 @@ Public Sub CryptoGhashFinalize(uCtx As CryptoGhashContext, ByVal lTagSize As Lon
     End With
 End Sub
 
-Public Sub CryptoAesGcmInit(uCtx As CryptoAesGcmContext, baKey() As Byte, baIV() As Byte, baAad() As Byte)
+'= AES-GCM ===============================================================
+
+Public Sub CryptoAesGcmInit(uCtx As CryptoAesGcmContext, baKey() As Byte, baNonce() As Byte, baAad() As Byte)
     Dim baHashKey(0 To LNG_BLOCKSZ - 1) As Byte
     
     With uCtx
         CryptoAesInit uCtx.AesCtx, baKey
         '--- encrypt a block of zeroes to create the hashing key
         CryptoAesProcess .AesCtx, True, baHashKey
-        CryptoGhashInit .GhashCtx, baHashKey, baIV
+        CryptoGhashInit .GhashCtx, baHashKey, baNonce
         '--- setup AES counter
-        LSet .AesCtx.Nonce = .GhashCtx.NonceArray
+        CryptoAesNextNonce .AesCtx, .GhashCtx.NonceArray.Item
         CryptoAesProcess .AesCtx, True, .GhashCtx.NonceArray.Item
-        If pvUnsignedInc(.AesCtx.Nonce.Item(3)) Then
-            pvUnsignedInc .AesCtx.Nonce.Item(2)
-        End If
         '--- absorb AAD into the hash
         CryptoGhashUpdate .GhashCtx, baAad
         CryptoGhashPad .GhashCtx
