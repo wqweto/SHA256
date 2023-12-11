@@ -1,24 +1,56 @@
 VERSION 5.00
 Begin VB.Form Form5 
    Caption         =   "Form5"
-   ClientHeight    =   8568
+   ClientHeight    =   9636
    ClientLeft      =   108
    ClientTop       =   456
    ClientWidth     =   6012
    LinkTopic       =   "Form5"
-   ScaleHeight     =   8568
+   ScaleHeight     =   9636
    ScaleWidth      =   6012
    StartUpPosition =   3  'Windows Default
-   Begin VB.CommandButton Command14 
-      Caption         =   "AES-CTR"
+   Begin VB.CommandButton Command18 
+      Caption         =   "AES256-GCM"
       Height          =   600
       Left            =   2940
-      TabIndex        =   15
+      TabIndex        =   19
+      Top             =   8652
+      Width           =   2028
+   End
+   Begin VB.CommandButton Command17 
+      Caption         =   "AES128-GCM"
+      Height          =   600
+      Left            =   588
+      TabIndex        =   18
+      Top             =   8652
+      Width           =   2028
+   End
+   Begin VB.CommandButton Command16 
+      Caption         =   "AES256-CTR"
+      Height          =   600
+      Left            =   2940
+      TabIndex        =   17
+      Top             =   7896
+      Width           =   2028
+   End
+   Begin VB.CommandButton Command15 
+      Caption         =   "AES256-CBC"
+      Height          =   600
+      Left            =   2940
+      TabIndex        =   16
       Top             =   7140
       Width           =   2028
    End
+   Begin VB.CommandButton Command14 
+      Caption         =   "AES128-CTR"
+      Height          =   600
+      Left            =   588
+      TabIndex        =   15
+      Top             =   7896
+      Width           =   2028
+   End
    Begin VB.CommandButton Command13 
-      Caption         =   "AES-CBC"
+      Caption         =   "AES128-CBC"
       Height          =   600
       Left            =   588
       TabIndex        =   14
@@ -443,7 +475,6 @@ Private Sub Command14_Click()
 '    Dim baOutput1() As Byte
 '    Dim baOutput2() As Byte
     Dim dblTimer    As Double
-    Dim bResult     As Boolean
     Dim uCtx        As CryptoAesContext
     
     Command14.Caption = "Processing"
@@ -463,15 +494,117 @@ Private Sub Command14_Click()
     Caption = Format$(TimerEx - dblTimer, "0.000") & " sec"
     Command14.Caption = Format$((UBound(m_baContents) + 1) * ITER / 1024# / 1024# / (TimerEx - dblTimer), "0.000") & " MB/s"
     
-    dblTimer = TimerEx
-    AesChunkedInit baKey, 16
-    AesChunkedCryptArray m_baContents, baOutput
-'    For lIdx = 0 To UBound(baOutput1)
-'        If baOutput1(lIdx) <> baOutput2(lIdx) Then
-'            Caption = lIdx
-'            Exit For
-'        End If
-'    Next
-    Command14.Caption = Format$((UBound(m_baContents) + 1) * ITER / 1024# / 1024# / (TimerEx - dblTimer), "0.000") & " MB/s"
+'    dblTimer = TimerEx
+'    AesChunkedInit baKey, 16
+'    AesChunkedCryptArray m_baContents, baOutput
+''    For lIdx = 0 To UBound(baOutput1)
+''        If baOutput1(lIdx) <> baOutput2(lIdx) Then
+''            Caption = lIdx
+''            Exit For
+''        End If
+''    Next
+'    Command14.Caption = Format$((UBound(m_baContents) + 1) * ITER / 1024# / 1024# / (TimerEx - dblTimer), "0.000") & " MB/s"
 End Sub
 
+Private Sub Command15_Click()
+    Const ITER      As Long = 1
+    Dim lIdx        As Long
+    Dim baKey()     As Byte
+    Dim baOutput()  As Byte
+    Dim dblTimer    As Double
+    Dim bResult     As Boolean
+    Dim uCtx        As CryptoAesContext
+    
+    Command15.Caption = "Processing"
+    dblTimer = TimerEx
+    baKey = FromHex("000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f")
+    For lIdx = 1 To ITER
+        baOutput = m_baContents
+        CryptoAesInit uCtx, baKey
+        CryptoAesCbcEncrypt uCtx, baOutput
+    Next
+    Command15.Caption = Format$((UBound(m_baContents) + 1) * ITER / 1024# / 1024# / (TimerEx - dblTimer), "0.000") & " MB/s"
+    Caption = Format$(TimerEx - dblTimer, "0.000") & " sec"
+    dblTimer = TimerEx
+    CryptoAesInit uCtx, baKey
+    bResult = CryptoAesCbcDecrypt(uCtx, baOutput)
+    Caption = Format$(TimerEx - dblTimer, "0.000") & " sec - " & bResult
+    Command15.Caption = Format$((UBound(m_baContents) + 1) * ITER / 1024# / 1024# / (TimerEx - dblTimer), "0.000") & " MB/s"
+End Sub
+
+Private Sub Command16_Click()
+    Const ITER      As Long = 1
+    Dim lIdx        As Long
+    Dim baKey()     As Byte
+    Dim baOutput()  As Byte
+    Dim dblTimer    As Double
+    Dim uCtx        As CryptoAesContext
+    
+    Command16.Caption = "Processing"
+    dblTimer = TimerEx
+    baKey = FromHex("000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f")
+    For lIdx = 1 To ITER
+        baOutput = m_baContents
+        CryptoAesInit uCtx, baKey
+        CryptoAesCtrCrypt uCtx, baOutput
+    Next
+    Command16.Caption = Format$((UBound(m_baContents) + 1) * ITER / 1024# / 1024# / (TimerEx - dblTimer), "0.000") & " MB/s"
+    Caption = Format$(TimerEx - dblTimer, "0.000") & " sec"
+    dblTimer = TimerEx
+    CryptoAesInit uCtx, baKey
+    CryptoAesCtrCrypt uCtx, baOutput
+    Caption = Format$(TimerEx - dblTimer, "0.000") & " sec"
+    Command16.Caption = Format$((UBound(m_baContents) + 1) * ITER / 1024# / 1024# / (TimerEx - dblTimer), "0.000") & " MB/s"
+End Sub
+
+Private Sub Command17_Click()
+    Const ITER      As Long = 1
+    Dim lIdx        As Long
+    Dim baKey()     As Byte
+    Dim baOutput()  As Byte
+    Dim dblTimer    As Double
+    Dim bResult     As Boolean
+    Dim uCtx        As CryptoAesGcmContext
+    
+    Command17.Caption = "Processing"
+    dblTimer = TimerEx
+    baKey = FromHex("000102030405060708090a0b0c0d0e0f")
+    For lIdx = 1 To ITER
+        baOutput = m_baContents
+        CryptoAesGcmInit uCtx, baKey, baKey, baKey
+        CryptoAesGcmEncrypt uCtx, baOutput
+    Next
+    Command17.Caption = Format$((UBound(m_baContents) + 1) * ITER / 1024# / 1024# / (TimerEx - dblTimer), "0.000") & " MB/s"
+    Caption = Format$(TimerEx - dblTimer, "0.000") & " sec"
+    dblTimer = TimerEx
+    CryptoAesGcmInit uCtx, baKey, baKey, baKey
+    bResult = CryptoAesGcmDecrypt(uCtx, baOutput)
+    Caption = Format$(TimerEx - dblTimer, "0.000") & " sec - " & bResult
+    Command17.Caption = Format$((UBound(m_baContents) + 1) * ITER / 1024# / 1024# / (TimerEx - dblTimer), "0.000") & " MB/s"
+End Sub
+
+Private Sub Command18_Click()
+    Const ITER      As Long = 1
+    Dim lIdx        As Long
+    Dim baKey()     As Byte
+    Dim baOutput()  As Byte
+    Dim dblTimer    As Double
+    Dim bResult     As Boolean
+    Dim uCtx        As CryptoAesGcmContext
+    
+    Command18.Caption = "Processing"
+    dblTimer = TimerEx
+    baKey = FromHex("000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f")
+    For lIdx = 1 To ITER
+        baOutput = m_baContents
+        CryptoAesGcmInit uCtx, baKey, baKey, baKey
+        CryptoAesGcmEncrypt uCtx, baOutput
+    Next
+    Command18.Caption = Format$((UBound(m_baContents) + 1) * ITER / 1024# / 1024# / (TimerEx - dblTimer), "0.000") & " MB/s"
+    Caption = Format$(TimerEx - dblTimer, "0.000") & " sec"
+    dblTimer = TimerEx
+    CryptoAesGcmInit uCtx, baKey, baKey, baKey
+    bResult = CryptoAesGcmDecrypt(uCtx, baOutput)
+    Caption = Format$(TimerEx - dblTimer, "0.000") & " sec - " & bResult
+    Command18.Caption = Format$((UBound(m_baContents) + 1) * ITER / 1024# / 1024# / (TimerEx - dblTimer), "0.000") & " MB/s"
+End Sub

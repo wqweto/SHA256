@@ -181,6 +181,7 @@ Private Sub pvTestAes()
     Dim baBuffer()      As Byte
     Dim baAppend()      As Byte
     Dim baTag()         As Byte
+    Dim uGcmCtx         As CryptoAesGcmContext
     
     baKey = FromHex("00112233445566778899aabbccddeeff")
     CryptoAesInit uCtx, baKey
@@ -189,9 +190,9 @@ Private Sub pvTestAes()
     Debug.Assert ToHex(baBlock) = "b8f21a70bc9cee25249e2761fcbb7a34"
     '-> b8f21a70bc9cee25249e2761fcbb7a34
     CryptoAesProcess uCtx, True, baBlock
-    Debug.Print ToHex(baBlock)
+    Debug.Assert ToHex(baBlock) = "00112233445566778899aabbccddeeff"
     '-> 00112233445566778899aabbccddeeff
-    
+
     '--- https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-38a.pdf
     '--- F.2.1 CBC-AES128.Encrypt
     baKey = FromHex("2b7e151628aed2a6abf7158809cf4f3c")
@@ -206,7 +207,7 @@ Private Sub pvTestAes()
     CryptoAesCbcEncrypt uCtx, baAppend
     Debug.Assert ToHex(baAppend) = "8964e0b149c10b7b682e6e39aaeb731c"
     'Debug.Assert ToHex(baAppend) = "09fd79c936a0416df86153e8715da8c1"
-    
+
     CryptoAesInit uCtx, baKey, baNonce
 '    pvConcat baBuffer, baAppend
     If CryptoAesCbcDecrypt(uCtx, baBuffer, Final:=False) Then
@@ -221,7 +222,7 @@ Private Sub pvTestAes()
     Else
         Debug.Assert Len("CryptoAesCbcDecrypt failed") = 0
     End If
-    
+
     '--- F.2.3 CBC-AES192.Encrypt
     baKey = FromHex("8e73b0f7da0e6452c810f32b809079e562f8ead2522c6b7b")
     baNonce = FromHex("000102030405060708090a0b0c0d0e0f")
@@ -232,7 +233,7 @@ Private Sub pvTestAes()
     CryptoAesInit uCtx, baKey, baNonce
     CryptoAesCbcDecrypt uCtx, baBuffer
     Debug.Assert ToHex(baBuffer) = "6bc1bee22e409f96e93d7e117393172aae2d8a571e03ac9c9eb76fac45af8e5130c81c46a35ce411e5fbc1191a0a52eff69f2445df4f9b17ad2b417be66c3710"
-    
+
     '--- F.2.5 CBC-AES256.Encrypt
     baKey = FromHex("603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4")
     baNonce = FromHex("000102030405060708090a0b0c0d0e0f")
@@ -243,7 +244,7 @@ Private Sub pvTestAes()
     CryptoAesInit uCtx, baKey, baNonce
     Debug.Assert CryptoAesCbcDecrypt(uCtx, baBuffer)
     Debug.Assert ToHex(baBuffer) = "6bc1bee22e409f96e93d7e117393172aae2d8a571e03ac9c9eb76fac45af8e5130c81c46a35ce411e5fbc1191a0a52eff69f2445df4f9b17ad2b417be66c3710"
-        
+
     '--- F.5.1 CTR-AES128.Encrypt
     baKey = FromHex("2b7e151628aed2a6abf7158809cf4f3c")
     baNonce = FromHex("f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff")
@@ -254,7 +255,7 @@ Private Sub pvTestAes()
     CryptoAesInit uCtx, baKey, baNonce
     CryptoAesCtrCrypt uCtx, baBuffer
     Debug.Assert ToHex(baBuffer) = "6bc1bee22e409f96e93d7e117393172a"
-    
+
     '--- F.5.5 CTR-AES256.Encrypt
     baKey = FromHex("603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4")
     baNonce = FromHex("f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff")
@@ -266,17 +267,68 @@ Private Sub pvTestAes()
     CryptoAesCtrCrypt uCtx, baBuffer
     Debug.Assert ToHex(baBuffer) = "6bc1bee22e409f96e93d7e117393172aae2d8a571e03ac9c9eb76fac45af8e5130c81c46a35ce411e5fbc1191a0a52eff69f2445df4f9b17ad2b417be66c3710"
 
-    Dim uGcmCtx As CryptoAesGcmContext
-    baKey = FromHex("603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4")
-    baNonce = FromHex("f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff")
+    '--- https://csrc.nist.rip/groups/ST/toolkit/BCM/documents/proposedmodes/gcm/gcm-spec.pdf
+    '--- Test Case 1
+    baKey = FromHex("00000000000000000000000000000000")
+    baNonce = FromHex("000000000000000000000000")
     baAad = vbNullString
     CryptoAesGcmInit uGcmCtx, baKey, baNonce, baAad
-    baBuffer = FromHex("6bc1bee22e409f96e93d7e117393172aae2d8a571e03ac9c9eb76fac45af8e5130c81c46a35ce411e5fbc1191a0a52eff69f2445df4f9b17ad2b417be66c3710")
+    baBuffer = vbNullString
     CryptoAesGcmEncrypt uGcmCtx, baBuffer, TagSize:=16, Tag:=baTag
-    
+    Debug.Assert ToHex(baTag) = "58e2fccefa7e3061367f1d57a4e7455a"
+    '-> 58e2fccefa7e3061367f1d57a4e7455a
+
+    '--- Test Case 2
+    baKey = FromHex("00000000000000000000000000000000")
+    baNonce = FromHex("000000000000000000000000")
+    baAad = vbNullString
+    CryptoAesGcmInit uGcmCtx, baKey, baNonce, baAad
+    baBuffer = FromHex("00000000000000000000000000000000")
+    CryptoAesGcmEncrypt uGcmCtx, baBuffer, TagSize:=16, Tag:=baTag
+    Debug.Assert ToHex(baBuffer) = "0388dace60b6a392f328c2b971b2fe78"
+    Debug.Assert ToHex(baTag) = "ab6e47d42cec13bdf53a67b21257bddf"
     CryptoAesGcmInit uGcmCtx, baKey, baNonce, baAad
     CryptoAesGcmDecrypt uGcmCtx, baBuffer, Tag:=baTag
-    Debug.Print ToHex(baBuffer)
+    Debug.Assert ToHex(baBuffer) = "00000000000000000000000000000000"
+
+    '--- Test Case 3
+    baKey = FromHex("feffe9928665731c6d6a8f9467308308")
+    baNonce = FromHex("cafebabefacedbaddecaf888")
+    baAad = vbNullString
+    CryptoAesGcmInit uGcmCtx, baKey, baNonce, baAad
+    baBuffer = FromHex("d9313225f88406e5a55909c5aff5269a86a7a9531534f7da2e4c303d8a318a721c3c0c95956809532fcf0e2449a6b525b16aedf5aa0de657ba637b391aafd255")
+    CryptoAesGcmEncrypt uGcmCtx, baBuffer, TagSize:=16, Tag:=baTag
+    Debug.Assert ToHex(baBuffer) = "42831ec2217774244b7221b784d0d49ce3aa212f2c02a4e035c17e2329aca12e21d514b25466931c7d8f6a5aac84aa051ba30b396a0aac973d58e091473f5985"
+    Debug.Assert ToHex(baTag) = "4d5c2af327cd64a62cf35abd2ba6fab4"
+    CryptoAesGcmInit uGcmCtx, baKey, baNonce, baAad
+    CryptoAesGcmDecrypt uGcmCtx, baBuffer, Tag:=baTag
+    Debug.Assert ToHex(baBuffer) = "d9313225f88406e5a55909c5aff5269a86a7a9531534f7da2e4c303d8a318a721c3c0c95956809532fcf0e2449a6b525b16aedf5aa0de657ba637b391aafd255"
+
+    '--- Test Case 4
+    baKey = FromHex("feffe9928665731c6d6a8f9467308308")
+    baNonce = FromHex("cafebabefacedbaddecaf888")
+    baAad = FromHex("feedfacedeadbeeffeedfacedeadbeefabaddad2")
+    CryptoAesGcmInit uGcmCtx, baKey, baNonce, baAad
+    baBuffer = FromHex("d9313225f88406e5a55909c5aff5269a86a7a9531534f7da2e4c303d8a318a721c3c0c95956809532fcf0e2449a6b525b16aedf5aa0de657ba637b39")
+    CryptoAesGcmEncrypt uGcmCtx, baBuffer, TagSize:=16, Tag:=baTag
+    Debug.Assert ToHex(baBuffer) = "42831ec2217774244b7221b784d0d49ce3aa212f2c02a4e035c17e2329aca12e21d514b25466931c7d8f6a5aac84aa051ba30b396a0aac973d58e091"
+    Debug.Assert ToHex(baTag) = "5bc94fbc3221a5db94fae95ae7121a47"
+    CryptoAesGcmInit uGcmCtx, baKey, baNonce, baAad
+    CryptoAesGcmDecrypt uGcmCtx, baBuffer, Tag:=baTag
+    Debug.Assert ToHex(baBuffer) = "d9313225f88406e5a55909c5aff5269a86a7a9531534f7da2e4c303d8a318a721c3c0c95956809532fcf0e2449a6b525b16aedf5aa0de657ba637b39"
+
+    '--- Test Case 5
+    baKey = FromHex("feffe9928665731c6d6a8f9467308308")
+    baNonce = FromHex("cafebabefacedbad")
+    baAad = FromHex("feedfacedeadbeeffeedfacedeadbeefabaddad2")
+    CryptoAesGcmInit uGcmCtx, baKey, baNonce, baAad
+    baBuffer = FromHex("d9313225f88406e5a55909c5aff5269a86a7a9531534f7da2e4c303d8a318a721c3c0c95956809532fcf0e2449a6b525b16aedf5aa0de657ba637b39")
+    CryptoAesGcmEncrypt uGcmCtx, baBuffer, TagSize:=16, Tag:=baTag
+    Debug.Assert ToHex(baBuffer) = "61353b4c2806934a777ff51fa22a4755699b2a714fcdc6f83766e5f97b6c742373806900e49f24b22b097544d4896b424989b5e1ebac0f07c23f4598"
+    Debug.Assert ToHex(baTag) = "3612d2e79e3b0785561be14aaca2fccb"
+    CryptoAesGcmInit uGcmCtx, baKey, baNonce, baAad
+    CryptoAesGcmDecrypt uGcmCtx, baBuffer, Tag:=baTag
+    Debug.Assert ToHex(baBuffer) = "d9313225f88406e5a55909c5aff5269a86a7a9531534f7da2e4c303d8a318a721c3c0c95956809532fcf0e2449a6b525b16aedf5aa0de657ba637b39"
 End Sub
 
 Private Sub pvConcat(baBuffer() As Byte, baAppend() As Byte)
