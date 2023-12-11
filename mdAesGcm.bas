@@ -8,11 +8,19 @@ DefObj A-Z
 
 #If HasPtrSafe Then
 Private Declare PtrSafe Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" (Destination As Any, Source As Any, ByVal Length As LongPtr)
+Private Declare PtrSafe Function VirtualAlloc Lib "kernel32" (ByVal lpAddress As LongPtr, ByVal dwSize As Long, ByVal flAllocationType As Long, ByVal flProtect As Long) As Long
+Private Declare PtrSafe Function VirtualProtect Lib "kernel32" (ByVal lpAddress As LongPtr, ByVal dwSize As Long, ByVal flNewProtect As Long, lpflOldProtect As Long) As Long
+Private Declare PtrSafe Function VirtualFree Lib "kernel32" (ByVal lpAddress As LongPtr, ByVal dwSize As Long, ByVal dwFreeType As Long) As Long
+Private Declare PtrSafe Function CryptStringToBinary Lib "crypt32" Alias "CryptStringToBinaryW" (ByVal pszString As LongPtr, ByVal cchString As Long, ByVal dwFlags As Long, ByVal pbBinary As LongPtr, pcbBinary As Long, Optional ByVal pdwSkip As LongPtr, Optional ByVal pdwFlags As LongPtr) As Long
 #Else
 Private Enum LongPtr
     [_]
 End Enum
 Private Declare Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" (Destination As Any, Source As Any, ByVal Length As LongPtr)
+Private Declare Function VirtualAlloc Lib "kernel32" (ByVal lpAddress As LongPtr, ByVal dwSize As Long, ByVal flAllocationType As Long, ByVal flProtect As Long) As LongPtr
+Private Declare Function VirtualProtect Lib "kernel32" (ByVal lpAddress As LongPtr, ByVal dwSize As Long, ByVal flNewProtect As Long, lpflOldProtect As Long) As Long
+Private Declare Function VirtualFree Lib "kernel32" (ByVal lpAddress As LongPtr, ByVal dwSize As Long, ByVal dwFreeType As Long) As Long
+Private Declare Function CryptStringToBinary Lib "crypt32" Alias "CryptStringToBinaryW" (ByVal pszString As LongPtr, ByVal cchString As Long, ByVal dwFlags As Long, ByVal pbBinary As LongPtr, pcbBinary As Long, Optional ByVal pdwSkip As LongPtr, Optional ByVal pdwFlags As LongPtr) As Long
 #End If
 
 Private Const LNG_BLOCKSZ               As Long = 16
@@ -52,6 +60,7 @@ End Type
 
 Private m_aReverse(0 To 15)         As Long
 Private m_aReduce(0 To 15)          As Long
+Private m_hMulThunk                 As LongPtr
 
 Private Function BSwap32(ByVal lX As Long) As Long
     BSwap32 = (lX And &H7F) * &H1000000 Or (lX And &HFF00&) * &H100 Or (lX And &HFF0000) \ &H100 Or _
@@ -71,17 +80,101 @@ Private Sub pvInit()
         m_aReduce(lIdx) = -((lIdx And 1) <> 0) * LNG_POLY8 Xor -((lIdx And 2) <> 0) * LNG_POLY4 _
                       Xor -((lIdx And 4) <> 0) * LNG_POLY2 Xor -((lIdx And 8) <> 0) * LNG_POLY1
     Next
+    m_hMulThunk = pvThunkAllocate
 End Sub
+
+#If Win64 = 1 Then
+Private Function pvThunkAllocate() As LongPtr
+
+End Function
+
+Private Function pvPatchTrampoline(ByVal Pfn As LongPtr, Optional ByVal Noop As Boolean) As Boolean
+    #If Pfn And Noop Then '--- touch
+    #End If
+    pvPatchTrampoline = True
+End Function
+#Else
+Private Function pvThunkAllocate() As LongPtr
+    Const MEM_COMMIT                    As Long = &H1000
+    Const MEM_DECOMMIT                  As Long = &H4000
+    Const PAGE_EXECUTE_READWRITE        As Long = &H40
+    Const CRYPT_STRING_BASE64           As Long = 1
+    Const THUNK_SIZE    As Long = 703
+    Dim STR_THUNK       As String: STR_THUNK = "VYvsi1UIg+wgU1ZXhdJ1JDPAjX3gQDPJUw+ii/NbiQeJdwSJTwiJVwyLReiD4ALpggIAAA+2CsHhCA+2QgELyA+2QgLB4QgLyA+2QgPB4QgLyA+2QgWJTeAPtkoEweEIC8gPtkIGweEIC8gPtkIHweEIC8gPtkIJiU3kD7ZKCMHhCAvID7ZCCsHhCAvID7ZCC8HhCAvID7ZCDYlN6A+2SgzB4QgLyA+2Qg7B4QgLyA+2Qg+LVQzB4QgLyIlN7A+2Cg+2QgHB4QgLyA+2QgLB4QgLyA+2QgPB4QgLyA+2QgWJTfAPtkoEweEIC8gPtkIGweEIC8gPtkIHweEIC8iNQgiJTfQPtkgBiUUID7YAweAIC8gPtkIKweEIC8gPtkILweEIC8iNQgyJTfgPtkgBDxBF4IlFDA+2AMHgCAvIZg9w6BsPtkIODyjVweEIDyjdC8gPtkIPweEIC8iJTfwPEEXwZg9wyBsPKMVmDzpEwQFmDzpE0RBmD+/QZg86RNkAZg86ROkRDyjCZg9z2ghmD3P4CGYP7+pmD+/YDyjlDyjDZg9y1B9mD3LQH2YPcvMBDyjIZg9z/ARmD3PYDGYPc/kEZg/ry2YPcvUBDyjZZg/r5WYPcvMfZg/r4A8owWYPcvAeZg/v2A8owWYPcvAZZg/v2A8o02YPc9sEZg9z+gxmD+/RDyjKDyjCZg9y0QJmD3LQAWYP78gPKMJmD3LQB2YP78hmD+/LZg/vymYP78xmD3DBGw8RRfCLTfCLwcHoGIgCi8HB6BCIQgGLwcHoCIhCAohKA4tN9IvBwegYiEIEi8HB6BCIQgWLwcHoCIhCBohKB4tN+IvBi1UIwegYiAKLwcHoEIhCAYvBwegIiEICiEoDi038i8GLVQzB6BiIAovBwegQiEIBi8HB6AiIQgIzwIhKA19eW4vlXcIIAA==" ' 703, 11.12.2023 10:33:48
+    Dim lPtr            As LongPtr
+        
+    lPtr = VirtualAlloc(0, THUNK_SIZE, MEM_COMMIT, PAGE_EXECUTE_READWRITE)
+    If lPtr = 0 Then
+        GoTo QH
+    End If
+    If CryptStringToBinary(StrPtr(STR_THUNK), Len(STR_THUNK), CRYPT_STRING_BASE64, lPtr, THUNK_SIZE) = 0 Then
+        GoTo QH
+    End If
+    pvPatchTrampoline AddressOf pvCallMult
+    If pvCallMult(lPtr, 0, 0) = 0 Then '--- checks if PCLMULQDQ instruction supported
+        GoTo QH
+    End If
+    pvPatchTrampoline AddressOf pvMult
+    '--- success
+    pvThunkAllocate = lPtr
+    lPtr = 0
+QH:
+    If lPtr <> 0 Then
+        Call VirtualFree(lPtr, THUNK_SIZE, MEM_DECOMMIT)
+    End If
+End Function
+
+Private Function pvPatchTrampoline(ByVal Pfn As LongPtr, Optional ByVal Noop As Boolean) As Boolean
+    Const PAGE_EXECUTE_READWRITE        As Long = &H40
+    Dim bInIDE          As Boolean
+ 
+    If Noop Then
+        pvPatchTrampoline = True
+        Exit Function
+    End If
+    Debug.Assert pvSetTrue(bInIDE)
+    If bInIDE Then
+        Call CopyMemory(Pfn, ByVal Pfn + &H16, 4)
+    Else
+        Call VirtualProtect(Pfn, 8, PAGE_EXECUTE_READWRITE, 0)
+    End If
+    ' 0:  58                      pop    eax
+    ' 1:  59                      pop    ecx
+    ' 2:  50                      push   eax
+    ' 3:  ff e1                   jmp    ecx
+    ' 5:  90                      nop
+    ' 6:  90                      nop
+    ' 7:  90                      nop
+    Call CopyMemory(ByVal Pfn, -802975883527609.7192@, 8)
+    '--- success
+    pvPatchTrampoline = True
+End Function
+
+Private Function pvSetTrue(bValue As Boolean) As Boolean
+    #If TWINBASIC = 0 Then
+        bValue = True
+    #End If
+    pvSetTrue = True
+End Function
+
+Private Function pvCallMult(ByVal Pfn As LongPtr, ByVal lPtr1 As LongPtr, ByVal lPtr2 As LongPtr) As Long
+    '--- trampoline
+End Function
+#End If
 
 Private Sub pvPrecompute(baKey() As Byte, uKeyTable As ShoupTable)
     Dim lIdx            As Long
     Dim uOne            As ArrayLong4
     Dim uTemp           As ArrayLong4
     Dim lCarry          As Long
-    
+   
     lIdx = UBound(baKey) + 1
     If lIdx > LNG_BLOCKSZ Then
         lIdx = LNG_BLOCKSZ
+    End If
+    If m_hMulThunk <> 0 Then
+        Call CopyMemory(uKeyTable, baKey(0), lIdx)
+        Exit Sub
     End If
     Call CopyMemory(uTemp.Item(0), baKey(0), lIdx)
     With uOne
@@ -121,7 +214,7 @@ Private Sub pvPrecompute(baKey() As Byte, uKeyTable As ShoupTable)
     End With
 End Sub
 
-Private Sub pvMult(uKeyTable As ShoupTable, uArray As ArrayByte16)
+Private Sub pvMult(ByVal Pfn As LongPtr, uKeyTable As ShoupTable, uArray As ArrayByte16)
     Dim uBlock          As ArrayLong4
     Dim lIdx            As Long
     Dim lNibble         As Long
@@ -189,7 +282,10 @@ Private Function pvUpdate(uKeyTable As ShoupTable, uArray As ArrayByte16, baInpu
             Offset = Offset + 1
             If Offset = LNG_BLOCKSZ Then
                 Offset = 0
-                pvMult uKeyTable, uArray
+                #If TWINBASIC = 0 Then
+                    Debug.Assert pvPatchTrampoline(AddressOf pvMult, m_hMulThunk = 0)
+                #End If
+                pvMult m_hMulThunk, uKeyTable, uArray
             End If
         Next
     End With
@@ -233,7 +329,10 @@ End Sub
 
 Public Sub CryptoGhashPad(uCtx As CryptoGhashContext)
     If uCtx.NPosition > 0 Then
-        pvMult uCtx.KeyTable, uCtx.HashArray
+        #If TWINBASIC = 0 Then
+            Debug.Assert pvPatchTrampoline(AddressOf pvMult, m_hMulThunk = 0)
+        #End If
+        pvMult m_hMulThunk, uCtx.KeyTable, uCtx.HashArray
         uCtx.NPosition = 0
     End If
 End Sub

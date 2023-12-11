@@ -4,11 +4,19 @@ Begin VB.Form Form5
    ClientHeight    =   9636
    ClientLeft      =   108
    ClientTop       =   456
-   ClientWidth     =   6012
+   ClientWidth     =   7704
    LinkTopic       =   "Form5"
    ScaleHeight     =   9636
-   ScaleWidth      =   6012
+   ScaleWidth      =   7704
    StartUpPosition =   3  'Windows Default
+   Begin VB.CommandButton Command19 
+      Caption         =   "Ghash"
+      Height          =   600
+      Left            =   5292
+      TabIndex        =   20
+      Top             =   8652
+      Width           =   2028
+   End
    Begin VB.CommandButton Command18 
       Caption         =   "AES256-GCM"
       Height          =   600
@@ -608,3 +616,25 @@ Private Sub Command18_Click()
     Caption = Format$(TimerEx - dblTimer, "0.000") & " sec - " & bResult
     Command18.Caption = Format$((UBound(m_baContents) + 1) * ITER / 1024# / 1024# / (TimerEx - dblTimer), "0.000") & " MB/s"
 End Sub
+
+Private Sub Command19_Click()
+    Const ITER      As Long = 10
+    Dim lIdx        As Long
+    Dim baKey()     As Byte
+    Dim baOutput()  As Byte
+    Dim dblTimer    As Double
+    Dim uCtx        As CryptoGhashContext
+    
+    Command19.Caption = "Processing"
+    dblTimer = TimerEx
+    baKey = FromHex("000102030405060708090a0b0c0d0e0f")
+    For lIdx = 1 To ITER
+        baOutput = m_baContents
+        CryptoGhashInit uCtx, baKey, baKey
+        CryptoGhashUpdate uCtx, baOutput
+    Next
+    Command19.Caption = Format$((UBound(m_baContents) + 1) * ITER / 1024# / 1024# / (TimerEx - dblTimer), "0.000") & " MB/s"
+    Caption = Format$(TimerEx - dblTimer, "0.000") & " sec"
+End Sub
+
+
