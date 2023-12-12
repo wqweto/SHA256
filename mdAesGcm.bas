@@ -83,7 +83,7 @@ Private Sub pvInit()
     m_hMulThunk = pvThunkAllocate
 End Sub
 
-#If Win64 = 1 Then
+#If WIN64 = 1 Then
 Private Function pvThunkAllocate() As LongPtr
 
 End Function
@@ -185,12 +185,12 @@ Private Sub pvPrecompute(baKey() As Byte, uKeyTable As ShoupTable)
     End With
     '--- precompute all multiples of H needed for Shoup's method
     With uKeyTable
-        '--- M(1) = H * 1
+        '--- M(1) = H * 1 % POLY
         lIdx = 1
         .Item(m_aReverse(lIdx)) = uOne
         For lIdx = 2 To UBound(.Item)
             If (lIdx And 1) <> 0 Then
-                '--- M(i) = M(i - 1) + M(1)
+                '--- M(i) = M(i - 1) + M(1) % POLY
                 uTemp = .Item(m_aReverse(lIdx - 1))
                 With uTemp
                     .Item(0) = .Item(0) Xor uOne.Item(0)
@@ -199,14 +199,21 @@ Private Sub pvPrecompute(baKey() As Byte, uKeyTable As ShoupTable)
                     .Item(3) = .Item(3) Xor uOne.Item(3)
                 End With
             Else
-                '--- M(i) = M(i / 2) * x
+                '--- M(i) = M(i / 2) * x % POLY
                 uTemp = .Item(m_aReverse(lIdx \ 2))
                 With uTemp
                     lCarry = .Item(0) And 1
-                    .Item(0) = (.Item(0) And &H7FFFFFFF) \ LNG_POW2_1 Or -(.Item(0) < 0) * LNG_POW2_30 Or (.Item(1) And 1) * LNG_POW2_31
-                    .Item(1) = (.Item(1) And &H7FFFFFFF) \ LNG_POW2_1 Or -(.Item(1) < 0) * LNG_POW2_30 Or (.Item(2) And 1) * LNG_POW2_31
-                    .Item(2) = (.Item(2) And &H7FFFFFFF) \ LNG_POW2_1 Or -(.Item(2) < 0) * LNG_POW2_30 Or (.Item(3) And 1) * LNG_POW2_31
-                    .Item(3) = (.Item(3) And &H7FFFFFFF) \ LNG_POW2_1 Or -(.Item(3) < 0) * LNG_POW2_30 Xor lCarry * m_aReduce(m_aReverse(1))
+                    #If HasOperators Then
+                        .Item(0) = (.Item(0) >> 1) Or (.Item(1) << 31)
+                        .Item(1) = (.Item(1) >> 1) Or (.Item(2) << 31)
+                        .Item(2) = (.Item(2) >> 1) Or (.Item(3) << 31)
+                        .Item(3) = (.Item(3) >> 1) Xor lCarry * m_aReduce(m_aReverse(1))
+                    #Else
+                        .Item(0) = (.Item(0) And &H7FFFFFFF) \ LNG_POW2_1 Or -(.Item(0) < 0) * LNG_POW2_30 Or (.Item(1) And 1) * LNG_POW2_31
+                        .Item(1) = (.Item(1) And &H7FFFFFFF) \ LNG_POW2_1 Or -(.Item(1) < 0) * LNG_POW2_30 Or (.Item(2) And 1) * LNG_POW2_31
+                        .Item(2) = (.Item(2) And &H7FFFFFFF) \ LNG_POW2_1 Or -(.Item(2) < 0) * LNG_POW2_30 Or (.Item(3) And 1) * LNG_POW2_31
+                        .Item(3) = (.Item(3) And &H7FFFFFFF) \ LNG_POW2_1 Or -(.Item(3) < 0) * LNG_POW2_30 Xor lCarry * m_aReduce(m_aReverse(1))
+                    #End If
                 End With
             End If
             .Item(m_aReverse(lIdx)) = uTemp
@@ -231,14 +238,21 @@ Private Sub pvMult(ByVal Pfn As LongPtr, uKeyTable As ShoupTable, uArray As Arra
             If lIdx <> LNG_BLOCKSZ - 1 Then
                 '--- mul 16
                 lCarry = .Item(0) And &HF
-                .Item(0) = (.Item(0) And &H7FFFFFFF) \ LNG_POW2_4 Or -(.Item(0) < 0) * LNG_POW2_27 _
-                    Or (.Item(1) And (LNG_POW2_3 - 1)) * LNG_POW2_28 Or -((.Item(1) And LNG_POW2_3) <> 0) * LNG_POW2_31
-                .Item(1) = (.Item(1) And &H7FFFFFFF) \ LNG_POW2_4 Or -(.Item(1) < 0) * LNG_POW2_27 _
-                    Or (.Item(2) And (LNG_POW2_3 - 1)) * LNG_POW2_28 Or -((.Item(2) And LNG_POW2_3) <> 0) * LNG_POW2_31
-                .Item(2) = (.Item(2) And &H7FFFFFFF) \ LNG_POW2_4 Or -(.Item(2) < 0) * LNG_POW2_27 _
-                    Or (.Item(3) And (LNG_POW2_3 - 1)) * LNG_POW2_28 Or -((.Item(3) And LNG_POW2_3) <> 0) * LNG_POW2_31
-                .Item(3) = (.Item(3) And &H7FFFFFFF) \ LNG_POW2_4 Or -(.Item(3) < 0) * LNG_POW2_27 _
-                    Xor m_aReduce(lCarry)
+                #If HasOperators Then
+                    .Item(0) = (.Item(0) >> 4) Or (.Item(1) << 28)
+                    .Item(1) = (.Item(1) >> 4) Or (.Item(2) << 28)
+                    .Item(2) = (.Item(2) >> 4) Or (.Item(3) << 28)
+                    .Item(3) = (.Item(3) >> 4) Xor m_aReduce(lCarry)
+                #Else
+                    .Item(0) = (.Item(0) And &H7FFFFFFF) \ LNG_POW2_4 Or -(.Item(0) < 0) * LNG_POW2_27 _
+                        Or (.Item(1) And (LNG_POW2_3 - 1)) * LNG_POW2_28 Or -((.Item(1) And LNG_POW2_3) <> 0) * LNG_POW2_31
+                    .Item(1) = (.Item(1) And &H7FFFFFFF) \ LNG_POW2_4 Or -(.Item(1) < 0) * LNG_POW2_27 _
+                        Or (.Item(2) And (LNG_POW2_3 - 1)) * LNG_POW2_28 Or -((.Item(2) And LNG_POW2_3) <> 0) * LNG_POW2_31
+                    .Item(2) = (.Item(2) And &H7FFFFFFF) \ LNG_POW2_4 Or -(.Item(2) < 0) * LNG_POW2_27 _
+                        Or (.Item(3) And (LNG_POW2_3 - 1)) * LNG_POW2_28 Or -((.Item(3) And LNG_POW2_3) <> 0) * LNG_POW2_31
+                    .Item(3) = (.Item(3) And &H7FFFFFFF) \ LNG_POW2_4 Or -(.Item(3) < 0) * LNG_POW2_27 _
+                        Xor m_aReduce(lCarry)
+                #End If
                 '--- add lower nibble
                 lNibble = uArray.Item(lIdx) And &HF
                 .Item(0) = .Item(0) Xor uKeyTable.Item(lNibble).Item(0)
@@ -248,14 +262,21 @@ Private Sub pvMult(ByVal Pfn As LongPtr, uKeyTable As ShoupTable, uArray As Arra
             End If
             '--- mul 16
             lCarry = .Item(0) And &HF
-            .Item(0) = (.Item(0) And &H7FFFFFFF) \ LNG_POW2_4 Or -(.Item(0) < 0) * LNG_POW2_27 _
-                Or (.Item(1) And (LNG_POW2_3 - 1)) * LNG_POW2_28 Or -((.Item(1) And LNG_POW2_3) <> 0) * LNG_POW2_31
-            .Item(1) = (.Item(1) And &H7FFFFFFF) \ LNG_POW2_4 Or -(.Item(1) < 0) * LNG_POW2_27 _
-                Or (.Item(2) And (LNG_POW2_3 - 1)) * LNG_POW2_28 Or -((.Item(2) And LNG_POW2_3) <> 0) * LNG_POW2_31
-            .Item(2) = (.Item(2) And &H7FFFFFFF) \ LNG_POW2_4 Or -(.Item(2) < 0) * LNG_POW2_27 _
-                Or (.Item(3) And (LNG_POW2_3 - 1)) * LNG_POW2_28 Or -((.Item(3) And LNG_POW2_3) <> 0) * LNG_POW2_31
-            .Item(3) = (.Item(3) And &H7FFFFFFF) \ LNG_POW2_4 Or -(.Item(3) < 0) * LNG_POW2_27 _
-                Xor m_aReduce(lCarry)
+            #If HasOperators Then
+                .Item(0) = (.Item(0) >> 4) Or (.Item(1) << 28)
+                .Item(1) = (.Item(1) >> 4) Or (.Item(2) << 28)
+                .Item(2) = (.Item(2) >> 4) Or (.Item(3) << 28)
+                .Item(3) = (.Item(3) >> 4) Xor m_aReduce(lCarry)
+            #Else
+                .Item(0) = (.Item(0) And &H7FFFFFFF) \ LNG_POW2_4 Or -(.Item(0) < 0) * LNG_POW2_27 _
+                    Or (.Item(1) And (LNG_POW2_3 - 1)) * LNG_POW2_28 Or -((.Item(1) And LNG_POW2_3) <> 0) * LNG_POW2_31
+                .Item(1) = (.Item(1) And &H7FFFFFFF) \ LNG_POW2_4 Or -(.Item(1) < 0) * LNG_POW2_27 _
+                    Or (.Item(2) And (LNG_POW2_3 - 1)) * LNG_POW2_28 Or -((.Item(2) And LNG_POW2_3) <> 0) * LNG_POW2_31
+                .Item(2) = (.Item(2) And &H7FFFFFFF) \ LNG_POW2_4 Or -(.Item(2) < 0) * LNG_POW2_27 _
+                    Or (.Item(3) And (LNG_POW2_3 - 1)) * LNG_POW2_28 Or -((.Item(3) And LNG_POW2_3) <> 0) * LNG_POW2_31
+                .Item(3) = (.Item(3) And &H7FFFFFFF) \ LNG_POW2_4 Or -(.Item(3) < 0) * LNG_POW2_27 _
+                    Xor m_aReduce(lCarry)
+            #End If
             '--- add upper nibble
             lNibble = (uArray.Item(lIdx) \ LNG_POW2_4) And &HF
             .Item(0) = .Item(0) Xor uKeyTable.Item(lNibble).Item(0)
@@ -352,6 +373,9 @@ End Sub
 Public Sub CryptoAesGcmInit(uCtx As CryptoAesGcmContext, baKey() As Byte, baNonce() As Byte, baAad() As Byte)
     Dim baHashKey(0 To LNG_BLOCKSZ - 1) As Byte
     
+    If UBound(baNonce) + 1 = 0 Then
+        Err.Raise vbObjectError, , "Invalid Nonce size for GCM (" & UBound(baNonce) + 1 & ")"
+    End If
     With uCtx
         CryptoAesInit uCtx.AesCtx, baKey
         '--- encrypt a block of zeroes to create the hashing key

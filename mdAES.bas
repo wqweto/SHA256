@@ -184,7 +184,7 @@ Private Function pvKeySchedule(baKey() As Byte, uSbox As ArrayLong256, uDecTable
     
     lKeyLen = (UBound(baKey) + 1) \ 4
     If Not (lKeyLen = 4 Or lKeyLen = 6 Or lKeyLen = 8) Then
-        Err.Raise vbObjectError, , "Invalid key bit-size for AES (" & lKeyLen * 8 & ")"
+        Err.Raise vbObjectError, , "Invalid key bit-size for AES (" & lKeyLen * 32 & ")"
     End If
     lRCon = 1
     Call CopyMemory(uEncKey.Item(0), baKey(0), lKeyLen * 4)
@@ -334,16 +334,6 @@ Private Sub pvProcess(uCtx As CryptoAesContext, ByVal bEncrypt As Boolean, uInpu
     End If
 End Sub
 
-Private Function pvUnsignedInc(lValue As Long) As Boolean
-    If lValue <> -1 Then
-        lValue = BSwap32((BSwap32(lValue) Xor &H80000000) + 1 Xor &H80000000)
-    Else
-        lValue = 0
-        '--- signal carry
-        pvUnsignedInc = True
-    End If
-End Function
-
 Public Sub CryptoAesInit(uCtx As CryptoAesContext, baKey() As Byte, Optional Nonce As Variant)
     Dim baNonce()       As Byte
     
@@ -361,16 +351,9 @@ Public Sub CryptoAesInit(uCtx As CryptoAesContext, baKey() As Byte, Optional Non
             ReDim Preserve baNonce(0 To LNG_BLOCKSZ - 1) As Byte
         End If
         Call CopyMemory(.Nonce, baNonce(0), LNG_BLOCKSZ)
-        With .Nonce
-            .Item(0) = .Item(0)
-            .Item(1) = .Item(1)
-            .Item(2) = .Item(2)
-            If IsNumeric(Nonce) Then
-                .Item(3) = Nonce
-            Else
-                .Item(3) = .Item(3)
-            End If
-        End With
+        If IsNumeric(Nonce) Then
+            .Nonce.Item(3) = Nonce
+        End If
     End With
 End Sub
 
@@ -386,9 +369,8 @@ Public Sub CryptoAesNextNonce(uCtx As CryptoAesContext, baNonce() As Byte)
             ReDim Preserve baNonce(0 To LNG_BLOCKSZ - 1) As Byte
         End If
         Call CopyMemory(.Nonce, baNonce(0), LNG_BLOCKSZ)
-        If pvUnsignedInc(.Nonce.Item(3)) Then
-            pvUnsignedInc .Nonce.Item(2)
-        End If
+        '--- unsigned inc
+        .Nonce.Item(3) = BSwap32((BSwap32(.Nonce.Item(3)) Xor &H80000000) + 1 Xor &H80000000)
     End With
 End Sub
 
@@ -546,8 +528,7 @@ Public Sub CryptoAesCtrCrypt(uCtx As CryptoAesContext, baBuffer() As Byte, Optio
                 m_aBlock(lIdx).Item(3) = m_aBlock(lIdx).Item(3) Xor .Item(3)
             End With
         End If
-        If pvUnsignedInc(uCtx.Nonce.Item(3)) Then
-            pvUnsignedInc uCtx.Nonce.Item(2)
-        End If
+        '--- unsigned inc
+        uCtx.Nonce.Item(3) = BSwap32((BSwap32(uCtx.Nonce.Item(3)) Xor &H80000000) + 1 Xor &H80000000)
     Next
 End Sub

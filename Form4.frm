@@ -329,6 +329,32 @@ Private Sub pvTestAes()
     CryptoAesGcmInit uGcmCtx, baKey, baNonce, baAad
     CryptoAesGcmDecrypt uGcmCtx, baBuffer, Tag:=baTag
     Debug.Assert ToHex(baBuffer) = "d9313225f88406e5a55909c5aff5269a86a7a9531534f7da2e4c303d8a318a721c3c0c95956809532fcf0e2449a6b525b16aedf5aa0de657ba637b39"
+    
+    '--- Test Case 9
+    baKey = FromHex("feffe9928665731c6d6a8f9467308308feffe9928665731c")
+    baNonce = FromHex("cafebabefacedbaddecaf888")
+    baAad = FromHex("")
+    CryptoAesGcmInit uGcmCtx, baKey, baNonce, baAad
+    baBuffer = FromHex("d9313225f88406e5a55909c5aff5269a86a7a9531534f7da2e4c303d8a318a721c3c0c95956809532fcf0e2449a6b525b16aedf5aa0de657ba637b391aafd255")
+    CryptoAesGcmEncrypt uGcmCtx, baBuffer, TagSize:=16, Tag:=baTag
+    Debug.Assert ToHex(baBuffer) = "3980ca0b3c00e841eb06fac4872a2757859e1ceaa6efd984628593b40ca1e19c7d773d00c144c525ac619d18c84a3f4718e2448b2fe324d9ccda2710acade256"
+    Debug.Assert ToHex(baTag) = "9924a7c8587336bfb118024db8674a14"
+    CryptoAesGcmInit uGcmCtx, baKey, baNonce, baAad
+    CryptoAesGcmDecrypt uGcmCtx, baBuffer, Tag:=baTag
+    Debug.Assert ToHex(baBuffer) = "d9313225f88406e5a55909c5aff5269a86a7a9531534f7da2e4c303d8a318a721c3c0c95956809532fcf0e2449a6b525b16aedf5aa0de657ba637b391aafd255"
+    
+    '--- Test Case 16
+    baKey = FromHex("feffe9928665731c6d6a8f9467308308feffe9928665731c6d6a8f9467308308")
+    baNonce = FromHex("cafebabefacedbaddecaf888")
+    baAad = FromHex("feedfacedeadbeeffeedfacedeadbeefabaddad2")
+    CryptoAesGcmInit uGcmCtx, baKey, baNonce, baAad
+    baBuffer = FromHex("d9313225f88406e5a55909c5aff5269a86a7a9531534f7da2e4c303d8a318a721c3c0c95956809532fcf0e2449a6b525b16aedf5aa0de657ba637b39")
+    CryptoAesGcmEncrypt uGcmCtx, baBuffer, TagSize:=16, Tag:=baTag
+    Debug.Assert ToHex(baBuffer) = "522dc1f099567d07f47f37a32a84427d643a8cdcbfe5c0c97598a2bd2555d1aa8cb08e48590dbb3da7b08b1056828838c5f61e6393ba7a0abcc9f662"
+    Debug.Assert ToHex(baTag) = "76fc6ece0f4e1768cddf8853bb2d551b"
+    CryptoAesGcmInit uGcmCtx, baKey, baNonce, baAad
+    CryptoAesGcmDecrypt uGcmCtx, baBuffer, Tag:=baTag
+    Debug.Assert ToHex(baBuffer) = "d9313225f88406e5a55909c5aff5269a86a7a9531534f7da2e4c303d8a318a721c3c0c95956809532fcf0e2449a6b525b16aedf5aa0de657ba637b39"
 End Sub
 
 Private Sub pvConcat(baBuffer() As Byte, baAppend() As Byte)
