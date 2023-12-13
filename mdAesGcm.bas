@@ -63,8 +63,15 @@ Private m_aReduce(0 To 15)          As Long
 Private m_hMulThunk                 As LongPtr
 
 Private Function BSwap32(ByVal lX As Long) As Long
-    BSwap32 = (lX And &H7F) * &H1000000 Or (lX And &HFF00&) * &H100 Or (lX And &HFF0000) \ &H100 Or _
-                 (lX And &HFF000000) \ &H1000000 And &HFF Or -((lX And &H80) <> 0) * &H80000000
+    #If Not HasOperators Then
+        BSwap32 = (lX And &H7F) * &H1000000 Or (lX And &HFF00&) * &H100 Or (lX And &HFF0000) \ &H100 Or _
+                  (lX And &HFF000000) \ &H1000000 And &HFF Or -((lX And &H80) <> 0) * &H80000000
+    #Else
+        Return ((lX And &H000000FF&) << 24) Or _
+               ((lX And &H0000FF00&) << 8) Or _
+               ((lX And &H00FF0000&) >> 8) Or _
+               ((lX And &HFF000000&) >> 24)
+    #End If
 End Function
 
 Private Sub pvInit()

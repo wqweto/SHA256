@@ -34,7 +34,6 @@ End Sub
 
 Private Sub Form_Load()
     pvTestAes
-    Exit Sub
     pvTestMd5
     pvTestSha1
     pvTestBase64

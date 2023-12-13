@@ -30,6 +30,7 @@ End Type
 Private LNG_POW2(0 To 31)           As Long
 Private S(0 To 15)                  As Long
 Private K(0 To LNG_ROUNDS - 1)      As Long
+Private m_bNoIntegerOverflowChecks  As Boolean
 
 #If Not HasOperators Then
 Private Function RotL32(ByVal lX As Long, ByVal lN As Long) As Long
@@ -45,6 +46,25 @@ Private Function UAdd32(ByVal lX As Long, ByVal lY As Long) As Long
     Else
         UAdd32 = lX + lY
     End If
+End Function
+
+Private Function pvGetOverflowIgnored(Optional bValue As Boolean = True) As Boolean
+    Dim bInIde      As Boolean
+    
+    If Not bValue Then
+        bValue = True
+        pvGetOverflowIgnored = True
+        Exit Function
+    End If
+    Debug.Assert pvGetOverflowIgnored(bInIde)
+    If bInIde Then
+        Exit Function
+    End If
+    On Error GoTo EH
+    If &H8000 - 1 <> 0 Then
+        pvGetOverflowIgnored = True
+    End If
+EH:
 End Function
 #End If
 
@@ -67,6 +87,7 @@ Public Sub CryptoMd5Init(uCtx As CryptoMd5Context)
                 LNG_POW2(lIdx) = LNG_POW2(lIdx - 1) * 2
             Next
             LNG_POW2(31) = &H80000000
+            m_bNoIntegerOverflowChecks = pvGetOverflowIgnored
         #End If
     End If
     With uCtx
@@ -91,6 +112,8 @@ Public Sub CryptoMd5Update(uCtx As CryptoMd5Context, baInput() As Byte, Optional
     Dim lS              As Long
     Dim lTemp           As Long
     Dim lBufIdx         As Long
+    Dim lTemp2          As Long
+    Dim lTemp3          As Long
     
     With uCtx
         If Size < 0 Then
@@ -142,7 +165,11 @@ Public Sub CryptoMd5Update(uCtx As CryptoMd5Context, baInput() As Byte, Optional
                 #If HasOperators Then
                     lE += lA + K(lIdx) + B(lBufIdx)
                 #Else
-                    lE = UAdd32(UAdd32(UAdd32(lE, lA), K(lIdx)), B(lBufIdx))
+                    If m_bNoIntegerOverflowChecks Then
+                        lE = lE + lA + K(lIdx) + B(lBufIdx)
+                    Else
+                        lE = UAdd32(UAdd32(UAdd32(lE, lA), K(lIdx)), B(lBufIdx))
+                    End If
                 #End If
                 lTemp = lD
                 lD = lC
@@ -150,21 +177,29 @@ Public Sub CryptoMd5Update(uCtx As CryptoMd5Context, baInput() As Byte, Optional
                 #If HasOperators Then
                     lB += (lE << lS) Or (lE >> (32 - lS))
                 #Else
-                    lB = UAdd32(lB, RotL32(lE, lS))
+                    If m_bNoIntegerOverflowChecks Then
+                        lB = lB + RotL32(lE, lS)
+                    Else
+                        lB = UAdd32(lB, RotL32(lE, lS))
+                    End If
                 #End If
                 lA = lTemp
             Next
             #If HasOperators Then
                 .H0 += lA: .H1 += lB: .H2 += lC: .H3 += lD
             #Else
-                .H0 = UAdd32(.H0, lA): .H1 = UAdd32(.H1, lB): .H2 = UAdd32(.H2, lC): .H3 = UAdd32(.H3, lD)
+                If m_bNoIntegerOverflowChecks Then
+                    .H0 = .H0 + lA: .H1 = .H1 + lB: .H2 = .H2 + lC: .H3 = .H3 + lD
+                Else
+                    .H0 = UAdd32(.H0, lA): .H1 = UAdd32(.H1, lB): .H2 = UAdd32(.H2, lC): .H3 = UAdd32(.H3, lD)
+                End If
             #End If
         Loop
     End With
 End Sub
 
 Public Sub CryptoMd5Finalize(uCtx As CryptoMd5Context, baOutput() As Byte)
-    Dim P(0 To LNG_BLOCKSZ + 9) As Byte
+    Dim p(0 To LNG_BLOCKSZ + 9) As Byte
     Dim lSize           As Long
     
     With uCtx
@@ -172,10 +207,10 @@ Public Sub CryptoMd5Finalize(uCtx As CryptoMd5Context, baOutput() As Byte)
         If lSize < 9 Then
             lSize = lSize + LNG_BLOCKSZ
         End If
-        P(0) = &H80
+        p(0) = &H80
         .NInput = .NInput / 10000@ * 8
-        Call CopyMemory(P(lSize - 8), .NInput, 8)
-        CryptoMd5Update uCtx, P, Size:=lSize
+        Call CopyMemory(p(lSize - 8), .NInput, 8)
+        CryptoMd5Update uCtx, p, Size:=lSize
         Debug.Assert .NPartial = 0
         ReDim baOutput(0 To 15) As Byte
         Call CopyMemory(baOutput(0), .H0, UBound(baOutput) + 1)

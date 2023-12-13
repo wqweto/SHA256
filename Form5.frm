@@ -9,6 +9,70 @@ Begin VB.Form Form5
    ScaleHeight     =   9636
    ScaleWidth      =   7704
    StartUpPosition =   3  'Windows Default
+   Begin VB.CommandButton Command5c 
+      Caption         =   "Blake3"
+      Height          =   600
+      Left            =   5292
+      TabIndex        =   28
+      Top             =   3444
+      Width           =   2028
+   End
+   Begin VB.CommandButton Command5b 
+      Caption         =   "Blake2b"
+      Height          =   600
+      Left            =   2940
+      TabIndex        =   27
+      Top             =   3444
+      Width           =   2028
+   End
+   Begin VB.CommandButton Command25 
+      Caption         =   "TEA"
+      Height          =   600
+      Left            =   5292
+      TabIndex        =   26
+      Top             =   2688
+      Width           =   2028
+   End
+   Begin VB.CommandButton Command24 
+      Caption         =   "Skipjack"
+      Height          =   600
+      Left            =   5292
+      TabIndex        =   25
+      Top             =   1932
+      Width           =   2028
+   End
+   Begin VB.CommandButton Command23 
+      Caption         =   "Twofish"
+      Height          =   600
+      Left            =   5292
+      TabIndex        =   24
+      Top             =   1176
+      Width           =   2028
+   End
+   Begin VB.CommandButton Command22 
+      Caption         =   "Blowfish"
+      Height          =   600
+      Left            =   2856
+      TabIndex        =   23
+      Top             =   1176
+      Width           =   2028
+   End
+   Begin VB.CommandButton Command21 
+      Caption         =   "DES"
+      Height          =   600
+      Left            =   5292
+      TabIndex        =   22
+      Top             =   420
+      Width           =   2028
+   End
+   Begin VB.CommandButton Command20 
+      Caption         =   "RC4"
+      Height          =   600
+      Left            =   2856
+      TabIndex        =   21
+      Top             =   420
+      Width           =   2028
+   End
    Begin VB.CommandButton Command19 
       Caption         =   "Ghash"
       Height          =   600
@@ -190,15 +254,19 @@ Option Explicit
 Private m_baContents() As Byte
 
 Private Sub Form_Load()
-    Dim bInIDE          As Boolean: Debug.Assert pvSetTrue(bInIDE)
+    Dim bInIde          As Boolean: Debug.Assert pvSetTrue(bInIde)
+    Dim oCtl            As Object
     
-    If bInIDE Then
+    If bInIde Then
         m_baContents = ReadBinaryFile("D:\TEMP\curl-7.86.0_2-win64-mingw.zip")
         'm_baContents = ReadBinaryFile("D:\TEMP\Panels Tutorial.zip")
     Else
         m_baContents = ReadBinaryFile("D:\TEMP\VirtualBox-6.1.34-150636-Win.exe")
     End If
     Caption = UBound(m_baContents) + 1 & " bytes ready"
+    For Each oCtl In Controls
+        oCtl.ToolTipText = oCtl.Caption
+    Next
 End Sub
 
 Private Function pvSetTrue(bValue As Boolean) As Boolean
@@ -319,6 +387,37 @@ Private Sub Command5_Click()
     Command5.Caption = Format$((UBound(m_baContents) + 1) * ITER / 1024# / 1024# / (TimerEx - dblTimer), "0.000") & " MB/s"
 End Sub
 
+Private Sub Command5b_Click()
+    Const ITER As Long = 1
+    Dim lIdx As Long
+    Dim baOutput()  As Byte
+    Dim dblTimer As Double
+    
+    Command5b.Caption = "Processing"
+    dblTimer = TimerEx
+    For lIdx = 1 To ITER
+        baOutput = CryptoBlake2bByteArray(256, m_baContents)
+    Next
+    Label1.Caption = ToHex(baOutput)
+    Caption = Format$(TimerEx - dblTimer, "0.000") & " sec"
+    Command5b.Caption = Format$((UBound(m_baContents) + 1) * ITER / 1024# / 1024# / (TimerEx - dblTimer), "0.000") & " MB/s"
+End Sub
+
+Private Sub Command5c_Click()
+    Const ITER As Long = 1
+    Dim lIdx As Long
+    Dim baOutput()  As Byte
+    Dim dblTimer As Double
+    
+    Command5c.Caption = "Processing"
+    dblTimer = TimerEx
+    For lIdx = 1 To ITER
+        baOutput = CryptoBlake3ByteArray(m_baContents)
+    Next
+    Label1.Caption = ToHex(baOutput)
+    Caption = Format$(TimerEx - dblTimer, "0.000") & " sec"
+    Command5c.Caption = Format$((UBound(m_baContents) + 1) * ITER / 1024# / 1024# / (TimerEx - dblTimer), "0.000") & " MB/s"
+End Sub
 
 Private Sub Command6_Click()
     Const ITER As Long = 1
@@ -635,6 +734,156 @@ Private Sub Command19_Click()
     Next
     Command19.Caption = Format$((UBound(m_baContents) + 1) * ITER / 1024# / 1024# / (TimerEx - dblTimer), "0.000") & " MB/s"
     Caption = Format$(TimerEx - dblTimer, "0.000") & " sec"
+End Sub
+
+Private Sub Command20_Click()
+    Const ITER      As Long = 1
+    Dim lIdx        As Long
+    Dim baKey()     As Byte
+    Dim baOutput()  As Byte
+    Dim dblTimer    As Double
+    Dim bResult     As Boolean
+    Dim uCtx        As CryptoAesGcmContext
+    Dim oEnc        As New clsRC4
+    
+    Command20.Caption = "Processing"
+    dblTimer = TimerEx
+    baKey = FromHex("000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f")
+    For lIdx = 1 To ITER
+        baOutput = m_baContents
+        oEnc.EncryptByte baOutput, StrConv(baKey, vbUnicode)
+    Next
+    Command20.Caption = Format$((UBound(m_baContents) + 1) * ITER / 1024# / 1024# / (TimerEx - dblTimer), "0.000") & " MB/s"
+    Caption = Format$(TimerEx - dblTimer, "0.000") & " sec"
+    dblTimer = TimerEx
+    oEnc.DecryptByte baOutput, StrConv(baKey, vbUnicode)
+    Caption = Format$(TimerEx - dblTimer, "0.000") & " sec - " & bResult
+    Command20.Caption = Format$((UBound(m_baContents) + 1) * ITER / 1024# / 1024# / (TimerEx - dblTimer), "0.000") & " MB/s"
+End Sub
+
+Private Sub Command21_Click()
+    Const ITER      As Long = 1
+    Dim lIdx        As Long
+    Dim baKey()     As Byte
+    Dim baOutput()  As Byte
+    Dim dblTimer    As Double
+    Dim bResult     As Boolean
+    Dim uCtx        As CryptoAesGcmContext
+    Dim oEnc        As New clsDES
+    
+    Command21.Caption = "Processing"
+    dblTimer = TimerEx
+    baKey = FromHex("000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f")
+    For lIdx = 1 To ITER
+        baOutput = m_baContents
+        oEnc.EncryptByte baOutput, StrConv(baKey, vbUnicode)
+    Next
+    Command21.Caption = Format$((UBound(m_baContents) + 1) * ITER / 1024# / 1024# / (TimerEx - dblTimer), "0.000") & " MB/s"
+    Caption = Format$(TimerEx - dblTimer, "0.000") & " sec"
+    dblTimer = TimerEx
+    oEnc.DecryptByte baOutput, StrConv(baKey, vbUnicode)
+    Caption = Format$(TimerEx - dblTimer, "0.000") & " sec - " & bResult
+    Command21.Caption = Format$((UBound(m_baContents) + 1) * ITER / 1024# / 1024# / (TimerEx - dblTimer), "0.000") & " MB/s"
+End Sub
+
+Private Sub Command22_Click()
+    Const ITER      As Long = 1
+    Dim lIdx        As Long
+    Dim baKey()     As Byte
+    Dim baOutput()  As Byte
+    Dim dblTimer    As Double
+    Dim bResult     As Boolean
+    Dim uCtx        As CryptoAesGcmContext
+    Dim oEnc        As New clsBlowfish
+    
+    Command22.Caption = "Processing"
+    dblTimer = TimerEx
+    baKey = FromHex("000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f")
+    For lIdx = 1 To ITER
+        baOutput = m_baContents
+        oEnc.EncryptByte baOutput, StrConv(baKey, vbUnicode)
+    Next
+    Command22.Caption = Format$((UBound(m_baContents) + 1) * ITER / 1024# / 1024# / (TimerEx - dblTimer), "0.000") & " MB/s"
+    Caption = Format$(TimerEx - dblTimer, "0.000") & " sec"
+    dblTimer = TimerEx
+    oEnc.DecryptByte baOutput, StrConv(baKey, vbUnicode)
+    Caption = Format$(TimerEx - dblTimer, "0.000") & " sec - " & bResult
+    Command22.Caption = Format$((UBound(m_baContents) + 1) * ITER / 1024# / 1024# / (TimerEx - dblTimer), "0.000") & " MB/s"
+End Sub
+
+Private Sub Command23_Click()
+    Const ITER      As Long = 1
+    Dim lIdx        As Long
+    Dim baKey()     As Byte
+    Dim baOutput()  As Byte
+    Dim dblTimer    As Double
+    Dim bResult     As Boolean
+    Dim uCtx        As CryptoAesGcmContext
+    Dim oEnc        As New clsTwofish
+    
+    Command23.Caption = "Processing"
+    dblTimer = TimerEx
+    baKey = FromHex("000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f")
+    For lIdx = 1 To ITER
+        baOutput = m_baContents
+        oEnc.EncryptByte baOutput, StrConv(baKey, vbUnicode)
+    Next
+    Command23.Caption = Format$((UBound(m_baContents) + 1) * ITER / 1024# / 1024# / (TimerEx - dblTimer), "0.000") & " MB/s"
+    Caption = Format$(TimerEx - dblTimer, "0.000") & " sec"
+    dblTimer = TimerEx
+    oEnc.DecryptByte baOutput, StrConv(baKey, vbUnicode)
+    Caption = Format$(TimerEx - dblTimer, "0.000") & " sec - " & bResult
+    Command23.Caption = Format$((UBound(m_baContents) + 1) * ITER / 1024# / 1024# / (TimerEx - dblTimer), "0.000") & " MB/s"
+End Sub
+
+Private Sub Command24_Click()
+    Const ITER      As Long = 1
+    Dim lIdx        As Long
+    Dim baKey()     As Byte
+    Dim baOutput()  As Byte
+    Dim dblTimer    As Double
+    Dim bResult     As Boolean
+    Dim uCtx        As CryptoAesGcmContext
+    Dim oEnc        As New clsSkipjack
+    
+    Command24.Caption = "Processing"
+    dblTimer = TimerEx
+    baKey = FromHex("000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f")
+    For lIdx = 1 To ITER
+        baOutput = m_baContents
+        oEnc.EncryptByte baOutput, StrConv(baKey, vbUnicode)
+    Next
+    Command24.Caption = Format$((UBound(m_baContents) + 1) * ITER / 1024# / 1024# / (TimerEx - dblTimer), "0.000") & " MB/s"
+    Caption = Format$(TimerEx - dblTimer, "0.000") & " sec"
+    dblTimer = TimerEx
+    oEnc.DecryptByte baOutput, StrConv(baKey, vbUnicode)
+    Caption = Format$(TimerEx - dblTimer, "0.000") & " sec - " & bResult
+    Command24.Caption = Format$((UBound(m_baContents) + 1) * ITER / 1024# / 1024# / (TimerEx - dblTimer), "0.000") & " MB/s"
+End Sub
+
+Private Sub Command25_Click()
+    Const ITER      As Long = 1
+    Dim lIdx        As Long
+    Dim baKey()     As Byte
+    Dim baOutput()  As Byte
+    Dim dblTimer    As Double
+    Dim bResult     As Boolean
+    Dim uCtx        As CryptoAesGcmContext
+    Dim oEnc        As New clsTEA
+    
+    Command25.Caption = "Processing"
+    dblTimer = TimerEx
+    baKey = FromHex("000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f")
+    For lIdx = 1 To ITER
+        baOutput = m_baContents
+        oEnc.EncryptByte baOutput, StrConv(baKey, vbUnicode)
+    Next
+    Command25.Caption = Format$((UBound(m_baContents) + 1) * ITER / 1024# / 1024# / (TimerEx - dblTimer), "0.000") & " MB/s"
+    Caption = Format$(TimerEx - dblTimer, "0.000") & " sec"
+    dblTimer = TimerEx
+    oEnc.DecryptByte baOutput, StrConv(baKey, vbUnicode)
+    Caption = Format$(TimerEx - dblTimer, "0.000") & " sec - " & bResult
+    Command25.Caption = Format$((UBound(m_baContents) + 1) * ITER / 1024# / 1024# / (TimerEx - dblTimer), "0.000") & " MB/s"
 End Sub
 
 

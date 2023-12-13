@@ -31,6 +31,7 @@ End Type
 
 #If Not HasOperators Then
 Private LNG_POW2(0 To 31)           As Long
+Private m_bNoIntegerOverflowChecks  As Boolean
 
 Private Function RotL32(ByVal lX As Long, ByVal lN As Long) As Long
     '--- RotL32 = LShift(X, n) Or RShift(X, 32 - n)
@@ -45,6 +46,25 @@ Private Function UAdd32(ByVal lX As Long, ByVal lY As Long) As Long
     Else
         UAdd32 = lX + lY
     End If
+End Function
+
+Private Function pvGetOverflowIgnored(Optional bValue As Boolean = True) As Boolean
+    Dim bInIde      As Boolean
+    
+    If Not bValue Then
+        bValue = True
+        pvGetOverflowIgnored = True
+        Exit Function
+    End If
+    Debug.Assert pvGetOverflowIgnored(bInIde)
+    If bInIde Then
+        Exit Function
+    End If
+    On Error GoTo EH
+    If &H8000 - 1 <> 0 Then
+        pvGetOverflowIgnored = True
+    End If
+EH:
 End Function
 #End If
 
@@ -63,6 +83,7 @@ Public Sub CryptoSha1Init(uCtx As CryptoSha1Context)
                 LNG_POW2(lIdx) = LNG_POW2(lIdx - 1) * 2
             Next
             LNG_POW2(31) = &H80000000
+            m_bNoIntegerOverflowChecks = pvGetOverflowIgnored
         End If
     #End If
     With uCtx
@@ -145,7 +166,11 @@ Public Sub CryptoSha1Update(uCtx As CryptoSha1Context, baInput() As Byte, Option
                 #If HasOperators Then
                     lTemp += (lA << 5 or lA >> 27) + lE + lK + W(lIdx)
                 #Else
-                    lTemp = UAdd32(UAdd32(UAdd32(UAdd32(lTemp, RotL32(lA, 5)), lE), lK), W(lIdx))
+                    If m_bNoIntegerOverflowChecks Then
+                        lTemp = lTemp + RotL32(lA, 5) + lE + lK + W(lIdx)
+                    Else
+                        lTemp = UAdd32(UAdd32(UAdd32(UAdd32(lTemp, RotL32(lA, 5)), lE), lK), W(lIdx))
+                    End If
                 #End If
                 lE = lD
                 lD = lC
@@ -160,7 +185,11 @@ Public Sub CryptoSha1Update(uCtx As CryptoSha1Context, baInput() As Byte, Option
             #If HasOperators Then
                 .H0 += lA: .H1 += lB: .H2 += lC: .H3 += lD: .H4 += lE
             #Else
-                .H0 = UAdd32(.H0, lA): .H1 = UAdd32(.H1, lB): .H2 = UAdd32(.H2, lC): .H3 = UAdd32(.H3, lD): .H4 = UAdd32(.H4, lE)
+                If m_bNoIntegerOverflowChecks Then
+                    .H0 = .H0 + lA: .H1 = .H1 + lB: .H2 = .H2 + lC: .H3 = .H3 + lD: .H4 = .H4 + lE
+                Else
+                    .H0 = UAdd32(.H0, lA): .H1 = UAdd32(.H1, lB): .H2 = UAdd32(.H2, lC): .H3 = UAdd32(.H3, lD): .H4 = UAdd32(.H4, lE)
+                End If
             #End If
         Loop
     End With
@@ -168,7 +197,7 @@ End Sub
 
 Public Sub CryptoSha1Finalize(uCtx As CryptoSha1Context, baOutput() As Byte)
     Static B(0 To 4)    As Long
-    Dim P(0 To LNG_BLOCKSZ + 9) As Byte
+    Dim p(0 To LNG_BLOCKSZ + 9) As Byte
     Dim lSize           As Long
     
     With uCtx
@@ -176,12 +205,12 @@ Public Sub CryptoSha1Finalize(uCtx As CryptoSha1Context, baOutput() As Byte)
         If lSize < 9 Then
             lSize = lSize + LNG_BLOCKSZ
         End If
-        P(0) = &H80
+        p(0) = &H80
         .NInput = .NInput / 10000@ * 8
         Call CopyMemory(B(0), .NInput, 8)
-        Call CopyMemory(P(lSize - 4), BSwap32(B(0)), 4)
-        Call CopyMemory(P(lSize - 8), BSwap32(B(1)), 4)
-        CryptoSha1Update uCtx, P, Size:=lSize
+        Call CopyMemory(p(lSize - 4), BSwap32(B(0)), 4)
+        Call CopyMemory(p(lSize - 8), BSwap32(B(1)), 4)
+        CryptoSha1Update uCtx, p, Size:=lSize
         Debug.Assert .NPartial = 0
         B(0) = BSwap32(.H0): B(1) = BSwap32(.H1): B(2) = BSwap32(.H2): B(3) = BSwap32(.H3): B(4) = BSwap32(.H4)
         ReDim baOutput(0 To LNG_HASHSZ - 1) As Byte

@@ -259,7 +259,18 @@ Private Sub pvStore(uArray As ArrayLong32, ByVal lIdx As Long)
     End With
 End Sub
 
-Private Function pvGetOverflowIgnored() As Boolean
+Private Function pvGetOverflowIgnored(Optional bValue As Boolean = True) As Boolean
+    Dim bInIde      As Boolean
+    
+    If Not bValue Then
+        bValue = True
+        pvGetOverflowIgnored = True
+        Exit Function
+    End If
+    Debug.Assert pvGetOverflowIgnored(bInIde)
+    If bInIde Then
+        Exit Function
+    End If
     On Error GoTo EH
     If &H8000 - 1 <> 0 Then
         pvGetOverflowIgnored = True

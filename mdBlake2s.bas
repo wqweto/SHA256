@@ -39,6 +39,7 @@ Private LNG_SIGMA(0 To 15, 0 To LNG_ROUNDS - 1)  As Long
 
 #If Not HasOperators Then
 Private LNG_POW2(0 To 31)           As Long
+Private m_bNoIntegerOverflowChecks  As Boolean
 
 Private Function RotR32(ByVal lX As Long, ByVal lN As Long) As Long
     '--- RotR32 = RShift32(X, n) Or LShift32(X, 32 - n)
@@ -55,15 +56,45 @@ Private Function UAdd32(ByVal lX As Long, ByVal lY As Long) As Long
     End If
 End Function
 
+Private Function pvGetOverflowIgnored(Optional bValue As Boolean = True) As Boolean
+    Dim bInIde      As Boolean
+    
+    If Not bValue Then
+        bValue = True
+        pvGetOverflowIgnored = True
+        Exit Function
+    End If
+    Debug.Assert pvGetOverflowIgnored(bInIde)
+    If bInIde Then
+        Exit Function
+    End If
+    On Error GoTo EH
+    If &H8000 - 1 <> 0 Then
+        pvGetOverflowIgnored = True
+    End If
+EH:
+End Function
+
 Private Sub pvQuarter32(lA As Long, lB As Long, lC As Long, lD As Long, ByVal lX As Long, ByVal lY As Long)
-    lA = UAdd32(UAdd32(lA, lB), lX)
-    lD = RotR32(lD Xor lA, 16)
-    lC = UAdd32(lC, lD)
-    lB = RotR32(lB Xor lC, 12)
-    lA = UAdd32(UAdd32(lA, lB), lY)
-    lD = RotR32(lD Xor lA, 8)
-    lC = UAdd32(lC, lD)
-    lB = RotR32(lB Xor lC, 7)
+    If m_bNoIntegerOverflowChecks Then
+        lA = lA + lB + lX
+        lD = RotR32(lD Xor lA, 16)
+        lC = lC + lD
+        lB = RotR32(lB Xor lC, 12)
+        lA = lA + lB + lY
+        lD = RotR32(lD Xor lA, 8)
+        lC = lC + lD
+        lB = RotR32(lB Xor lC, 7)
+    Else
+        lA = UAdd32(UAdd32(lA, lB), lX)
+        lD = RotR32(lD Xor lA, 16)
+        lC = UAdd32(lC, lD)
+        lB = RotR32(lB Xor lC, 12)
+        lA = UAdd32(UAdd32(lA, lB), lY)
+        lD = RotR32(lD Xor lA, 8)
+        lC = UAdd32(lC, lD)
+        lB = RotR32(lB Xor lC, 7)
+    End If
 End Sub
 #Else
 [ IntegerOverflowChecks (False) ]
@@ -175,6 +206,7 @@ Public Sub CryptoBlake2sInit(uCtx As CryptoBlake2sContext, ByVal lBitSize As Lon
                 LNG_POW2(lIdx) = LNG_POW2(lIdx - 1) * 2
             Next
             LNG_POW2(31) = &H80000000
+            m_bNoIntegerOverflowChecks = pvGetOverflowIgnored
         #End If
     End If
     If lBitSize <= 0 Or lBitSize > 256 Or (lBitSize And 7) <> 0 Then
