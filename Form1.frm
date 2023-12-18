@@ -24,6 +24,7 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 Option Explicit
+Private Const MODULE_NAME As String = "Form1"
 
 Private Sub pvTestSHA256Managed()
     Dim baInput()       As Byte
@@ -74,9 +75,11 @@ Private Sub Command1_Click()
 End Sub
 
 Private Sub Form_Click()
-'    pvTestScryptKdf
-    pvTestSha512
+    pvTestAesGcm JsonParseObject(ReadTextFile("C:\Work\Temp\wycheproof\testvectors\aes_gcm_test.json"))
+    pvTestAesGcmSiv JsonParseObject(ReadTextFile("C:\Work\Temp\wycheproof\testvectors\aes_gcm_siv_test.json"))
     Exit Sub
+    pvTestScryptKdf
+    pvTestSha512
     pvTestX25519 JsonParseObject(ReadTextFile("C:\Work\Temp\wycheproof\testvectors\x25519_test.json"))
 
     pvTestHmacSha2 JsonParseObject(ReadTextFile("C:\Work\Temp\wycheproof\testvectors\hmac_sha512_test.json")), 512
@@ -181,9 +184,131 @@ Private Sub pvTestHmacSha3(oJson As Object, ByVal lBitSize As Long)
     Next
 End Sub
 
+Private Sub pvTestAesGcm(oJson As Object)
+    Const FUNC_NAME     As String = "pvTestAesGcm"
+    Dim oGroup          As Object
+    Dim oTest           As Object
+    Dim sComment        As String
+    Dim sResult         As String
+    Dim lPassed         As Long
+    Dim lFailed         As Long
+    Dim lSkipped        As Long
+    '--- local
+    Dim baNonce()       As Byte
+    Dim baKey()         As Byte
+    Dim baAad()         As Byte
+    Dim baMsg()         As Byte
+    Dim baCt()          As Byte
+    Dim baTag()         As Byte
+    Dim baBuffer()      As Byte
+    Dim baOutTag()      As Byte
+    Dim uCtx            As CryptoAesGcmContext
+    
+    For Each oGroup In JsonValue(oJson, "testGroups")
+        For Each oTest In JsonValue(oGroup, "tests")
+            baNonce = FromHex(JsonValue(oTest, "iv"))
+            baKey = FromHex(JsonValue(oTest, "key"))
+            baAad = FromHex(JsonValue(oTest, "aad"))
+            baMsg = FromHex(JsonValue(oTest, "msg"))
+            baCt = FromHex(JsonValue(oTest, "ct"))
+            baTag = FromHex(JsonValue(oTest, "tag"))
+            baBuffer = baMsg
+            sResult = "valid"
+            If UBound(baNonce) >= 0 Then
+                CryptoAesGcmInit uCtx, baKey, baNonce, baAad
+                CryptoAesGcmEncrypt uCtx, baBuffer, TagSize:=UBound(baTag) + 1, Tag:=baOutTag
+                If Not pvArrayEqual(baBuffer, baCt) Then
+                    sResult = "invalid"
+                End If
+                If Not pvArrayEqual(baTag, baOutTag) Then
+                    sResult = "invalid"
+                End If
+                If JsonValue(oTest, "result") = "acceptable" And sResult = "valid" Then
+                    lPassed = lPassed + 1
+                ElseIf JsonValue(oTest, "result") = sResult Then
+                    lPassed = lPassed + 1
+                Else
+                    lFailed = lFailed + 1
+                    sComment = JsonValue(oTest, "comment")
+                    DebugLog MODULE_NAME, FUNC_NAME, "[-] " & JsonValue(oTest, "tcId") & IIf(LenB(sComment) <> 0, " (" & sComment & ")", vbNullString)
+                End If
+            Else
+                lSkipped = lSkipped + 1
+            End If
+        Next
+    Next
+    DebugLog MODULE_NAME, FUNC_NAME, "[+] Passed=" & lPassed & ", Failed=" & lFailed & ", Skipped=" & lSkipped
+End Sub
+
+Private Sub pvTestAesGcmSiv(oJson As Object)
+    Const FUNC_NAME     As String = "pvTestAesGcmSiv"
+    Dim oGroup          As Object
+    Dim oTest           As Object
+    Dim sComment        As String
+    Dim sResult         As String
+    Dim lPassed         As Long
+    Dim lFailed         As Long
+    Dim lSkipped        As Long
+    '--- local
+    Dim baNonce()       As Byte
+    Dim baKey()         As Byte
+    Dim baAad()         As Byte
+    Dim baMsg()         As Byte
+    Dim baCt()          As Byte
+    Dim baTag()         As Byte
+    Dim baBuffer()      As Byte
+    Dim baOutTag()      As Byte
+    Dim uCtx            As CryptoAesGcmContext
+    
+    For Each oGroup In JsonValue(oJson, "testGroups")
+        For Each oTest In JsonValue(oGroup, "tests")
+            baNonce = FromHex(JsonValue(oTest, "iv"))
+            baKey = FromHex(JsonValue(oTest, "key"))
+            baAad = FromHex(JsonValue(oTest, "aad"))
+            baMsg = FromHex(JsonValue(oTest, "msg"))
+            baCt = FromHex(JsonValue(oTest, "ct"))
+            baTag = FromHex(JsonValue(oTest, "tag"))
+            baBuffer = baMsg
+            sResult = "valid"
+            If UBound(baNonce) >= 0 Then
+                CryptoAesGcmSivEncrypt baKey, baNonce, baAad, baBuffer, baOutTag
+                If Not pvArrayEqual(baBuffer, baCt) Then
+                    sResult = "invalid"
+                End If
+                If Not pvArrayEqual(baTag, baOutTag) Then
+                    sResult = "invalid"
+                End If
+                If JsonValue(oTest, "result") = "acceptable" And sResult = "valid" Then
+                    lPassed = lPassed + 1
+                ElseIf JsonValue(oTest, "result") = sResult Then
+                    lPassed = lPassed + 1
+                Else
+                    lFailed = lFailed + 1
+                    sComment = JsonValue(oTest, "comment")
+                    DebugLog MODULE_NAME, FUNC_NAME, "[-] " & JsonValue(oTest, "tcId") & IIf(LenB(sComment) <> 0, " (" & sComment & ")", vbNullString)
+                End If
+            Else
+                lSkipped = lSkipped + 1
+            End If
+        Next
+    Next
+    DebugLog MODULE_NAME, FUNC_NAME, "[+] Passed=" & lPassed & ", Failed=" & lFailed & ", Skipped=" & lSkipped
+End Sub
+
+Public Sub DebugLog(sModule As String, sFunction As String, sText As String, Optional ByVal eType As LogEventTypeConstants = vbLogEventTypeInformation)
+    Debug.Print Format$(TimerEx, "0.000") & " " & Switch( _
+        eType = vbLogEventTypeError, "[ERROR]", _
+        eType = vbLogEventTypeWarning, "[WARN]", _
+        True, "[INFO]") & " " & sText & " [" & sModule & "." & sFunction & "]"
+End Sub
+
 Private Function pvArrayEqual(baFirst() As Byte, baSecond() As Byte) As Boolean
     If UBound(baFirst) = UBound(baSecond) Then
-        pvArrayEqual = (InStrB(baFirst, baSecond) = 1)
+        If UBound(baFirst) < 0 Then
+            pvArrayEqual = True
+        Else
+            pvArrayEqual = (InStrB(baFirst, baSecond) = 1)
+        End If
     End If
 End Function
 
@@ -560,8 +685,8 @@ Private Sub Form_Load()
 '    pvTestAsconHash
 '    pvTestSiphash
 '    Debug.Print Timer
-    pvTestArgon2
-    CryptoTestArgon2
+'    pvTestArgon2
+'    CryptoTestArgon2
 '    Debug.Print Timer
 '    pvTestArgon2
 '    pvTestBlake3
@@ -574,10 +699,11 @@ Private Sub Form_Load()
 '    pvTestScryptKdf
 '    pvTestRipeMd160
 '    pvTestHkdfSha2
-    pvTestSha3
+'    pvTestSha3
 '    pvTestSha512
 '    pvTestCryptoEd25519
 '    pvTestHmacSha2 JsonParseObject(ReadTextFile("C:\Work\Temp\wycheproof\testvectors\hmac_sha512_test.json")), 512
 '    pvTestHmacSha2 JsonParseObject(ReadTextFile("C:\Work\Temp\wycheproof\testvectors\hmac_sha384_test.json")), 384
 '    pvTestHmacSha2 JsonParseObject(ReadTextFile("C:\Work\Temp\wycheproof\testvectors\hmac_sha256_test.json")), 256
 End Sub
+

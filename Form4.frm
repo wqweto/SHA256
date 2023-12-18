@@ -354,6 +354,35 @@ Private Sub pvTestAes()
     CryptoAesGcmInit uGcmCtx, baKey, baNonce, baAad
     CryptoAesGcmDecrypt uGcmCtx, baBuffer, Tag:=baTag
     Debug.Assert ToHex(baBuffer) = "d9313225f88406e5a55909c5aff5269a86a7a9531534f7da2e4c303d8a318a721c3c0c95956809532fcf0e2449a6b525b16aedf5aa0de657ba637b39"
+    
+    '--- POLYVAL
+    Dim uGhashCtx As CryptoGhashContext
+    CryptoPolyvalInit uGhashCtx, FromHex("25629347589242761d31f826ba4b757b")
+    CryptoPolyvalUpdate uGhashCtx, FromHex("4f4f95668c83dfb6401762bb2d01a262")
+    CryptoPolyvalUpdate uGhashCtx, FromHex("d1a24ddd2721d006bbe45f20d3c9f362")
+    CryptoPolyvalFinalize uGhashCtx, 16, baTag
+    Debug.Assert ToHex(baTag) = "f7a3b47b846119fae5b7866cf5e5b77e"
+    
+    '--- AES-GCM-SIV
+    baKey = FromHex("ee8e1ed9ff2540ae8f2ba9f50bc2f27c")
+    baNonce = FromHex("752abad3e0afb5f434dc4310")
+    baAad = StrConv("example", vbFromUnicode)
+    baBuffer = StrConv("Hello world", vbFromUnicode)
+    CryptoAesGcmSivEncrypt baKey, baNonce, baAad, baBuffer, baTag
+    Debug.Assert ToHex(baBuffer) = "5d349ead175ef6b1def6fd"
+    Debug.Assert ToHex(baTag) = "4fbcdeb7e4793f4a1d7e4faa70100af1"
+    Debug.Assert CryptoAesGcmSivDecrypt(baKey, baNonce, baAad, baBuffer, baTag)
+    Debug.Assert StrConv(baBuffer, vbUnicode) = "Hello world"
+    
+    baKey = FromHex("aedb64a6c590bc84d1a5e269e4b47801")
+    baNonce = FromHex("afc0577e34699b9e671fdd4f")
+    baAad = FromHex("fc880c94a95198874296")
+    baBuffer = FromHex("bdc66f146545")
+    CryptoAesGcmSivEncrypt baKey, baNonce, baAad, baBuffer, baTag
+    Debug.Assert ToHex(baBuffer) = "bb93a3e34d3c"
+    Debug.Assert ToHex(baTag) = "d6a9c45545cfc11f03ad743dba20f966"
+    Debug.Assert CryptoAesGcmSivDecrypt(baKey, baNonce, baAad, baBuffer, baTag)
+    Debug.Assert ToHex(baBuffer) = "bdc66f146545"
 End Sub
 
 Private Sub pvConcat(baBuffer() As Byte, baAppend() As Byte)
@@ -362,3 +391,4 @@ Private Sub pvConcat(baBuffer() As Byte, baAppend() As Byte)
     ReDim Preserve baBuffer(0 To lPos + UBound(baAppend)) As Byte
     Call CopyMemory(baBuffer(lPos), baAppend(0), UBound(baAppend) + 1)
 End Sub
+

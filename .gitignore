@@ -4,3 +4,4 @@
 *.obj
 vb*.tmp
 *.vbw
+**/_del/*

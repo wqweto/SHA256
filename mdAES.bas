@@ -79,6 +79,26 @@ Private Function BSwap32(ByVal lX As Long) As Long
     #End If
 End Function
 
+Private Function pvWrapIncBE(lValue As Long) As Boolean
+    If lValue <> -1 Then
+        lValue = BSwap32((BSwap32(lValue) Xor &H80000000) + 1 Xor &H80000000)
+    Else
+        lValue = 0
+        '--- has carry
+        pvWrapIncBE = True
+    End If
+End Function
+
+Private Function pvWrapIncLE(lValue As Long) As Boolean
+    If lValue <> -1 Then
+        lValue = (lValue Xor &H80000000) + 1 Xor &H80000000
+    Else
+        lValue = 0
+        '--- has carry
+        pvWrapIncLE = True
+    End If
+End Function
+
 Private Sub pvInit(uEncTable As AesTables, uDecTable As AesTables)
     Const FADF_AUTO     As Long = 1
     Dim lIdx            As Long
@@ -342,13 +362,19 @@ Private Sub pvProcess(uCtx As CryptoAesContext, ByVal bEncrypt As Boolean, uInpu
 End Sub
 
 Public Sub CryptoAesInit(uCtx As CryptoAesContext, baKey() As Byte, Optional Nonce As Variant)
-    Dim baNonce()       As Byte
-    
     If m_uEncTables.Item(0).Item(0) = 0 Then
         pvInit m_uEncTables, m_uDecTables
     End If
     With uCtx
         .KeyLen = pvKeySchedule(baKey, m_uEncTables.Item(4), m_uDecTables, .EncKey, .DecKey)
+        CryptoAesSetNonce uCtx, Nonce
+    End With
+End Sub
+
+Public Sub CryptoAesSetNonce(uCtx As CryptoAesContext, Nonce As Variant, Optional ByVal CounterWords As Long)
+    Dim baNonce()       As Byte
+    
+    With uCtx
         If IsMissing(Nonce) Or IsNumeric(Nonce) Then
             baNonce = vbNullString
         Else
@@ -361,6 +387,11 @@ Public Sub CryptoAesInit(uCtx As CryptoAesContext, baKey() As Byte, Optional Non
         If IsNumeric(Nonce) Then
             .Nonce.Item(3) = Nonce
         End If
+        If CounterWords > 0 Then
+            If pvWrapIncBE(uCtx.Nonce.Item(3)) And CounterWords > 1 Then
+                pvWrapIncBE uCtx.Nonce.Item(2)
+            End If
+        End If
     End With
 End Sub
 
@@ -370,16 +401,7 @@ Public Sub CryptoAesProcess(uCtx As CryptoAesContext, ByVal Encrypt As Boolean, 
     pvProcess uCtx, Encrypt, m_aBlock(0), m_aBlock(0)
 End Sub
 
-Public Sub CryptoAesNextNonce(uCtx As CryptoAesContext, baNonce() As Byte)
-    With uCtx
-        If UBound(baNonce) <> LNG_BLOCKSZ - 1 Then
-            ReDim Preserve baNonce(0 To LNG_BLOCKSZ - 1) As Byte
-        End If
-        Call CopyMemory(.Nonce, baNonce(0), LNG_BLOCKSZ)
-        '--- unsigned inc
-        .Nonce.Item(3) = BSwap32((BSwap32(.Nonce.Item(3)) Xor &H80000000) + 1 Xor &H80000000)
-    End With
-End Sub
+'= AES-CBC ===============================================================
 
 Public Sub CryptoAesCbcEncrypt(uCtx As CryptoAesContext, baBuffer() As Byte, Optional ByVal Pos As Long, Optional ByVal Size As Long = -1, Optional ByVal Final As Boolean = True)
     Dim lIdx            As Long
@@ -500,7 +522,7 @@ Public Function CryptoAesCbcDecrypt(uCtx As CryptoAesContext, baBuffer() As Byte
     CryptoAesCbcDecrypt = True
 End Function
 
-Public Sub CryptoAesCtrCrypt(uCtx As CryptoAesContext, baBuffer() As Byte, Optional ByVal Pos As Long, Optional ByVal Size As Long = -1)
+Public Sub CryptoAesCtrCrypt(uCtx As CryptoAesContext, baBuffer() As Byte, Optional ByVal Pos As Long, Optional ByVal Size As Long = -1, Optional ByVal CounterWords As Long = 2)
     Dim lIdx            As Long
     Dim lJdx            As Long
     Dim lFinal          As Long
@@ -535,7 +557,14 @@ Public Sub CryptoAesCtrCrypt(uCtx As CryptoAesContext, baBuffer() As Byte, Optio
                 m_aBlock(lIdx).Item(3) = m_aBlock(lIdx).Item(3) Xor .Item(3)
             End With
         End If
-        '--- unsigned inc
-        uCtx.Nonce.Item(3) = BSwap32((BSwap32(uCtx.Nonce.Item(3)) Xor &H80000000) + 1 Xor &H80000000)
+        If CounterWords < 0 Then
+            If pvWrapIncLE(uCtx.Nonce.Item(0)) And CounterWords < -1 Then
+                pvWrapIncLE uCtx.Nonce.Item(1)
+            End If
+        Else
+            If pvWrapIncBE(uCtx.Nonce.Item(3)) And CounterWords > 1 Then
+                pvWrapIncBE uCtx.Nonce.Item(2)
+            End If
+        End If
     Next
 End Sub
