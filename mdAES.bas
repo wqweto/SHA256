@@ -353,11 +353,11 @@ Private Sub pvCrypt(uInput As AesBlock, uOutput As AesBlock, ByVal bDecrypt As B
     Next
 End Sub
 
-Private Sub pvProcess(uCtx As CryptoAesContext, ByVal bEncrypt As Boolean, uInput As AesBlock, uOutput As AesBlock)
-    If bEncrypt Then
-        pvCrypt uInput, uOutput, False, uCtx.EncKey, uCtx.KeyLen, m_uEncTables.Item(0), m_uEncTables.Item(1), m_uEncTables.Item(2), m_uEncTables.Item(3), m_uEncTables.Item(4)
+Private Sub pvProcess(uCtx As CryptoAesContext, ByVal bDecrypt As Boolean, uInput As AesBlock, uOutput As AesBlock)
+    If bDecrypt Then
+        pvCrypt uInput, uOutput, bDecrypt, uCtx.DecKey, uCtx.KeyLen, m_uDecTables.Item(0), m_uDecTables.Item(1), m_uDecTables.Item(2), m_uDecTables.Item(3), m_uDecTables.Item(4)
     Else
-        pvCrypt uInput, uOutput, True, uCtx.DecKey, uCtx.KeyLen, m_uDecTables.Item(0), m_uDecTables.Item(1), m_uDecTables.Item(2), m_uDecTables.Item(3), m_uDecTables.Item(4)
+        pvCrypt uInput, uOutput, bDecrypt, uCtx.EncKey, uCtx.KeyLen, m_uEncTables.Item(0), m_uEncTables.Item(1), m_uEncTables.Item(2), m_uEncTables.Item(3), m_uEncTables.Item(4)
     End If
 End Sub
 
@@ -395,10 +395,17 @@ Public Sub CryptoAesSetNonce(uCtx As CryptoAesContext, Nonce As Variant, Optiona
     End With
 End Sub
 
-Public Sub CryptoAesProcess(uCtx As CryptoAesContext, ByVal Encrypt As Boolean, baBlock() As Byte, Optional ByVal Pos As Long)
+Public Sub CryptoAesProcess(uCtx As CryptoAesContext, baBlock() As Byte, Optional ByVal Pos As Long, Optional ByVal Decrypt As Boolean)
     Debug.Assert UBound(baBlock) + 1 >= Pos + LNG_BLOCKSZ
-    pvInitPeek m_uPeekBlock, baBlock, Pos, LNG_BLOCKSZ
-    pvProcess uCtx, Encrypt, m_aBlock(0), m_aBlock(0)
+    m_uPeekBlock.pvData = VarPtr(baBlock(Pos))
+    m_uPeekBlock.cElements = 1
+    pvProcess uCtx, Decrypt, m_aBlock(0), m_aBlock(0)
+End Sub
+
+Public Sub CryptoAesProcessPtr(uCtx As CryptoAesContext, ByVal lPtr As Long, Optional ByVal Decrypt As Boolean)
+    m_uPeekBlock.pvData = lPtr
+    m_uPeekBlock.cElements = 1
+    pvProcess uCtx, Decrypt, m_aBlock(0), m_aBlock(0)
 End Sub
 
 '= AES-CBC ===============================================================
@@ -446,7 +453,7 @@ Public Sub CryptoAesCbcEncrypt(uCtx As CryptoAesContext, baBuffer() As Byte, Opt
             .Item(2) = .Item(2) Xor m_aBlock(lIdx).Item(2)
             .Item(3) = .Item(3) Xor m_aBlock(lIdx).Item(3)
         End With
-        pvProcess uCtx, True, uCtx.Nonce, uCtx.Nonce
+        pvProcess uCtx, False, uCtx.Nonce, uCtx.Nonce
         With uCtx.Nonce
             m_aBlock(lIdx).Item(0) = .Item(0)
             m_aBlock(lIdx).Item(1) = .Item(1)
@@ -479,7 +486,7 @@ Public Function CryptoAesCbcDecrypt(uCtx As CryptoAesContext, baBuffer() As Byte
             .Item(2) = m_aBlock(lIdx).Item(2)
             .Item(3) = m_aBlock(lIdx).Item(3)
         End With
-        pvProcess uCtx, False, uInput, uBlock
+        pvProcess uCtx, True, uInput, uBlock
         With uBlock
             .Item(0) = .Item(0) Xor uCtx.Nonce.Item(0)
             .Item(1) = .Item(1) Xor uCtx.Nonce.Item(1)
@@ -538,7 +545,7 @@ Public Sub CryptoAesCtrCrypt(uCtx As CryptoAesContext, baBuffer() As Byte, Optio
     lFinal = Size \ LNG_BLOCKSZ
     pvInitPeek m_uPeekBlock, baBuffer, Pos, Size
     For lIdx = 0 To (Size - 1) \ LNG_BLOCKSZ
-        pvProcess uCtx, True, uCtx.Nonce, uBlock
+        pvProcess uCtx, False, uCtx.Nonce, uBlock
         If lIdx = lFinal Then
             lJdx = lIdx * LNG_BLOCKSZ
             Call CopyMemory(uTemp, baBuffer(Pos + lJdx), Size - lJdx)

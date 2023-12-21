@@ -35,6 +35,7 @@ Class=clsBlowfish; D:\TEMP\VBCrypto\VBCrypto\VB Class Cipher Algorithms\clsBlowf
 Class=clsSkipjack; D:\TEMP\VBCrypto\VBCrypto\VB Class Cipher Algorithms\clsSkipjack.cls
 Class=clsTwofish; D:\TEMP\VBCrypto\VBCrypto\VB Class Cipher Algorithms\clsTwofish.cls
 Class=clsTEA; D:\TEMP\VBCrypto\VBCrypto\VB Class Cipher Algorithms\clsTEA.cls
+Module=mdAesCcm; mdAesCcm.bas
 ResFile32="Project1.res"
 IconForm="Form1"
 Startup="Form1"

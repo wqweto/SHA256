@@ -34,6 +34,7 @@ End Sub
 
 Private Sub Form_Load()
     pvTestAes
+    Exit Sub
     pvTestMd5
     pvTestSha1
     pvTestBase64
@@ -185,10 +186,10 @@ Private Sub pvTestAes()
     baKey = FromHex("00112233445566778899aabbccddeeff")
     CryptoAesInit uCtx, baKey
     baBlock = baKey
-    CryptoAesProcess uCtx, False, baBlock
+    CryptoAesProcess uCtx, baBlock, Decrypt:=True
     Debug.Assert ToHex(baBlock) = "b8f21a70bc9cee25249e2761fcbb7a34"
     '-> b8f21a70bc9cee25249e2761fcbb7a34
-    CryptoAesProcess uCtx, True, baBlock
+    CryptoAesProcess uCtx, baBlock
     Debug.Assert ToHex(baBlock) = "00112233445566778899aabbccddeeff"
     '-> 00112233445566778899aabbccddeeff
 
@@ -266,8 +267,7 @@ Private Sub pvTestAes()
     CryptoAesCtrCrypt uCtx, baBuffer
     Debug.Assert ToHex(baBuffer) = "6bc1bee22e409f96e93d7e117393172aae2d8a571e03ac9c9eb76fac45af8e5130c81c46a35ce411e5fbc1191a0a52eff69f2445df4f9b17ad2b417be66c3710"
 
-    '--- https://csrc.nist.rip/groups/ST/toolkit/BCM/documents/proposedmodes/gcm/gcm-spec.pdf
-    '--- Test Case 1
+    '--- Test Case 1 from https://csrc.nist.rip/groups/ST/toolkit/BCM/documents/proposedmodes/gcm/gcm-spec.pdf
     baKey = FromHex("00000000000000000000000000000000")
     baNonce = FromHex("000000000000000000000000")
     baAad = vbNullString
@@ -363,7 +363,7 @@ Private Sub pvTestAes()
     CryptoPolyvalFinalize uGhashCtx, 16, baTag
     Debug.Assert ToHex(baTag) = "f7a3b47b846119fae5b7866cf5e5b77e"
     
-    '--- AES-GCM-SIV
+    '--- AES-GCM-SIV from https://www.rfc-editor.org/rfc/rfc8452.html
     baKey = FromHex("ee8e1ed9ff2540ae8f2ba9f50bc2f27c")
     baNonce = FromHex("752abad3e0afb5f434dc4310")
     baAad = StrConv("example", vbFromUnicode)
@@ -383,6 +383,38 @@ Private Sub pvTestAes()
     Debug.Assert ToHex(baTag) = "d6a9c45545cfc11f03ad743dba20f966"
     Debug.Assert CryptoAesGcmSivDecrypt(baKey, baNonce, baAad, baBuffer, baTag)
     Debug.Assert ToHex(baBuffer) = "bdc66f146545"
+    
+    '--- AES-CCM from https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-38c.pdf
+    baKey = FromHex("404142434445464748494a4b4c4d4e4f")
+    baNonce = FromHex("10111213141516")
+    baAad = FromHex("0001020304050607")
+    baBuffer = FromHex("20212223")
+    CryptoAesCcmEncrypt baKey, baNonce, baAad, baBuffer, baTag, TagSize:=4
+    Debug.Assert ToHex(baBuffer) = "7162015b"
+    Debug.Assert ToHex(baTag) = "4dac255d"
+    Debug.Assert CryptoAesCcmDecrypt(baKey, baNonce, baAad, baBuffer, baTag)
+    Debug.Assert ToHex(baBuffer) = "20212223"
+    
+    baKey = FromHex("404142434445464748494a4b4c4d4e4f")
+    baNonce = FromHex("10111213141516")
+    baAad = FromHex("0001020304050607")
+    baBuffer = FromHex("20212223")
+    CryptoAesCcmEncrypt baKey, baNonce, baAad, baBuffer, baTag
+    Debug.Assert ToHex(baBuffer) = "7162015b"
+    Debug.Assert ToHex(baTag) = "2bb57c0af45e4d8304f05f45993f1517"
+    Debug.Assert CryptoAesCcmDecrypt(baKey, baNonce, baAad, baBuffer, baTag)
+    Debug.Assert ToHex(baBuffer) = "20212223"
+    
+    '--- from https://datatracker.ietf.org/doc/html/rfc3610
+    baKey = FromHex("c0c1c2c3c4c5c6c7c8c9cacbcccdcecf")
+    baNonce = FromHex("00000003020100a0a1a2a3a4a5")
+    baAad = FromHex("0001020304050607")
+    baBuffer = FromHex("08090a0b0c0d0e0f101112131415161718191a1b1c1d1e")
+    CryptoAesCcmEncrypt baKey, baNonce, baAad, baBuffer, baTag, TagSize:=8
+    Debug.Assert ToHex(baBuffer) = "588c979a61c663d2f066d0c2c0f989806d5f6b61dac384"
+    Debug.Assert ToHex(baTag) = "17e8d12cfdf926e0"
+    Debug.Assert CryptoAesCcmDecrypt(baKey, baNonce, baAad, baBuffer, baTag)
+    Debug.Assert ToHex(baBuffer) = "08090a0b0c0d0e0f101112131415161718191a1b1c1d1e"
 End Sub
 
 Private Sub pvConcat(baBuffer() As Byte, baAppend() As Byte)

@@ -77,6 +77,7 @@ End Sub
 Private Sub Form_Click()
     pvTestAesGcm JsonParseObject(ReadTextFile("C:\Work\Temp\wycheproof\testvectors\aes_gcm_test.json"))
     pvTestAesGcmSiv JsonParseObject(ReadTextFile("C:\Work\Temp\wycheproof\testvectors\aes_gcm_siv_test.json"))
+    pvTestAesCcm JsonParseObject(ReadTextFile("C:\Work\Temp\wycheproof\testvectors\aes_ccm_test.json"))
     Exit Sub
     pvTestScryptKdf
     pvTestSha512
@@ -203,6 +204,7 @@ Private Sub pvTestAesGcm(oJson As Object)
     Dim baBuffer()      As Byte
     Dim baOutTag()      As Byte
     Dim uCtx            As CryptoAesGcmContext
+    Dim sError          As String
     
     For Each oGroup In JsonValue(oJson, "testGroups")
         For Each oTest In JsonValue(oGroup, "tests")
@@ -214,26 +216,32 @@ Private Sub pvTestAesGcm(oJson As Object)
             baTag = FromHex(JsonValue(oTest, "tag"))
             baBuffer = baMsg
             sResult = "valid"
-            If UBound(baNonce) >= 0 Then
-                CryptoAesGcmInit uCtx, baKey, baNonce, baAad
+            On Error Resume Next
+            CryptoAesGcmInit uCtx, baKey, baNonce, baAad
+            sError = Err.Description
+            If LenB(sError) = 0 Then
                 CryptoAesGcmEncrypt uCtx, baBuffer, TagSize:=UBound(baTag) + 1, Tag:=baOutTag
-                If Not pvArrayEqual(baBuffer, baCt) Then
-                    sResult = "invalid"
-                End If
-                If Not pvArrayEqual(baTag, baOutTag) Then
-                    sResult = "invalid"
-                End If
-                If JsonValue(oTest, "result") = "acceptable" And sResult = "valid" Then
-                    lPassed = lPassed + 1
-                ElseIf JsonValue(oTest, "result") = sResult Then
-                    lPassed = lPassed + 1
-                Else
-                    lFailed = lFailed + 1
-                    sComment = JsonValue(oTest, "comment")
-                    DebugLog MODULE_NAME, FUNC_NAME, "[-] " & JsonValue(oTest, "tcId") & IIf(LenB(sComment) <> 0, " (" & sComment & ")", vbNullString)
-                End If
+                sError = Err.Description
+            End If
+            On Error GoTo 0
+            If LenB(sError) <> 0 Then
+                DebugLog MODULE_NAME, FUNC_NAME, "[-] " & JsonValue(oTest, "comment") & " vs " & sError
+                sResult = "invalid"
+            End If
+            If Not pvArrayEqual(baBuffer, baCt) Then
+                sResult = "invalid"
+            End If
+            If Not pvArrayEqual(baTag, baOutTag) Then
+                sResult = "invalid"
+            End If
+            If JsonValue(oTest, "result") = "acceptable" And sResult = "valid" Then
+                lPassed = lPassed + 1
+            ElseIf JsonValue(oTest, "result") = sResult Then
+                lPassed = lPassed + 1
             Else
-                lSkipped = lSkipped + 1
+                lFailed = lFailed + 1
+                sComment = JsonValue(oTest, "comment")
+                DebugLog MODULE_NAME, FUNC_NAME, "[-] " & JsonValue(oTest, "tcId") & IIf(LenB(sComment) <> 0, " (" & sComment & ")", vbNullString)
             End If
         Next
     Next
@@ -258,7 +266,7 @@ Private Sub pvTestAesGcmSiv(oJson As Object)
     Dim baTag()         As Byte
     Dim baBuffer()      As Byte
     Dim baOutTag()      As Byte
-    Dim uCtx            As CryptoAesGcmContext
+    Dim sError          As String
     
     For Each oGroup In JsonValue(oJson, "testGroups")
         For Each oTest In JsonValue(oGroup, "tests")
@@ -270,25 +278,86 @@ Private Sub pvTestAesGcmSiv(oJson As Object)
             baTag = FromHex(JsonValue(oTest, "tag"))
             baBuffer = baMsg
             sResult = "valid"
-            If UBound(baNonce) >= 0 Then
-                CryptoAesGcmSivEncrypt baKey, baNonce, baAad, baBuffer, baOutTag
-                If Not pvArrayEqual(baBuffer, baCt) Then
-                    sResult = "invalid"
-                End If
-                If Not pvArrayEqual(baTag, baOutTag) Then
-                    sResult = "invalid"
-                End If
-                If JsonValue(oTest, "result") = "acceptable" And sResult = "valid" Then
-                    lPassed = lPassed + 1
-                ElseIf JsonValue(oTest, "result") = sResult Then
-                    lPassed = lPassed + 1
-                Else
-                    lFailed = lFailed + 1
-                    sComment = JsonValue(oTest, "comment")
-                    DebugLog MODULE_NAME, FUNC_NAME, "[-] " & JsonValue(oTest, "tcId") & IIf(LenB(sComment) <> 0, " (" & sComment & ")", vbNullString)
-                End If
+            On Error Resume Next
+            CryptoAesGcmSivEncrypt baKey, baNonce, baAad, baBuffer, baOutTag
+            sError = Err.Description
+            On Error GoTo 0
+            If LenB(sError) <> 0 Then
+                DebugLog MODULE_NAME, FUNC_NAME, "[-] " & JsonValue(oTest, "comment") & " vs " & sError
+                sResult = "invalid"
+            End If
+            If Not pvArrayEqual(baBuffer, baCt) Then
+                sResult = "invalid"
+            End If
+            If Not pvArrayEqual(baTag, baOutTag) Then
+                sResult = "invalid"
+            End If
+            If JsonValue(oTest, "result") = "acceptable" And sResult = "valid" Then
+                lPassed = lPassed + 1
+            ElseIf JsonValue(oTest, "result") = sResult Then
+                lPassed = lPassed + 1
             Else
-                lSkipped = lSkipped + 1
+                lFailed = lFailed + 1
+                sComment = JsonValue(oTest, "comment")
+                DebugLog MODULE_NAME, FUNC_NAME, "[-] " & JsonValue(oTest, "tcId") & IIf(LenB(sComment) <> 0, " (" & sComment & ")", vbNullString)
+            End If
+        Next
+    Next
+    DebugLog MODULE_NAME, FUNC_NAME, "[+] Passed=" & lPassed & ", Failed=" & lFailed & ", Skipped=" & lSkipped
+End Sub
+
+Private Sub pvTestAesCcm(oJson As Object)
+    Const FUNC_NAME     As String = "pvTestAesCcm"
+    Dim oGroup          As Object
+    Dim oTest           As Object
+    Dim sComment        As String
+    Dim sResult         As String
+    Dim lPassed         As Long
+    Dim lFailed         As Long
+    Dim lSkipped        As Long
+    '--- local
+    Dim baNonce()       As Byte
+    Dim baKey()         As Byte
+    Dim baAad()         As Byte
+    Dim baMsg()         As Byte
+    Dim baCt()          As Byte
+    Dim baTag()         As Byte
+    Dim baBuffer()      As Byte
+    Dim baOutTag()      As Byte
+    Dim sError          As String
+    
+    For Each oGroup In JsonValue(oJson, "testGroups")
+        For Each oTest In JsonValue(oGroup, "tests")
+            baNonce = FromHex(JsonValue(oTest, "iv"))
+            baKey = FromHex(JsonValue(oTest, "key"))
+            baAad = FromHex(JsonValue(oTest, "aad"))
+            baMsg = FromHex(JsonValue(oTest, "msg"))
+            baCt = FromHex(JsonValue(oTest, "ct"))
+            baTag = FromHex(JsonValue(oTest, "tag"))
+            baBuffer = baMsg
+            sResult = "valid"
+            On Error Resume Next
+            CryptoAesCcmEncrypt baKey, baNonce, baAad, baBuffer, baOutTag, TagSize:=JsonValue(oGroup, "tagSize") \ 8
+            sError = Err.Description
+            On Error GoTo 0
+            If LenB(sError) <> 0 Then
+'                DebugLog MODULE_NAME, FUNC_NAME, "[-] " & JsonValue(oTest, "comment") & " vs " & sError
+                sResult = "invalid"
+            End If
+            If Not pvArrayEqual(baBuffer, baCt) Then
+                sResult = "invalid"
+            End If
+            If Not pvArrayEqual(baTag, baOutTag) Then
+                sResult = "invalid"
+            End If
+            If JsonValue(oTest, "result") = "acceptable" And sResult = "valid" Then
+                lPassed = lPassed + 1
+            ElseIf JsonValue(oTest, "result") = sResult Then
+                lPassed = lPassed + 1
+            Else
+                lFailed = lFailed + 1
+                sComment = JsonValue(oTest, "comment")
+                DebugLog MODULE_NAME, FUNC_NAME, "[-] " & JsonValue(oTest, "tcId") & IIf(LenB(sComment) <> 0, " (" & sComment & ")", vbNullString)
             End If
         Next
     Next

@@ -1,14 +1,30 @@
 VERSION 5.00
 Begin VB.Form Form5 
    Caption         =   "Form5"
-   ClientHeight    =   10176
+   ClientHeight    =   11040
    ClientLeft      =   108
    ClientTop       =   456
    ClientWidth     =   7704
    LinkTopic       =   "Form5"
-   ScaleHeight     =   10176
+   ScaleHeight     =   11040
    ScaleWidth      =   7704
    StartUpPosition =   3  'Windows Default
+   Begin VB.CommandButton Command30 
+      Caption         =   "AES256-CCM"
+      Height          =   600
+      Left            =   2940
+      TabIndex        =   33
+      Top             =   10164
+      Width           =   2028
+   End
+   Begin VB.CommandButton Command29 
+      Caption         =   "AES128-CCM"
+      Height          =   600
+      Left            =   588
+      TabIndex        =   32
+      Top             =   10164
+      Width           =   2028
+   End
    Begin VB.CommandButton Command28 
       Caption         =   "POLYVAL"
       Height          =   600
@@ -278,10 +294,10 @@ Option Explicit
 Private m_baContents() As Byte
 
 Private Sub Form_Load()
-    Dim bInIDE          As Boolean: Debug.Assert pvSetTrue(bInIDE)
+    Dim bInIde          As Boolean: Debug.Assert pvSetTrue(bInIde)
     Dim oCtl            As Object
     
-    If bInIDE Then
+    If bInIde Then
         m_baContents = ReadBinaryFile("D:\TEMP\curl-7.86.0_2-win64-mingw.zip")
         'm_baContents = ReadBinaryFile("D:\TEMP\Panels Tutorial.zip")
     Else
@@ -984,4 +1000,55 @@ Private Sub Command28_Click()
     Caption = Format$(TimerEx - dblTimer, "0.000") & " sec"
 End Sub
 
+Private Sub Command29_Click()
+    Const ITER      As Long = 1
+    Dim lIdx        As Long
+    Dim baKey()     As Byte
+    Dim baNonce()   As Byte
+    Dim baOutput()  As Byte
+    Dim dblTimer    As Double
+    Dim bResult     As Boolean
+    Dim baTag()     As Byte
+    
+    Command29.Caption = "Processing"
+    dblTimer = TimerEx
+    baKey = FromHex("000102030405060708090a0b0c0d0e0f")
+    baNonce = FromHex("000102030405060708090a0b")
+    For lIdx = 1 To ITER
+        baOutput = m_baContents
+        CryptoAesCcmEncrypt baKey, baNonce, baKey, baOutput, baTag
+    Next
+    Command29.Caption = Format$((UBound(m_baContents) + 1) * ITER / 1024# / 1024# / (TimerEx - dblTimer), "0.000") & " MB/s"
+    Caption = Format$(TimerEx - dblTimer, "0.000") & " sec"
+    dblTimer = TimerEx
+    bResult = CryptoAesCcmDecrypt(baKey, baNonce, baKey, baOutput, baTag)
+    Caption = Format$(TimerEx - dblTimer, "0.000") & " sec - " & bResult
+    Command29.Caption = Format$((UBound(m_baContents) + 1) * ITER / 1024# / 1024# / (TimerEx - dblTimer), "0.000") & " MB/s"
+End Sub
+
+Private Sub Command30_Click()
+    Const ITER      As Long = 1
+    Dim lIdx        As Long
+    Dim baKey()     As Byte
+    Dim baNonce()   As Byte
+    Dim baOutput()  As Byte
+    Dim dblTimer    As Double
+    Dim bResult     As Boolean
+    Dim baTag()     As Byte
+    
+    Command30.Caption = "Processing"
+    dblTimer = TimerEx
+    baKey = FromHex("000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f")
+    baNonce = FromHex("000102030405060708090a0b")
+    For lIdx = 1 To ITER
+        baOutput = m_baContents
+        CryptoAesCcmEncrypt baKey, baNonce, baKey, baOutput, baTag
+    Next
+    Command30.Caption = Format$((UBound(m_baContents) + 1) * ITER / 1024# / 1024# / (TimerEx - dblTimer), "0.000") & " MB/s"
+    Caption = Format$(TimerEx - dblTimer, "0.000") & " sec"
+    dblTimer = TimerEx
+    bResult = CryptoAesCcmDecrypt(baKey, baNonce, baKey, baOutput, baTag)
+    Caption = Format$(TimerEx - dblTimer, "0.000") & " sec - " & bResult
+    Command30.Caption = Format$((UBound(m_baContents) + 1) * ITER / 1024# / 1024# / (TimerEx - dblTimer), "0.000") & " MB/s"
+End Sub
 

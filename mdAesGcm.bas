@@ -133,14 +133,14 @@ End Function
 
 Private Function pvPatchTrampoline(ByVal Pfn As LongPtr, Optional ByVal Noop As Boolean) As Boolean
     Const PAGE_EXECUTE_READWRITE        As Long = &H40
-    Dim bInIDE          As Boolean
+    Dim bInIde          As Boolean
  
     If Noop Then
         pvPatchTrampoline = True
         Exit Function
     End If
-    Debug.Assert pvSetTrue(bInIDE)
-    If bInIDE Then
+    Debug.Assert pvSetTrue(bInIde)
+    If bInIde Then
         Call CopyMemory(Pfn, ByVal Pfn + &H16, 4)
     Else
         Call VirtualProtect(Pfn, 8, PAGE_EXECUTE_READWRITE, 0)
@@ -423,12 +423,12 @@ Public Sub CryptoAesGcmInit(uCtx As CryptoAesGcmContext, baKey() As Byte, baNonc
     With uCtx
         CryptoAesInit uCtx.AesCtx, baKey
         '--- encrypt a block of zeroes to create the hashing key
-        CryptoAesProcess .AesCtx, True, baAuthKey
+        CryptoAesProcess .AesCtx, baAuthKey
         CryptoGhashInit .GhashCtx, baAuthKey
         CryptoGhashGenerCounter .GhashCtx, baNonce, .Counter
         '--- setup AES counter
         CryptoAesSetNonce .AesCtx, .Counter, CounterWords:=1
-        CryptoAesProcess .AesCtx, True, .Counter
+        CryptoAesProcess .AesCtx, .Counter
         '--- absorb AAD into the hash
         CryptoGhashUpdate .GhashCtx, baAad
         CryptoGhashPad .GhashCtx
@@ -585,7 +585,7 @@ Public Sub pvDeriveKeys(uCtx As CryptoAesGcmContext, baKey() As Byte, baNonce() 
         For lIdx = 0 To UBound(baDerived) \ LNG_HALFSZ
             Call CopyMemory(baBlock(0), lIdx, LenB(lIdx))
             Call CopyMemory(baBlock(4), baNonce(0), UBound(baNonce) + 1)
-            CryptoAesProcess .AesCtx, True, baBlock
+            CryptoAesProcess .AesCtx, baBlock
             Call CopyMemory(baDerived(lIdx * LNG_HALFSZ), baBlock(0), LNG_HALFSZ)
         Next
         Call CopyMemory(baAuthKey(0), baDerived(0), LNG_BLOCKSZ)
@@ -616,7 +616,7 @@ Public Sub CryptoAesGcmSivEncrypt(baKey() As Byte, baNonce() As Byte, baAad() As
             baTemp(lIdx) = baTemp(lIdx) Xor baNonce(lIdx)
         Next
         baTemp(15) = baTemp(15) And &H7F
-        CryptoAesProcess .AesCtx, True, baTemp
+        CryptoAesProcess .AesCtx, baTemp
         baTag = baTemp
         baTemp(15) = baTemp(15) Or &H80
         CryptoAesSetNonce .AesCtx, baTemp
@@ -651,7 +651,7 @@ Public Function CryptoAesGcmSivDecrypt(baKey() As Byte, baNonce() As Byte, baAad
             baTemp(lIdx) = baTemp(lIdx) Xor baNonce(lIdx)
         Next
         baTemp(15) = baTemp(15) And &H7F
-        CryptoAesProcess .AesCtx, True, baTemp
+        CryptoAesProcess .AesCtx, baTemp
         If InStrB(baTemp, baTag) <> 1 Then
             GoTo QH
         End If
