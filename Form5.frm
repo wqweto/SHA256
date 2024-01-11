@@ -1,105 +1,121 @@
 VERSION 5.00
 Begin VB.Form Form5 
    Caption         =   "Form5"
-   ClientHeight    =   11040
+   ClientHeight    =   9948
    ClientLeft      =   108
    ClientTop       =   456
    ClientWidth     =   7704
    LinkTopic       =   "Form5"
-   ScaleHeight     =   11040
+   ScaleHeight     =   9948
    ScaleWidth      =   7704
    StartUpPosition =   3  'Windows Default
+   Begin VB.CommandButton Command32 
+      Caption         =   "AES256-EAX"
+      Height          =   432
+      Left            =   2940
+      TabIndex        =   35
+      Top             =   8652
+      Width           =   2028
+   End
+   Begin VB.CommandButton Command31 
+      Caption         =   "AES128-EAX"
+      Height          =   432
+      Left            =   588
+      TabIndex        =   34
+      Top             =   8652
+      Width           =   2028
+   End
    Begin VB.CommandButton Command30 
       Caption         =   "AES256-CCM"
-      Height          =   600
+      Height          =   432
       Left            =   2940
       TabIndex        =   33
-      Top             =   10164
+      Top             =   8064
       Width           =   2028
    End
    Begin VB.CommandButton Command29 
       Caption         =   "AES128-CCM"
-      Height          =   600
+      Height          =   432
       Left            =   588
       TabIndex        =   32
-      Top             =   10164
+      Top             =   8064
       Width           =   2028
    End
    Begin VB.CommandButton Command28 
       Caption         =   "POLYVAL"
-      Height          =   600
+      Height          =   432
       Left            =   5292
       TabIndex        =   31
-      Top             =   9408
+      Top             =   7476
       Width           =   2028
    End
    Begin VB.CommandButton Command26 
       Caption         =   "AES128-GCM-SIV"
-      Height          =   600
+      Height          =   432
       Left            =   588
       TabIndex        =   30
-      Top             =   9408
+      Top             =   7476
       Width           =   2028
    End
    Begin VB.CommandButton Command27 
       Caption         =   "AES256-GCM-SIV"
-      Height          =   600
+      Height          =   432
       Left            =   2940
       TabIndex        =   29
-      Top             =   9408
+      Top             =   7476
       Width           =   2028
    End
    Begin VB.CommandButton Command5c 
       Caption         =   "Blake3"
-      Height          =   600
+      Height          =   432
       Left            =   5292
       TabIndex        =   28
-      Top             =   3444
+      Top             =   2772
       Width           =   2028
    End
    Begin VB.CommandButton Command5b 
       Caption         =   "Blake2b"
-      Height          =   600
+      Height          =   432
       Left            =   2940
       TabIndex        =   27
-      Top             =   3444
+      Top             =   2772
       Width           =   2028
    End
    Begin VB.CommandButton Command25 
       Caption         =   "TEA"
-      Height          =   600
+      Height          =   432
       Left            =   5292
       TabIndex        =   26
-      Top             =   2688
+      Top             =   2184
       Width           =   2028
    End
    Begin VB.CommandButton Command24 
       Caption         =   "Skipjack"
-      Height          =   600
+      Height          =   432
       Left            =   5292
       TabIndex        =   25
-      Top             =   1932
+      Top             =   1596
       Width           =   2028
    End
    Begin VB.CommandButton Command23 
       Caption         =   "Twofish"
-      Height          =   600
+      Height          =   432
       Left            =   5292
       TabIndex        =   24
-      Top             =   1176
+      Top             =   1008
       Width           =   2028
    End
    Begin VB.CommandButton Command22 
       Caption         =   "Blowfish"
-      Height          =   600
+      Height          =   432
       Left            =   2856
       TabIndex        =   23
-      Top             =   1176
+      Top             =   1008
       Width           =   2028
    End
    Begin VB.CommandButton Command21 
       Caption         =   "DES"
-      Height          =   600
+      Height          =   432
       Left            =   5292
       TabIndex        =   22
       Top             =   420
@@ -107,7 +123,7 @@ Begin VB.Form Form5
    End
    Begin VB.CommandButton Command20 
       Caption         =   "RC4"
-      Height          =   600
+      Height          =   432
       Left            =   2856
       TabIndex        =   21
       Top             =   420
@@ -115,159 +131,159 @@ Begin VB.Form Form5
    End
    Begin VB.CommandButton Command19 
       Caption         =   "GHASH"
-      Height          =   600
+      Height          =   432
       Left            =   5292
       TabIndex        =   20
-      Top             =   8652
+      Top             =   6888
       Width           =   2028
    End
    Begin VB.CommandButton Command18 
       Caption         =   "AES256-GCM"
-      Height          =   600
+      Height          =   432
       Left            =   2940
       TabIndex        =   19
-      Top             =   8652
+      Top             =   6888
       Width           =   2028
    End
    Begin VB.CommandButton Command17 
       Caption         =   "AES128-GCM"
-      Height          =   600
+      Height          =   432
       Left            =   588
       TabIndex        =   18
-      Top             =   8652
+      Top             =   6888
       Width           =   2028
    End
    Begin VB.CommandButton Command16 
       Caption         =   "AES256-CTR"
-      Height          =   600
+      Height          =   432
       Left            =   2940
       TabIndex        =   17
-      Top             =   7896
+      Top             =   6300
       Width           =   2028
    End
    Begin VB.CommandButton Command15 
       Caption         =   "AES256-CBC"
-      Height          =   600
+      Height          =   432
       Left            =   2940
       TabIndex        =   16
-      Top             =   7140
+      Top             =   5712
       Width           =   2028
    End
    Begin VB.CommandButton Command14 
       Caption         =   "AES128-CTR"
-      Height          =   600
+      Height          =   432
       Left            =   588
       TabIndex        =   15
-      Top             =   7896
+      Top             =   6300
       Width           =   2028
    End
    Begin VB.CommandButton Command13 
       Caption         =   "AES128-CBC"
-      Height          =   600
+      Height          =   432
       Left            =   588
       TabIndex        =   14
-      Top             =   7140
+      Top             =   5712
       Width           =   2028
    End
    Begin VB.CommandButton Command12 
       Caption         =   "ChaCha20-Poly1305"
-      Height          =   600
+      Height          =   432
       Left            =   2940
       TabIndex        =   12
-      Top             =   6468
+      Top             =   5124
       Width           =   2028
    End
    Begin VB.CommandButton Command11 
       Caption         =   "Ascon-AEAD"
-      Height          =   600
+      Height          =   432
       Left            =   2940
       TabIndex        =   11
-      Top             =   5712
+      Top             =   4536
       Width           =   2028
    End
    Begin VB.CommandButton Command10 
       Caption         =   "Ascon-Hash"
-      Height          =   600
+      Height          =   432
       Left            =   588
       TabIndex        =   10
-      Top             =   5712
+      Top             =   4536
       Width           =   2028
    End
    Begin VB.CommandButton Command9 
       Caption         =   "HalfSiphash13"
-      Height          =   600
+      Height          =   432
       Left            =   2940
       TabIndex        =   9
-      Top             =   4956
+      Top             =   3948
       Width           =   2028
    End
    Begin VB.CommandButton Command8 
       Caption         =   "HalfSiphash24"
-      Height          =   600
+      Height          =   432
       Left            =   588
       TabIndex        =   8
-      Top             =   4956
+      Top             =   3948
       Width           =   2028
    End
    Begin VB.CommandButton Command7 
       Caption         =   "Siphash13"
-      Height          =   600
+      Height          =   432
       Left            =   2940
       TabIndex        =   7
-      Top             =   4200
+      Top             =   3360
       Width           =   2028
    End
    Begin VB.CommandButton Command6 
       Caption         =   "Siphash24"
-      Height          =   600
+      Height          =   432
       Left            =   588
       TabIndex        =   6
-      Top             =   4200
+      Top             =   3360
       Width           =   2028
    End
    Begin VB.CommandButton Command5 
       Caption         =   "Blake2s"
-      Height          =   600
+      Height          =   432
       Left            =   588
       TabIndex        =   5
-      Top             =   3444
+      Top             =   2772
       Width           =   2028
    End
    Begin VB.CommandButton Command3b 
       Caption         =   "SHA-512"
-      Height          =   600
+      Height          =   432
       Left            =   2856
       TabIndex        =   4
-      Top             =   1932
+      Top             =   1596
       Width           =   2028
    End
    Begin VB.CommandButton Command4 
       Caption         =   "SHA-3"
-      Height          =   600
+      Height          =   432
       Left            =   588
       TabIndex        =   3
-      Top             =   2688
+      Top             =   2184
       Width           =   2028
    End
    Begin VB.CommandButton Command3 
       Caption         =   "SHA-2"
-      Height          =   600
+      Height          =   432
       Left            =   588
       TabIndex        =   2
-      Top             =   1932
+      Top             =   1596
       Width           =   2028
    End
    Begin VB.CommandButton Command2 
       Caption         =   "SHA-1"
-      Height          =   600
+      Height          =   432
       Left            =   588
       TabIndex        =   1
-      Top             =   1176
+      Top             =   1008
       Width           =   2028
    End
    Begin VB.CommandButton Command1 
       Caption         =   "MD5"
-      Height          =   600
+      Height          =   432
       Left            =   588
       TabIndex        =   0
       Top             =   420
@@ -1050,5 +1066,57 @@ Private Sub Command30_Click()
     bResult = CryptoAesCcmDecrypt(baKey, baNonce, baKey, baOutput, baTag)
     Caption = Format$(TimerEx - dblTimer, "0.000") & " sec - " & bResult
     Command30.Caption = Format$((UBound(m_baContents) + 1) * ITER / 1024# / 1024# / (TimerEx - dblTimer), "0.000") & " MB/s"
+End Sub
+
+Private Sub Command31_Click()
+    Const ITER      As Long = 1
+    Dim lIdx        As Long
+    Dim baKey()     As Byte
+    Dim baNonce()   As Byte
+    Dim baOutput()  As Byte
+    Dim dblTimer    As Double
+    Dim bResult     As Boolean
+    Dim baTag()     As Byte
+    
+    Command31.Caption = "Processing"
+    dblTimer = TimerEx
+    baKey = FromHex("000102030405060708090a0b0c0d0e0f")
+    baNonce = FromHex("000102030405060708090a0b")
+    For lIdx = 1 To ITER
+        baOutput = m_baContents
+        CryptoAesEaxEncrypt baKey, baNonce, baKey, baOutput, baTag
+    Next
+    Command31.Caption = Format$((UBound(m_baContents) + 1) * ITER / 1024# / 1024# / (TimerEx - dblTimer), "0.000") & " MB/s"
+    Caption = Format$(TimerEx - dblTimer, "0.000") & " sec"
+    dblTimer = TimerEx
+    bResult = CryptoAesEaxDecrypt(baKey, baNonce, baKey, baOutput, baTag)
+    Caption = Format$(TimerEx - dblTimer, "0.000") & " sec - " & bResult
+    Command31.Caption = Format$((UBound(m_baContents) + 1) * ITER / 1024# / 1024# / (TimerEx - dblTimer), "0.000") & " MB/s"
+End Sub
+
+Private Sub Command32_Click()
+    Const ITER      As Long = 1
+    Dim lIdx        As Long
+    Dim baKey()     As Byte
+    Dim baNonce()   As Byte
+    Dim baOutput()  As Byte
+    Dim dblTimer    As Double
+    Dim bResult     As Boolean
+    Dim baTag()     As Byte
+    
+    Command32.Caption = "Processing"
+    dblTimer = TimerEx
+    baKey = FromHex("000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f")
+    baNonce = FromHex("000102030405060708090a0b")
+    For lIdx = 1 To ITER
+        baOutput = m_baContents
+        CryptoAesEaxEncrypt baKey, baNonce, baKey, baOutput, baTag
+    Next
+    Command32.Caption = Format$((UBound(m_baContents) + 1) * ITER / 1024# / 1024# / (TimerEx - dblTimer), "0.000") & " MB/s"
+    Caption = Format$(TimerEx - dblTimer, "0.000") & " sec"
+    dblTimer = TimerEx
+    bResult = CryptoAesEaxDecrypt(baKey, baNonce, baKey, baOutput, baTag)
+    Caption = Format$(TimerEx - dblTimer, "0.000") & " sec - " & bResult
+    Command32.Caption = Format$((UBound(m_baContents) + 1) * ITER / 1024# / 1024# / (TimerEx - dblTimer), "0.000") & " MB/s"
 End Sub
 

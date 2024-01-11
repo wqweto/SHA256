@@ -415,6 +415,36 @@ Private Sub pvTestAes()
     Debug.Assert ToHex(baTag) = "17e8d12cfdf926e0"
     Debug.Assert CryptoAesCcmDecrypt(baKey, baNonce, baAad, baBuffer, baTag)
     Debug.Assert ToHex(baBuffer) = "08090a0b0c0d0e0f101112131415161718191a1b1c1d1e"
+    
+    '--- AES-EAX
+    baKey = FromHex("233952dee4d5ed5f9b9c6d6ff80ff478")
+    baNonce = FromHex("62ec67f9c3a4a407fcb2a8c49031a8b3")
+    baAad = FromHex("6bfb914fd07eae6b")
+    baBuffer = FromHex("")
+    CryptoAesEaxEncrypt baKey, baNonce, baAad, baBuffer, baTag
+    Debug.Assert ToHex(baTag) = "e037830e8389f27b025a2d6527e79d01"
+    Debug.Assert CryptoAesEaxDecrypt(baKey, baNonce, baAad, baBuffer, baTag)
+    Debug.Assert ToHex(baBuffer) = ""
+    
+    baKey = FromHex("91945d3f4dcbee0bf45ef52255f095a4")
+    baNonce = FromHex("becaf043b0a23d843194ba972c66debd")
+    baAad = FromHex("fa3bfd4806eb53fa")
+    baBuffer = FromHex("f7fb")
+    CryptoAesEaxEncrypt baKey, baNonce, baAad, baBuffer, baTag
+    Debug.Assert ToHex(baBuffer) = "19dd"
+    Debug.Assert ToHex(baTag) = "5c4c9331049d0bdab0277408f67967e5"
+    Debug.Assert CryptoAesEaxDecrypt(baKey, baNonce, baAad, baBuffer, baTag)
+    Debug.Assert ToHex(baBuffer) = "f7fb"
+    
+    baKey = FromHex("8395fcf1e95bebd697bd010bc766aac3")
+    baNonce = FromHex("22e7add93cfc6393c57ec0b3c17d6b44")
+    baAad = FromHex("126735fcc320d25a")
+    baBuffer = FromHex("ca40d7446e545ffaed3bd12a740a659ffbbb3ceab7")
+    CryptoAesEaxEncrypt baKey, baNonce, baAad, baBuffer, baTag
+    Debug.Assert ToHex(baBuffer) = "cb8920f87a6c75cff39627b56e3ed197c552d295a7"
+    Debug.Assert ToHex(baTag) = "cfc46afc253b4652b1af3795b124ab6e"
+    Debug.Assert CryptoAesEaxDecrypt(baKey, baNonce, baAad, baBuffer, baTag)
+    Debug.Assert ToHex(baBuffer) = "ca40d7446e545ffaed3bd12a740a659ffbbb3ceab7"
 End Sub
 
 Private Sub pvConcat(baBuffer() As Byte, baAppend() As Byte)
