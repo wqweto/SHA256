@@ -35,6 +35,8 @@ End Sub
 Private Sub Form_Load()
     pvTestAes
     Exit Sub
+    pvTestTea
+    pvTestCmac
     pvTestMd5
     pvTestSha1
     pvTestBase64
@@ -182,6 +184,7 @@ Private Sub pvTestAes()
     Dim baAppend()      As Byte
     Dim baTag()         As Byte
     Dim uGcmCtx         As CryptoAesGcmContext
+    Dim uOcbCtx         As CryptoAesOcbContext
     
     baKey = FromHex("00112233445566778899aabbccddeeff")
     CryptoAesInit uCtx, baKey
@@ -445,6 +448,46 @@ Private Sub pvTestAes()
     Debug.Assert ToHex(baTag) = "cfc46afc253b4652b1af3795b124ab6e"
     Debug.Assert CryptoAesEaxDecrypt(baKey, baNonce, baAad, baBuffer, baTag)
     Debug.Assert ToHex(baBuffer) = "ca40d7446e545ffaed3bd12a740a659ffbbb3ceab7"
+    
+    
+    baKey = FromHex("8395fcf1e95bebd697bd010bc766aac3")
+    baNonce = FromHex("22e7add93cfc6393c57ec0b3c17d6b44")
+    baAad = FromHex("126735fcc320d25a")
+    baBuffer = FromHex("ca40d7446e545ffaed3bd12a740a659ffbbb3ceab7ca40d7446e545ffaed3bd12a740a659ffbbb3ceab7ca40d7446e545ffaed3bd12a740a659ffbbb3ceab7ca40d7446e545ffaed3bd12a740a659ffbbb3ceab7ca40d7446e545ffaed3bd12a740a659ffbbb3ceab7")
+    CryptoAesEaxEncrypt baKey, baNonce, baAad, baBuffer, baTag
+    Debug.Assert ToHex(baTag) = "dbb9dc1f648527674db58bb94eb6f813"
+    Debug.Assert CryptoAesEaxDecrypt(baKey, baNonce, baAad, baBuffer, baTag)
+    
+    '--- AES-OCB
+    baKey = FromHex("000102030405060708090A0B0C0D0E0F")
+    baNonce = FromHex("BBAA99887766554433221100")
+    baAad = FromHex("")
+    baBuffer = FromHex("")
+    CryptoAesOcbInit uOcbCtx, baKey, baNonce, baAad
+    CryptoAesOcbEncrypt uOcbCtx, baBuffer, TagSize:=16, Tag:=baTag
+    Debug.Assert ToHex(baTag) = "785407bfffc8ad9edcc5520ac9111ee6"
+    CryptoAesOcbInit uOcbCtx, baKey, baNonce, baAad
+    Debug.Assert CryptoAesOcbDecrypt(uOcbCtx, baBuffer, Tag:=baTag)
+    
+    baKey = FromHex("000102030405060708090A0B0C0D0E0F")
+    baNonce = FromHex("BBAA9988776655443322110F")
+    baAad = FromHex("")
+    baBuffer = FromHex("000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F2021222324252627")
+    CryptoAesOcbInit uOcbCtx, baKey, baNonce, baAad
+    CryptoAesOcbEncrypt uOcbCtx, baBuffer, TagSize:=16, Tag:=baTag
+    Debug.Assert ToHex(baTag) = "479ad363ac366b95a98ca5f3000b1479"
+    CryptoAesOcbInit uOcbCtx, baKey, baNonce, baAad
+    Debug.Assert CryptoAesOcbDecrypt(uOcbCtx, baBuffer, Tag:=baTag)
+
+    baKey = FromHex("000102030405060708090A0B0C0D0E0F")
+    baNonce = FromHex("BBAA9988776655443322110D")
+    baAad = FromHex("000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F2021222324252627")
+    baBuffer = FromHex("000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F2021222324252627")
+    CryptoAesOcbInit uOcbCtx, baKey, baNonce, baAad
+    CryptoAesOcbEncrypt uOcbCtx, baBuffer, TagSize:=15, Tag:=baTag
+    Debug.Assert ToHex(baTag) = "ed07ba06a4a69483a7035490c5769e"
+    CryptoAesOcbInit uOcbCtx, baKey, baNonce, baAad
+    Debug.Assert CryptoAesOcbDecrypt(uOcbCtx, baBuffer, Tag:=baTag)
 End Sub
 
 Private Sub pvConcat(baBuffer() As Byte, baAppend() As Byte)
@@ -454,3 +497,29 @@ Private Sub pvConcat(baBuffer() As Byte, baAppend() As Byte)
     Call CopyMemory(baBuffer(lPos), baAppend(0), UBound(baAppend) + 1)
 End Sub
 
+Private Sub pvTestCmac()
+    Dim uCtx            As CryptoCmacContext
+    Dim baKey()         As Byte
+    Dim baBuffer()      As Byte
+    Dim baTag()         As Byte
+    
+    baKey = FromHex("2b7e151628aed2a6abf7158809cf4f3c")
+    baBuffer = FromHex("6bc1bee22e409f96e93d7e117393172a")
+    CryptoCmacInit uCtx, baKey
+    CryptoCmacUpdate uCtx, baBuffer
+    CryptoCmacFinalize uCtx, baTag, 16
+    Debug.Print ToHex(baTag)
+    Debug.Assert ToHex(baTag) = "070a16b46b4d4144f79bdd9dd04a287c"
+End Sub
+
+Private Sub pvTestTea()
+    Dim baKey()         As Byte
+    Dim baBuffer()      As Byte
+    
+    baKey = ToUtf8Array("1234")
+    baBuffer = ToUtf8Array("this is a test" & vbNullChar & vbNullChar)
+    CryptoTeaEncrypt baKey, baBuffer
+    Debug.Assert ToBase64Array(baBuffer) = "OSUHRBnmvO/YkLclBUSvuA=="
+    CryptoTeaDecrypt baKey, baBuffer
+    Debug.Print StrConv(baBuffer, vbUnicode)
+End Sub

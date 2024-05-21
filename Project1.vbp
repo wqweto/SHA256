@@ -38,6 +38,7 @@ Class=clsTEA; D:\TEMP\VBCrypto\VBCrypto\VB Class Cipher Algorithms\clsTEA.cls
 Module=mdAesCcm; mdAesCcm.bas
 Module=mdAesEax; mdAesEax.bas
 Module=mdTea; mdTea.bas
+Module=mdAesOcb; mdAesOcb.bas
 ResFile32="Project1.res"
 IconForm="Form1"
 Startup="Form4"
