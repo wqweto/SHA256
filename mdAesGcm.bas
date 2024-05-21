@@ -376,7 +376,7 @@ End Sub
 
 Public Sub CryptoGhashFinalize(uCtx As CryptoGhashContext, ByVal lTagSize As Long, baTag() As Byte)
     If lTagSize < 4 Or lTagSize > LNG_BLOCKSZ Then
-        Err.Raise vbObjectError, , "Invalid tag size for Ghash (" & lTagSize & ")"
+        Err.Raise vbObjectError, , "Invalid tag size for GHASH (" & lTagSize & ")"
     End If
     With uCtx
         ReDim baTag(0 To lTagSize - 1) As Byte
@@ -437,7 +437,7 @@ Public Sub CryptoAesGcmInit(uCtx As CryptoAesGcmContext, baKey() As Byte, baNonc
     End With
 End Sub
 
-Public Sub CryptoAesGcmEncrypt(uCtx As CryptoAesGcmContext, baBuffer() As Byte, Optional ByVal Pos As Long, Optional ByVal Size As Long = -1, Optional TagSize As Long, Optional Tag As Variant)
+Public Sub CryptoAesGcmEncrypt(uCtx As CryptoAesGcmContext, baBuffer() As Byte, Optional ByVal Pos As Long, Optional ByVal Size As Long = -1, Optional ByVal TagSize As Long, Optional Tag As Variant)
     Dim baTag()         As Byte
     
     If Size < 0 Then

@@ -20,7 +20,7 @@ Public Function ToBase64Array(baData() As Byte) As String
         ToBase64Array = String$(2 * UBound(baData) + 6, 0)
         lSize = Len(ToBase64Array) + 1
         Call CryptBinaryToString(VarPtr(baData(0)), UBound(baData) + 1, 1, StrPtr(ToBase64Array), lSize)
-        ToBase64Array = Left$(ToBase64Array, lSize)
+        ToBase64Array = Replace(Left$(ToBase64Array, lSize), vbCrLf, vbNullString)
     End If
 End Function
 

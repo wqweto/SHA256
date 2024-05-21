@@ -225,7 +225,7 @@ Public Function CryptoMd5ByteArray(baInput() As Byte, Optional ByVal Pos As Long
     CryptoMd5Finalize uCtx, CryptoMd5ByteArray
 End Function
 
-Private Function ToUtf8Array(sText As String) As Byte()
+Public Function ToUtf8Array(sText As String) As Byte()
     Const CP_UTF8       As Long = 65001
     Dim baRetVal()      As Byte
     Dim lSize           As Long

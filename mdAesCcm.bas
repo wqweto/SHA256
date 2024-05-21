@@ -30,7 +30,7 @@ Private Type SAFEARRAY1D
     lLbound             As Long
 End Type
 
-Private Type AesBlock
+Private Type ArrayLong4
     Item(0 To 3)        As Long
 End Type
 
@@ -55,9 +55,9 @@ End Function
 
 Private Sub pvMac(uCtx As CryptoAesContext, baInput() As Byte, ByVal lPos As Long, baTag() As Byte)
     Const FADF_AUTO     As Long = 1
-    Dim aBlock()        As AesBlock
+    Dim aBlock()        As ArrayLong4
     Dim uPeekBlock      As SAFEARRAY1D
-    Dim uTag            As AesBlock
+    Dim uTag            As ArrayLong4
     Dim pDummy          As LongPtr
     Dim lIdx            As Long
     Dim lJdx            As Long
