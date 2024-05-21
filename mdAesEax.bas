@@ -3,7 +3,34 @@ Attribute VB_Name = "mdAesEax"
 Option Explicit
 DefObj A-Z
 
+#Const HasPtrSafe = (VBA7 <> 0)
+
+#If HasPtrSafe Then
+Private Declare PtrSafe Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" (Destination As Any, Source As Any, ByVal Length As LongPtr)
+Private Declare PtrSafe Function ArrPtr Lib "vbe7" Alias "VarPtr" (Ptr() As Any) As LongPtr
+#Else
+Private Enum LongPtr
+    [_]
+End Enum
+Private Declare Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" (Destination As Any, Source As Any, ByVal Length As LongPtr)
+Private Declare Function ArrPtr Lib "msvbvm60" Alias "VarPtr" (Ptr() As Any) As LongPtr
+#End If
+
 Private Const LNG_BLOCKSZ               As Long = 16
+
+Private Type SAFEARRAY1D
+    cDims               As Integer
+    fFeatures           As Integer
+    cbElements          As Long
+    cLocks              As Long
+    pvData              As LongPtr
+    cElements           As Long
+    lLbound             As Long
+End Type
+
+Private Type ArrayLong4
+    Item(0 To 3)        As Long
+End Type
 
 Private Type ArrayByte16
     Item(0 To 15)       As Byte
@@ -56,14 +83,45 @@ Public Sub CryptoCmacReset(uCtx As CryptoCmacContext)
 End Sub
 
 Public Sub CryptoCmacUpdate(uCtx As CryptoCmacContext, baInput() As Byte, Optional ByVal Pos As Long, Optional ByVal Size As Long = -1)
+    Const FADF_AUTO     As Long = 1
     Dim lIdx            As Long
-    
+    Dim aBlock()        As ArrayLong4
+    Dim uPeekBlock      As SAFEARRAY1D
+    Dim uTag            As ArrayLong4
+    Dim pDummy          As LongPtr
+    Dim lJdx            As Long
+
     If Size < 0 Then
         Size = UBound(baInput) + 1 - Pos
     End If
     With uCtx
         For lIdx = 0 To Size - 1
             If .NPosition = LNG_BLOCKSZ Then
+                If lIdx + 4 * LNG_BLOCKSZ <= Size Then
+                    With uPeekBlock
+                        .cDims = 1
+                        .fFeatures = FADF_AUTO
+                        .cbElements = LenB(uTag)
+                        .cLocks = 1
+                        .pvData = VarPtr(baInput(lIdx))
+                        .cElements = (Size - lIdx) \ .cbElements
+                    End With
+                    Call CopyMemory(ByVal ArrPtr(aBlock), VarPtr(uPeekBlock), LenB(pDummy))
+                    Call CopyMemory(uTag.Item(0), .HashArray.Item(0), LNG_BLOCKSZ)
+                    Do While lIdx + LNG_BLOCKSZ <= Size
+                        CryptoAesProcessPtr .AesCtx, VarPtr(uTag.Item(0))
+                        uTag.Item(0) = uTag.Item(0) Xor aBlock(lJdx).Item(0)
+                        uTag.Item(1) = uTag.Item(1) Xor aBlock(lJdx).Item(1)
+                        uTag.Item(2) = uTag.Item(2) Xor aBlock(lJdx).Item(2)
+                        uTag.Item(3) = uTag.Item(3) Xor aBlock(lJdx).Item(3)
+                        lIdx = lIdx + LNG_BLOCKSZ
+                        lJdx = lJdx + 1
+                    Loop
+                    Call CopyMemory(.HashArray.Item(0), uTag.Item(0), LNG_BLOCKSZ)
+                    If lIdx = Size Then
+                        Exit For
+                    End If
+                End If
                 CryptoAesProcess .AesCtx, .HashArray.Item
                 .NPosition = 0
             End If
@@ -124,7 +182,6 @@ Public Sub CryptoAesEaxEncrypt(baKey() As Byte, baNonce() As Byte, baAad() As By
     pvMac uCtx, 1, baAad, baTagAad
     CryptoAesInit uAesCtx, baKey, baTagNonce
     CryptoAesCtrCrypt uAesCtx, baBuffer
-    CryptoCmacInit uCtx, baKey
     pvMac uCtx, 2, baBuffer, baTag
     For lIdx = 0 To LNG_BLOCKSZ - 1
         baTag(lIdx) = baTag(lIdx) Xor baTagNonce(lIdx) Xor baTagAad(lIdx)
