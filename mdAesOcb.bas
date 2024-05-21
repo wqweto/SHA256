@@ -32,54 +32,56 @@ Private Type ArrayLong4
     Item(0 To 3)        As Long
 End Type
 
-Private Type ArrayByte16
-    Item(0 To 15)       As Byte
-End Type
-
 Public Type CryptoAesOcbContext
     AesCtx              As CryptoAesContext
-    K1                  As ArrayByte16
-    K2                  As ArrayByte16
-    L()                 As ArrayByte16
+    K1                  As ArrayLong4
+    K2                  As ArrayLong4
+    L()                 As ArrayLong4
     lCount              As Long
-    Offset              As ArrayByte16
-    Checksum            As ArrayByte16
-    Sum                 As ArrayByte16
+    Offset              As ArrayLong4
+    Checksum            As ArrayLong4
+    Sum                 As ArrayLong4
     NumBlocks           As Long
 End Type
 
-Private Sub pvShift(baInput() As Byte, ByVal lPos As Long, ByVal lBits As Long, uOutput As ArrayByte16)
+Private Sub pvShift(baInput() As Byte, ByVal lPos As Long, ByVal lBits As Long, uOutput As ArrayLong4)
     Dim lPow1           As Long
     Dim lPow2           As Long
     Dim lIdx            As Long
     Dim lNext           As Long
     Dim lCarry          As Long
-        
+    Dim baOutput(0 To LNG_BLOCKSZ - 1) As Byte
+    
     lPow1 = 2 ^ (8 - lBits)
     lPow2 = 2 ^ lBits
     lCarry = baInput(lPos + LNG_BLOCKSZ) \ lPow1
     For lIdx = LNG_BLOCKSZ - 1 To 0 Step -1
         lNext = baInput(lPos + lIdx) \ lPow1
-        uOutput.Item(lIdx) = (baInput(lPos + lIdx) * lPow2) And &HFF Or lCarry
+        baOutput(lIdx) = (baInput(lPos + lIdx) * lPow2) And &HFF Or lCarry
         lCarry = lNext
     Next
+    Call CopyMemory(uOutput, baOutput(0), LNG_BLOCKSZ)
 End Sub
 
-Private Sub pvDouble(uInput As ArrayByte16, uOutput As ArrayByte16)
+Private Sub pvDouble(uInput As ArrayLong4, uOutput As ArrayLong4)
     Const LNG_POLY      As Long = &H87
+    Dim baInput(0 To LNG_BLOCKSZ - 1) As Byte
+    Dim baOutput(0 To LNG_BLOCKSZ - 1) As Byte
     Dim lIdx            As Long
     Dim lTemp           As Long
     Dim lCarry          As Long
 
+    Call CopyMemory(baInput(0), uInput, LNG_BLOCKSZ)
     For lIdx = LNG_BLOCKSZ - 1 To 0 Step -1
-        lTemp = uInput.Item(lIdx)
-        uOutput.Item(lIdx) = (lTemp * 2) And &HFF Or lCarry
+        lTemp = baInput(lIdx)
+        baOutput(lIdx) = (lTemp * 2) And &HFF Or lCarry
         lCarry = -((lTemp And &H80) <> 0)
     Next
-    uOutput.Item(LNG_BLOCKSZ - 1) = uOutput.Item(LNG_BLOCKSZ - 1) Xor lCarry * LNG_POLY
+    baOutput(LNG_BLOCKSZ - 1) = baOutput(LNG_BLOCKSZ - 1) Xor lCarry * LNG_POLY
+    Call CopyMemory(uOutput, baOutput(0), LNG_BLOCKSZ)
 End Sub
 
-Private Sub pvLookupL(uCtx As CryptoAesOcbContext, ByVal lBlock As Long, uOutput As ArrayByte16)
+Private Function pvLookupL(uCtx As CryptoAesOcbContext, ByVal lBlock As Long, uLookup As ArrayLong4) As Long
     Dim lNtz            As Long
     
     '--- find first not-zero bit
@@ -89,64 +91,96 @@ Private Sub pvLookupL(uCtx As CryptoAesOcbContext, ByVal lBlock As Long, uOutput
     Loop
     With uCtx
         If lNtz > UBound(.L) Then
-            ReDim Preserve .L(0 To lNtz + 3) As ArrayByte16
+            ReDim Preserve .L(0 To lNtz + 3) As ArrayLong4
         End If
         Do While .lCount < lNtz
             pvDouble .L(.lCount), .L(.lCount + 1)
             .lCount = .lCount + 1
         Loop
-        uOutput = .L(lNtz)
+        uLookup = .L(lNtz)
+        pvLookupL = lNtz
     End With
-End Sub
+End Function
 
 Public Function pvProcess(uCtx As CryptoAesOcbContext, ByVal bDecrypt As Boolean, baBuffer() As Byte, ByVal lPos As Long, ByVal lSize As Long, ByVal lTagSize As Long, Tag As Variant) As Boolean
+    Const FADF_AUTO     As Long = 1
+    Dim aBlock()        As ArrayLong4
+    Dim uPeekBlock      As SAFEARRAY1D
     Dim lIdx            As Long
     Dim lJdx            As Long
-    Dim uLookup         As ArrayByte16
-    Dim baTemp(0 To LNG_BLOCKSZ - 1) As Byte
+    Dim uLookup         As ArrayLong4
+    Dim uTemp           As ArrayLong4
     Dim baCalcTag()     As Byte
+    Dim uPad            As ArrayLong4
+    Dim uChecksumPad    As ArrayLong4
     
     If lSize < 0 Then
         lSize = UBound(baBuffer) + 1 - lPos
     End If
     With uCtx
+        If lSize >= LNG_BLOCKSZ Then
+            With uPeekBlock
+                .cDims = 1
+                .fFeatures = FADF_AUTO
+                .cbElements = LNG_BLOCKSZ
+                .cLocks = 1
+                .pvData = VarPtr(baBuffer(lPos))
+                .cElements = lSize \ .cbElements
+            End With
+            Call CopyMemory(ByVal ArrPtr(aBlock), VarPtr(uPeekBlock), 4)
+        End If
         For lJdx = 0 To lSize \ LNG_BLOCKSZ - 1
             .NumBlocks = .NumBlocks + 1
             pvLookupL uCtx, .NumBlocks, uLookup
-            For lIdx = 0 To LNG_BLOCKSZ - 1
-                .Offset.Item(lIdx) = .Offset.Item(lIdx) Xor uLookup.Item(lIdx)
-                If Not bDecrypt Then
-                    .Checksum.Item(lIdx) = .Checksum.Item(lIdx) Xor baBuffer(lPos + lIdx)
-                End If
-                baBuffer(lPos + lIdx) = baBuffer(lPos + lIdx) Xor .Offset.Item(lIdx)
-            Next
-            CryptoAesProcessPtr .AesCtx, VarPtr(baBuffer(lPos)), Decrypt:=bDecrypt
-            For lIdx = 0 To LNG_BLOCKSZ - 1
-                baBuffer(lPos + lIdx) = baBuffer(lPos + lIdx) Xor .Offset.Item(lIdx)
-                If bDecrypt Then
-                    .Checksum.Item(lIdx) = .Checksum.Item(lIdx) Xor baBuffer(lPos + lIdx)
-                End If
-            Next
+            .Offset.Item(0) = .Offset.Item(0) Xor uLookup.Item(0)
+            .Offset.Item(1) = .Offset.Item(1) Xor uLookup.Item(1)
+            .Offset.Item(2) = .Offset.Item(2) Xor uLookup.Item(2)
+            .Offset.Item(3) = .Offset.Item(3) Xor uLookup.Item(3)
+            If Not bDecrypt Then
+                .Checksum.Item(0) = .Checksum.Item(0) Xor aBlock(lJdx).Item(0)
+                .Checksum.Item(1) = .Checksum.Item(1) Xor aBlock(lJdx).Item(1)
+                .Checksum.Item(2) = .Checksum.Item(2) Xor aBlock(lJdx).Item(2)
+                .Checksum.Item(3) = .Checksum.Item(3) Xor aBlock(lJdx).Item(3)
+            End If
+            aBlock(lJdx).Item(0) = aBlock(lJdx).Item(0) Xor .Offset.Item(0)
+            aBlock(lJdx).Item(1) = aBlock(lJdx).Item(1) Xor .Offset.Item(1)
+            aBlock(lJdx).Item(2) = aBlock(lJdx).Item(2) Xor .Offset.Item(2)
+            aBlock(lJdx).Item(3) = aBlock(lJdx).Item(3) Xor .Offset.Item(3)
+            CryptoAesProcessPtr .AesCtx, VarPtr(aBlock(lJdx)), Decrypt:=bDecrypt
+            aBlock(lJdx).Item(0) = aBlock(lJdx).Item(0) Xor .Offset.Item(0)
+            aBlock(lJdx).Item(1) = aBlock(lJdx).Item(1) Xor .Offset.Item(1)
+            aBlock(lJdx).Item(2) = aBlock(lJdx).Item(2) Xor .Offset.Item(2)
+            aBlock(lJdx).Item(3) = aBlock(lJdx).Item(3) Xor .Offset.Item(3)
+            If bDecrypt Then
+                .Checksum.Item(0) = .Checksum.Item(0) Xor aBlock(lJdx).Item(0)
+                .Checksum.Item(1) = .Checksum.Item(1) Xor aBlock(lJdx).Item(1)
+                .Checksum.Item(2) = .Checksum.Item(2) Xor aBlock(lJdx).Item(2)
+                .Checksum.Item(3) = .Checksum.Item(3) Xor aBlock(lJdx).Item(3)
+            End If
             lPos = lPos + LNG_BLOCKSZ
         Next
         If lTagSize > 0 Then
             lSize = lSize Mod LNG_BLOCKSZ
             If lSize > 0 Then
-                For lIdx = 0 To LNG_BLOCKSZ - 1
+                For lIdx = 0 To 3
                     .Offset.Item(lIdx) = .Offset.Item(lIdx) Xor .K1.Item(lIdx)
                 Next
-                Call CopyMemory(baTemp(0), .Offset.Item(0), LNG_BLOCKSZ)
-                CryptoAesProcess .AesCtx, baTemp
-                For lIdx = 0 To lSize - 1
+                uTemp = .Offset
+                CryptoAesProcessPtr .AesCtx, VarPtr(uTemp)
+                Call CopyMemory(uPad, baBuffer(lPos), lSize)
+                Call CopyMemory(ByVal VarPtr(uPad) + lSize, &H80, 1)
+                For lIdx = 0 To 3
                     If Not bDecrypt Then
-                        .Checksum.Item(lIdx) = .Checksum.Item(lIdx) Xor baBuffer(lPos + lIdx)
+                        uChecksumPad.Item(lIdx) = .Checksum.Item(lIdx) Xor uPad.Item(lIdx)
                     End If
-                    baBuffer(lPos + lIdx) = baBuffer(lPos + lIdx) Xor baTemp(lIdx)
+                    uPad.Item(lIdx) = uPad.Item(lIdx) Xor uTemp.Item(lIdx)
                     If bDecrypt Then
-                        .Checksum.Item(lIdx) = .Checksum.Item(lIdx) Xor baBuffer(lPos + lIdx)
+                        Call CopyMemory(ByVal VarPtr(uPad) + lSize, &H80, 1)
+                        uChecksumPad.Item(lIdx) = .Checksum.Item(lIdx) Xor uPad.Item(lIdx)
                     End If
                 Next
-                .Checksum.Item(lSize) = .Checksum.Item(lSize) Xor &H80
+                Call CopyMemory(baBuffer(lPos), uPad, lSize)
+                Call CopyMemory(.Checksum, uChecksumPad, lSize + 1)
             End If
             pvFinalize uCtx, lTagSize, baCalcTag
             If bDecrypt Then
@@ -166,26 +200,27 @@ QH:
 End Function
 
 Private Sub pvFinalize(uCtx As CryptoAesOcbContext, ByVal lTagSize As Long, baTag() As Byte)
-    Dim baTemp(0 To LNG_BLOCKSZ - 1) As Byte
+    Dim uTemp           As ArrayLong4
     Dim lIdx            As Long
     
     With uCtx
         If lTagSize < 1 Or lTagSize > LNG_BLOCKSZ Then
             Err.Raise vbObjectError, , "Invalid tag size for AES-OCB (" & lTagSize & ")"
         End If
-        For lIdx = 0 To LNG_BLOCKSZ - 1
-            baTemp(lIdx) = .Offset.Item(lIdx) Xor .Checksum.Item(lIdx) Xor .K2.Item(lIdx)
+        For lIdx = 0 To 3
+            uTemp.Item(lIdx) = .Offset.Item(lIdx) Xor .Checksum.Item(lIdx) Xor .K2.Item(lIdx)
         Next
-        CryptoAesProcess .AesCtx, baTemp
+        CryptoAesProcessPtr .AesCtx, VarPtr(uTemp)
+        For lIdx = 0 To 3
+            uTemp.Item(lIdx) = uTemp.Item(lIdx) Xor .Sum.Item(lIdx)
+        Next
         ReDim baTag(0 To lTagSize - 1) As Byte
-        For lIdx = 0 To lTagSize - 1
-            baTag(lIdx) = baTemp(lIdx) Xor .Sum.Item(lIdx)
-        Next
+        Call CopyMemory(baTag(0), uTemp, lTagSize)
     End With
 End Sub
 
 Public Sub CryptoAesOcbInit(uCtx As CryptoAesOcbContext, baKey() As Byte, baNonce() As Byte, baAad() As Byte, Optional ByVal TagSize As Long = LNG_BLOCKSZ)
-    Dim uEmpty          As ArrayByte16
+    Dim uEmpty          As ArrayLong4
     Dim lIdx            As Long
     Dim lSize           As Long
     Dim lBottom         As Long
@@ -194,17 +229,18 @@ Public Sub CryptoAesOcbInit(uCtx As CryptoAesOcbContext, baKey() As Byte, baNonc
     Dim lJdx            As Long
     Dim lBlock          As Long
     Dim lPos            As Long
-    Dim uLookup         As ArrayByte16
-    Dim baOffset(0 To LNG_BLOCKSZ - 1) As Byte
-    Dim baTemp(0 To LNG_BLOCKSZ - 1) As Byte
+    Dim uLookup         As ArrayLong4
+    Dim uOffset         As ArrayLong4
+    Dim uTemp           As ArrayLong4
+    Dim uAad            As ArrayLong4
     
     With uCtx
         CryptoAesInit .AesCtx, baKey
         .K1 = uEmpty
-        CryptoAesProcess .AesCtx, .K1.Item
+        CryptoAesProcessPtr .AesCtx, VarPtr(.K1)
         pvDouble .K1, .K2
         .lCount = 0
-        ReDim .L(0 To .lCount) As ArrayByte16
+        ReDim .L(0 To .lCount) As ArrayLong4
         pvDouble .K2, .L(0)
         For lIdx = 1 To .lCount
             pvDouble .L(lIdx - 1), .L(lIdx)
@@ -239,29 +275,28 @@ Public Sub CryptoAesOcbInit(uCtx As CryptoAesOcbContext, baKey() As Byte, baNonc
         For lJdx = 0 To lSize \ LNG_BLOCKSZ - 1
             lBlock = lBlock + 1
             pvLookupL uCtx, lBlock, uLookup
-            For lIdx = 0 To LNG_BLOCKSZ - 1
-                baOffset(lIdx) = baOffset(lIdx) Xor uLookup.Item(lIdx)
-                baTemp(lIdx) = baAad(lPos + lIdx) Xor baOffset(lIdx)
+            Call CopyMemory(uAad, baAad(lPos), LNG_BLOCKSZ)
+            For lIdx = 0 To 3
+                uOffset.Item(lIdx) = uOffset.Item(lIdx) Xor uLookup.Item(lIdx)
+                uTemp.Item(lIdx) = uAad.Item(lIdx) Xor uOffset.Item(lIdx)
             Next
-            CryptoAesProcess .AesCtx, baTemp
-            For lIdx = 0 To LNG_BLOCKSZ - 1
-                .Sum.Item(lIdx) = .Sum.Item(lIdx) Xor baTemp(lIdx)
+            CryptoAesProcessPtr .AesCtx, VarPtr(uTemp)
+            For lIdx = 0 To 3
+                .Sum.Item(lIdx) = .Sum.Item(lIdx) Xor uTemp.Item(lIdx)
             Next
-            lPos = lPos + 16
+            lPos = lPos + LNG_BLOCKSZ
         Next
         lSize = lSize Mod LNG_BLOCKSZ
         If lSize > 0 Then
-            For lIdx = 0 To LNG_BLOCKSZ - 1
-                If lIdx < lSize Then
-                    baTemp(lIdx) = baAad(lPos + lIdx) Xor baOffset(lIdx) Xor .K1.Item(lIdx)
-                Else
-                    baTemp(lIdx) = baOffset(lIdx) Xor .K1.Item(lIdx)
-                End If
+            uAad = uEmpty
+            Call CopyMemory(uAad, baAad(lPos), lSize)
+            Call CopyMemory(ByVal VarPtr(uAad) + lSize, &H80, 1)
+            For lIdx = 0 To 3
+                uTemp.Item(lIdx) = uAad.Item(lIdx) Xor uOffset.Item(lIdx) Xor .K1.Item(lIdx)
             Next
-            baTemp(lSize) = baTemp(lSize) Xor &H80
-            CryptoAesProcess .AesCtx, baTemp
-            For lIdx = 0 To LNG_BLOCKSZ - 1
-                .Sum.Item(lIdx) = .Sum.Item(lIdx) Xor baTemp(lIdx)
+            CryptoAesProcessPtr .AesCtx, VarPtr(uTemp)
+            For lIdx = 0 To 3
+                .Sum.Item(lIdx) = .Sum.Item(lIdx) Xor uTemp.Item(lIdx)
             Next
         End If
     End With

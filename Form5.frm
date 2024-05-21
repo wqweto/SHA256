@@ -9,7 +9,7 @@ Begin VB.Form Form5
    ScaleHeight     =   9948
    ScaleWidth      =   7704
    StartUpPosition =   3  'Windows Default
-   Begin VB.CommandButton Command34 
+   Begin VB.CommandButton Command33 
       Caption         =   "AES128-OCB"
       Height          =   432
       Left            =   588
@@ -17,7 +17,7 @@ Begin VB.Form Form5
       Top             =   9240
       Width           =   2028
    End
-   Begin VB.CommandButton Command33 
+   Begin VB.CommandButton Command34 
       Caption         =   "AES256-OCB"
       Height          =   432
       Left            =   2940
@@ -1189,6 +1189,7 @@ Private Sub Command34_Click()
     Command34.Caption = Format$((UBound(m_baContents) + 1) * ITER / 1024# / 1024# / (TimerEx - dblTimer), "0.000") & " MB/s"
     Caption = Format$(TimerEx - dblTimer, "0.000") & " sec"
     dblTimer = TimerEx
+    CryptoAesOcbInit uCtx, baKey, baNonce, baKey
     bResult = CryptoAesOcbDecrypt(uCtx, baOutput, Tag:=baTag)
     Caption = Format$(TimerEx - dblTimer, "0.000") & " sec - " & bResult
     Command34.Caption = Format$((UBound(m_baContents) + 1) * ITER / 1024# / 1024# / (TimerEx - dblTimer), "0.000") & " MB/s"

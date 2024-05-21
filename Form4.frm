@@ -475,6 +475,7 @@ Private Sub pvTestAes()
     baBuffer = FromHex("000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F2021222324252627")
     CryptoAesOcbInit uOcbCtx, baKey, baNonce, baAad
     CryptoAesOcbEncrypt uOcbCtx, baBuffer, TagSize:=16, Tag:=baTag
+    Debug.Assert ToHex(baBuffer) = "4412923493c57d5de0d700f753cce0d1d2d95060122e9f15a5ddbfc5787e50b5cc55ee507bcb084e"
     Debug.Assert ToHex(baTag) = "479ad363ac366b95a98ca5f3000b1479"
     CryptoAesOcbInit uOcbCtx, baKey, baNonce, baAad
     Debug.Assert CryptoAesOcbDecrypt(uOcbCtx, baBuffer, Tag:=baTag)
