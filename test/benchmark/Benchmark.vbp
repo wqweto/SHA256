@@ -1,7 +1,6 @@
 Type=Exe
 Reference=*\G{00020430-0000-0000-C000-000000000046}#2.0#0#..\..\..\..\..\Windows\SysWOW64\stdole2.tlb#OLE Automation
 Module=mdJson; ..\..\lib\mdJson.bas
-Module=Module1; ..\Module1.bas
 Module=md5; ..\..\src\md5.bas
 Module=mdSha1; ..\..\src\mdSha1.bas
 Module=mdSha2; ..\..\src\mdSha2.bas

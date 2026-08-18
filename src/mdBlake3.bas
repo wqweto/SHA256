@@ -138,7 +138,7 @@ Private Sub pvQuarter32(lA As Long, lB As Long, lC As Long, lD As Long, ByVal lX
     End If
 End Sub
 #Else
-[ IntegerOverflowChecks (False) ]
+[IntegerOverflowChecks(False)]
 Private Sub pvQuarter32(lA As Long, lB As Long, lC As Long, lD As Long, ByVal lX As Long, ByVal lY As Long)
     lA = lA + lB + lX
     lD = (lD Xor lA) >> 16 Or (lD Xor lA) << 16
@@ -278,7 +278,7 @@ Private Sub pvUpdateChunk(uChunk As Blake3ChunkState, baInput() As Byte, ByVal l
             If .BlockLen = LNG_BLOCK_LEN Then
                 eStartFlag = -(.BlocksCompressed = 0) * LNG_CHUNK_START
                 #If HasOperators Then
-                    pvCompress .ChainingValue, VarPtr(.Block(0)), .ChunkCounter, .BlockLen, .Flags Or eStartFlag, VarPtr(.ChainingValue), HalfOnly:=True
+                    pvCompress .ChainingValue, ByVal VarPtr(.Block(0)), .ChunkCounter, .BlockLen, .Flags Or eStartFlag, ByVal VarPtr(.ChainingValue), HalfOnly:=True
                 #Else
                     Static uTemp As ArrayLong16
                     Call CopyMemory(uTemp, .Block(0), LNG_BLOCK_LEN)
@@ -335,7 +335,7 @@ End Sub
 Private Sub pvGetChainingValue(uOutput As Blake3Output, uRetVal As ArrayLong8)
     With uOutput
         #If HasOperators Then
-            pvCompress .InputChainingValue, .BlockWords, .Counter, .BlockLen, .Flags, VarPtr(uRetVal), HalfOnly:=True
+            pvCompress .InputChainingValue, .BlockWords, .Counter, .BlockLen, .Flags, ByVal VarPtr(uRetVal), HalfOnly:=True
         #Else
             Static uTemp As ArrayLong16
             pvCompress .InputChainingValue, .BlockWords, .Counter, .BlockLen, .Flags, uTemp

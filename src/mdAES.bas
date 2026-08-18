@@ -287,7 +287,7 @@ Private Function pvKeySchedule(baKey() As Byte, uSbox As ArrayLong256, uDecTable
     Next
 End Function
 
-Private Sub pvCrypt(uInput As AesBlock, uOutput As AesBlock, ByVal bDecrypt As Boolean, uKey As ArrayLong60, ByVal lKeyLen As Long, _
+Private Sub pvCrypt(uBlock As AesBlock, ByVal bDecrypt As Boolean, uKey As ArrayLong60, ByVal lKeyLen As Long, _
             uT0 As ArrayLong256, uT1 As ArrayLong256, uT2 As ArrayLong256, uT3 As ArrayLong256, uSbox As ArrayLong256)
     Dim lIdx            As Long
     Dim lJdx            As Long
@@ -301,10 +301,10 @@ Private Sub pvCrypt(uInput As AesBlock, uOutput As AesBlock, ByVal bDecrypt As B
     Dim lTemp3          As Long
 
     '--- first round
-    lA = uInput.Item(0) Xor uKey.Item(0)
-    lB = uInput.Item(1 - bDecrypt * 2) Xor uKey.Item(1)
-    lC = uInput.Item(2) Xor uKey.Item(2)
-    lD = uInput.Item(3 + bDecrypt * 2) Xor uKey.Item(3)
+    lA = uBlock.Item(0) Xor uKey.Item(0)
+    lB = uBlock.Item(1 - bDecrypt * 2) Xor uKey.Item(1)
+    lC = uBlock.Item(2) Xor uKey.Item(2)
+    lD = uBlock.Item(3 + bDecrypt * 2) Xor uKey.Item(3)
     '--- inner rounds
     lKdx = 4
     For lIdx = 1 To lKeyLen \ 4 - 2
@@ -346,12 +346,12 @@ Private Sub pvCrypt(uInput As AesBlock, uOutput As AesBlock, ByVal bDecrypt As B
             lJdx = lIdx
         End If
         #If HasOperators Then
-            uOutput.Item(lJdx) = (uSbox.Item(lA And 255) And &HFF&) _
+            uBlock.Item(lJdx) = (uSbox.Item(lA And 255) And &HFF&) _
                 Xor (uSbox.Item((lB >> 8) And 255) And &HFF00&) _
                 Xor (uSbox.Item((lC >> 16) And 255) And &HFF0000) _
                 Xor (uSbox.Item(lD >> 24) And &HFF000000) Xor uKey.Item(lKdx)
         #Else
-            uOutput.Item(lJdx) = (uSbox.Item(lA And 255) And &HFF&) _
+            uBlock.Item(lJdx) = (uSbox.Item(lA And 255) And &HFF&) _
                 Xor (uSbox.Item((lB And &HFF00&) \ LNG_POW2_8) And &HFF00&) _
                 Xor (uSbox.Item((lC And &HFF0000) \ LNG_POW2_16) And &HFF0000) _
                 Xor (uSbox.Item((lD And &H7F000000) \ LNG_POW2_24 Or -(lD < 0) * LNG_POW2_7) And &HFF000000) _
@@ -362,11 +362,11 @@ Private Sub pvCrypt(uInput As AesBlock, uOutput As AesBlock, ByVal bDecrypt As B
     Next
 End Sub
 
-Private Sub pvProcess(uCtx As CryptoAesContext, ByVal bDecrypt As Boolean, uInput As AesBlock, uOutput As AesBlock)
+Private Sub pvProcess(uCtx As CryptoAesContext, ByVal bDecrypt As Boolean, uBlock As AesBlock)
     If bDecrypt Then
-        pvCrypt uInput, uOutput, bDecrypt, uCtx.DecKey, uCtx.KeyLen, m_uDecTables.Item(0), m_uDecTables.Item(1), m_uDecTables.Item(2), m_uDecTables.Item(3), m_uDecTables.Item(4)
+        pvCrypt uBlock, bDecrypt, uCtx.DecKey, uCtx.KeyLen, m_uDecTables.Item(0), m_uDecTables.Item(1), m_uDecTables.Item(2), m_uDecTables.Item(3), m_uDecTables.Item(4)
     Else
-        pvCrypt uInput, uOutput, bDecrypt, uCtx.EncKey, uCtx.KeyLen, m_uEncTables.Item(0), m_uEncTables.Item(1), m_uEncTables.Item(2), m_uEncTables.Item(3), m_uEncTables.Item(4)
+        pvCrypt uBlock, bDecrypt, uCtx.EncKey, uCtx.KeyLen, m_uEncTables.Item(0), m_uEncTables.Item(1), m_uEncTables.Item(2), m_uEncTables.Item(3), m_uEncTables.Item(4)
     End If
 End Sub
 
@@ -408,13 +408,17 @@ Public Sub CryptoAesProcess(uCtx As CryptoAesContext, baBlock() As Byte, Optiona
     Debug.Assert UBound(baBlock) + 1 >= Pos + LNG_BLOCKSZ
     m_uPeekBlock.pvData = VarPtr(baBlock(Pos))
     m_uPeekBlock.cElements = 1
-    pvProcess uCtx, Decrypt, m_aBlock(0), m_aBlock(0)
+    pvProcess uCtx, Decrypt, m_aBlock(0)
 End Sub
 
+#If HasPtrSafe Then
+Public Sub CryptoAesProcessPtr(uCtx As CryptoAesContext, ByVal lPtr As LongPtr, Optional ByVal Decrypt As Boolean)
+#Else
 Public Sub CryptoAesProcessPtr(uCtx As CryptoAesContext, ByVal lPtr As Long, Optional ByVal Decrypt As Boolean)
+#End If
     m_uPeekBlock.pvData = lPtr
     m_uPeekBlock.cElements = 1
-    pvProcess uCtx, Decrypt, m_aBlock(0), m_aBlock(0)
+    pvProcess uCtx, Decrypt, m_aBlock(0)
 End Sub
 
 '= AES-CBC ===============================================================
@@ -462,7 +466,7 @@ Public Sub CryptoAesCbcEncrypt(uCtx As CryptoAesContext, baBuffer() As Byte, Opt
             .Item(2) = .Item(2) Xor m_aBlock(lIdx).Item(2)
             .Item(3) = .Item(3) Xor m_aBlock(lIdx).Item(3)
         End With
-        pvProcess uCtx, False, uCtx.Nonce, uCtx.Nonce
+        pvProcess uCtx, False, uCtx.Nonce
         With uCtx.Nonce
             m_aBlock(lIdx).Item(0) = .Item(0)
             m_aBlock(lIdx).Item(1) = .Item(1)
@@ -495,7 +499,13 @@ Public Function CryptoAesCbcDecrypt(uCtx As CryptoAesContext, baBuffer() As Byte
             .Item(2) = m_aBlock(lIdx).Item(2)
             .Item(3) = m_aBlock(lIdx).Item(3)
         End With
-        pvProcess uCtx, True, uInput, uBlock
+        With uBlock
+            .Item(0) = uInput.Item(0)
+            .Item(1) = uInput.Item(1)
+            .Item(2) = uInput.Item(2)
+            .Item(3) = uInput.Item(3)
+        End With
+        pvProcess uCtx, True, uBlock
         With uBlock
             .Item(0) = .Item(0) Xor uCtx.Nonce.Item(0)
             .Item(1) = .Item(1) Xor uCtx.Nonce.Item(1)
@@ -541,7 +551,6 @@ End Function
 Public Sub CryptoAesCtrCrypt(uCtx As CryptoAesContext, baBuffer() As Byte, Optional ByVal Pos As Long, Optional ByVal Size As Long = -1, Optional ByVal CounterWords As Long = 2)
     Dim lIdx            As Long
     Dim lJdx            As Long
-    Dim lKdx            As Long
     Dim lFinal          As Long
     Dim uBlock          As AesBlock
     Dim uTemp           As AesBlock
@@ -555,7 +564,13 @@ Public Sub CryptoAesCtrCrypt(uCtx As CryptoAesContext, baBuffer() As Byte, Optio
     lFinal = Size \ LNG_BLOCKSZ
     pvInitPeek m_uPeekBlock, baBuffer, Pos, Size
     For lIdx = 0 To (Size - 1) \ LNG_BLOCKSZ
-        pvProcess uCtx, False, uCtx.Nonce, uBlock
+        With uBlock
+            .Item(0) = uCtx.Nonce.Item(0)
+            .Item(1) = uCtx.Nonce.Item(1)
+            .Item(2) = uCtx.Nonce.Item(2)
+            .Item(3) = uCtx.Nonce.Item(3)
+        End With
+        pvProcess uCtx, False, uBlock
         If lIdx = lFinal Then
             lJdx = lIdx * LNG_BLOCKSZ
             Call CopyMemory(uTemp, baBuffer(Pos + lJdx), Size - lJdx)
@@ -575,17 +590,21 @@ Public Sub CryptoAesCtrCrypt(uCtx As CryptoAesContext, baBuffer() As Byte, Optio
             End With
         End If
         If CounterWords < 0 Then
-            For lKdx = 0 To -CounterWords - 1
-                If Not pvWrapIncLE(uCtx.Nonce.Item(lKdx)) Then
-                    Exit For
+            If pvWrapIncLE(uCtx.Nonce.Item(0)) And CounterWords < -1 Then
+                If pvWrapIncLE(uCtx.Nonce.Item(1)) And CounterWords < -2 Then
+                    If pvWrapIncLE(uCtx.Nonce.Item(2)) And CounterWords < -3 Then
+                        pvWrapIncLE uCtx.Nonce.Item(3)
+                    End If
                 End If
-            Next
+            End If
         Else
-            For lKdx = 3 To 4 - CounterWords Step -1
-                If Not pvWrapIncBE(uCtx.Nonce.Item(lKdx)) Then
-                    Exit For
+            If pvWrapIncBE(uCtx.Nonce.Item(3)) And CounterWords > 1 Then
+                If pvWrapIncBE(uCtx.Nonce.Item(2)) And CounterWords > 2 Then
+                    If pvWrapIncBE(uCtx.Nonce.Item(1)) And CounterWords > 3 Then
+                        pvWrapIncBE uCtx.Nonce.Item(0)
+                    End If
                 End If
-            Next
+            End If
         End If
     Next
 End Sub

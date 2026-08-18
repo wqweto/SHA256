@@ -125,6 +125,7 @@ Public Function pvProcess(uCtx As CryptoAesOcbContext, ByVal bDecrypt As Boolean
     Dim uPad            As ArrayLong4
     Dim uChecksumPad    As ArrayLong4
     Dim lNtz            As Long
+    Dim pDummy          As LongPtr
     
     If lSize < 0 Then
         lSize = UBound(baBuffer) + 1 - lPos
@@ -139,7 +140,7 @@ Public Function pvProcess(uCtx As CryptoAesOcbContext, ByVal bDecrypt As Boolean
                 .pvData = VarPtr(baBuffer(lPos))
                 .cElements = lSize \ .cbElements
             End With
-            Call CopyMemory(ByVal ArrPtr(aBlock), VarPtr(uPeekBlock), 4)
+            Call CopyMemory(ByVal ArrPtr(aBlock), VarPtr(uPeekBlock), LenB(pDummy))
         End If
         lIdx = .NumBlocks + lSize \ LNG_BLOCKSZ
         Do While lIdx > 0

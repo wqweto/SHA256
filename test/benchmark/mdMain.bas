@@ -35,6 +35,9 @@ Private Declare PtrSafe Function WriteFile Lib "kernel32" (ByVal hFile As LongPt
 Private Declare PtrSafe Function LocalFree Lib "kernel32" (ByVal hMem As LongPtr) As LongPtr
 Private Declare PtrSafe Function CommandLineToArgv Lib "shell32" Alias "CommandLineToArgvW" (ByVal lpCmdLine As LongPtr, pNumArgs As Long) As LongPtr
 Private Declare PtrSafe Function SysReAllocString Lib "oleaut32" (ByVal pBSTR As LongPtr, Optional ByVal pszStrPtr As LongPtr) As Long
+Private Declare PtrSafe Function MultiByteToWideChar Lib "kernel32" (ByVal CodePage As Long, ByVal dwFlags As Long, lpMultiByteStr As Any, ByVal cchMultiByte As Long, ByVal lpWideCharStr As LongPtr, ByVal cchWideChar As Long) As Long
+Private Declare PtrSafe Function QueryPerformanceCounter Lib "kernel32" (lpPerformanceCount As Currency) As Long
+Private Declare PtrSafe Function QueryPerformanceFrequency Lib "kernel32" (lpFrequency As Currency) As Long
 #Else
 Private Enum LongPtr
     [_]
@@ -46,6 +49,9 @@ Private Declare Function WriteFile Lib "kernel32" (ByVal hFile As LongPtr, ByVal
 Private Declare Function LocalFree Lib "kernel32" (ByVal hMem As LongPtr) As LongPtr
 Private Declare Function CommandLineToArgv Lib "shell32" Alias "CommandLineToArgvW" (ByVal lpCmdLine As LongPtr, pNumArgs As Long) As LongPtr
 Private Declare Function SysReAllocString Lib "oleaut32" (ByVal pBSTR As LongPtr, Optional ByVal pszStrPtr As LongPtr) As Long
+Private Declare Function MultiByteToWideChar Lib "kernel32" (ByVal CodePage As Long, ByVal dwFlags As Long, lpMultiByteStr As Any, ByVal cchMultiByte As Long, ByVal lpWideCharStr As LongPtr, ByVal cchWideChar As Long) As Long
+Private Declare Function QueryPerformanceCounter Lib "kernel32" (lpPerformanceCount As Currency) As Long
+Private Declare Function QueryPerformanceFrequency Lib "kernel32" (lpFrequency As Currency) As Long
 #End If
 
 '=========================================================================
@@ -107,6 +113,8 @@ Private Sub pvPrintUsage()
     ConPrintLine "Usage:"
     ConPrintLine "  vbcrypto speed [algo ...]   measure throughput, openssl speed style"
     ConPrintLine "  vbcrypto test  [suite ...]  run test vectors and self checks"
+    ConPrintLine "                 [-v]         list every failing case, not just the first"
+    ConPrintLine "                 [-id N]      run only test case N and dump its inputs"
     ConPrintLine "  vbcrypto list               list known algorithm names"
     ConPrintLine "  vbcrypto help               this text"
     ConPrintLine
@@ -118,6 +126,8 @@ Private Sub pvPrintUsage()
     ConPrintLine "  vbcrypto speed aes-128"
     ConPrintLine "  vbcrypto test aes_gcm"
     ConPrintLine "  vbcrypto test kat"
+    ConPrintLine "  vbcrypto test aes_ccm -v"
+    ConPrintLine "  vbcrypto test aes_ccm -id 9"
 End Sub
 
 Public Sub ConPrint(sText As String)
@@ -251,4 +261,82 @@ Private Function pvGetTail(vArgs As Variant) As Variant
         aRetVal(lIdx - 1) = vArgs(lIdx)
     Next
     pvGetTail = aRetVal
+End Function
+
+'--- high resolution clock for the benchmark timing loops
+Public Property Get TimerEx() As Double
+    Dim cFreq           As Currency
+    Dim cValue          As Currency
+
+    Call QueryPerformanceFrequency(cFreq)
+    Call QueryPerformanceCounter(cValue)
+    TimerEx = cValue / cFreq
+End Property
+
+Public Function ToHex(baData() As Byte) As String
+    Dim lIdx            As Long
+    Dim sByte           As String
+
+    ToHex = String$(UBound(baData) * 2 + 2, 48)
+    For lIdx = 0 To UBound(baData)
+        sByte = LCase$(Hex$(baData(lIdx)))
+        Mid$(ToHex, lIdx * 2 + 3 - Len(sByte)) = sByte
+    Next
+End Function
+
+Public Function FromHex(sText As String) As Byte()
+    Dim baRetVal()      As Byte
+    Dim lIdx            As Long
+
+    On Error GoTo QH
+    '--- check for hexdump delimiter
+    If sText Like "*[!0-9A-Fa-f]*" Then
+        ReDim baRetVal(0 To Len(sText) \ 3) As Byte
+        For lIdx = 1 To Len(sText) Step 3
+            baRetVal(lIdx \ 3) = "&H" & Mid$(sText, lIdx, 2)
+        Next
+    ElseIf LenB(sText) <> 0 Then
+        ReDim baRetVal(0 To Len(sText) \ 2 - 1) As Byte
+        For lIdx = 1 To Len(sText) Step 2
+            baRetVal(lIdx \ 2) = "&H" & Mid$(sText, lIdx, 2)
+        Next
+    Else
+        baRetVal = vbNullString
+    End If
+    FromHex = baRetVal
+QH:
+End Function
+
+'--- the vector files are UTF-8, so this skips the encoding sniffing the
+'--- general purpose reader in Module1.bas does and just decodes
+Public Function ReadTextFile(sFile As String) As String
+    Const CP_UTF8       As Long = 65001
+    Dim nFile           As Integer
+    Dim baBuffer()      As Byte
+    Dim lSize           As Long
+    Dim lPos            As Long
+    Dim lChars          As Long
+
+    nFile = FreeFile
+    Open sFile For Binary Access Read Shared As nFile
+    lSize = LOF(nFile)
+    If lSize > 0 Then
+        ReDim baBuffer(0 To lSize - 1) As Byte
+        Get nFile, , baBuffer
+    End If
+    Close nFile
+    If lSize = 0 Then
+        Exit Function
+    End If
+    '--- step over an UTF-8 BOM when one is present
+    If lSize >= 3 Then
+        If baBuffer(0) = &HEF And baBuffer(1) = &HBB And baBuffer(2) = &HBF Then
+            lPos = 3
+        End If
+    End If
+    lChars = MultiByteToWideChar(CP_UTF8, 0, baBuffer(lPos), lSize - lPos, 0, 0)
+    If lChars > 0 Then
+        ReadTextFile = String$(lChars, 0)
+        Call MultiByteToWideChar(CP_UTF8, 0, baBuffer(lPos), lSize - lPos, StrPtr(ReadTextFile), lChars)
+    End If
 End Function

@@ -33,13 +33,13 @@ Public Function CryptoHash(baRetVal() As Byte, ByVal lHashAlgId As Long, baInput
     
     If hProv = 0 Then
         If CryptAcquireContext(hProv, 0, 0, PROV_RSA_AES, CRYPT_VERIFYCONTEXT) = 0 Then
-            lResult = Err.LastDllResult
+            lResult = Err.LastDllError
             sApiSource = "CryptAcquireContext"
             GoTo QH
         End If
     End If
     If CryptCreateHash(hProv, lHashAlgId, 0, 0, hHash) = 0 Then
-        lResult = Err.LastDllResult
+        lResult = Err.LastDllError
         sApiSource = "CryptCreateHash"
         GoTo QH
     End If
@@ -48,7 +48,7 @@ Public Function CryptoHash(baRetVal() As Byte, ByVal lHashAlgId As Long, baInput
     End If
     If Size > 0 Then
         If CryptHashData(hHash, baInput(Pos), Size, 0) = 0 Then
-            lResult = Err.LastDllResult
+            lResult = Err.LastDllError
             sApiSource = "CryptHashData"
             GoTo QH
         End If
@@ -56,7 +56,7 @@ Public Function CryptoHash(baRetVal() As Byte, ByVal lHashAlgId As Long, baInput
     lHashSize = 1024
     ReDim baRetVal(0 To lHashSize - 1) As Byte
     If CryptGetHashParam(hHash, HP_HASHVAL, baRetVal(0), lHashSize, 0) = 0 Then
-        lResult = Err.LastDllResult
+        lResult = Err.LastDllError
         sApiSource = "CryptGetHashParam"
         GoTo QH
     End If

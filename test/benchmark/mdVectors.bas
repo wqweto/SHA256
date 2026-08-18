@@ -41,6 +41,9 @@ Private Const STR_SUITES            As String = _
     "x25519|x25519|0;" & _
     "eddsa|eddsa|0"
 
+Private m_bVerbose                  As Boolean
+Private m_sActual                   As String
+Private m_lOnlyTcId                 As Long
 Private m_lPass                     As Long
 Private m_lFail                     As Long
 Private m_lSkip                     As Long
@@ -60,6 +63,7 @@ Public Sub VectorsRun(vFilter As Variant)
     Dim lTotFail        As Long
     Dim lTotSkip        As Long
 
+    vFilter = pvParseSwitches(vFilter)
     vSuites = Split(STR_SUITES, ";")
     '--- Wycheproof driven suites
     For lIdx = 0 To UBound(vSuites)
@@ -111,6 +115,48 @@ Public Sub VectorsRun(vFilter As Variant)
     End If
 End Sub
 
+'--- takes -v and -id N out of the filter list and returns what is left,
+'--- so the remaining entries still match suite names as before
+Private Function pvParseSwitches(vFilter As Variant) As Variant
+    Dim aRetVal()       As String
+    Dim lIdx            As Long
+    Dim lCount          As Long
+
+    m_bVerbose = False
+    m_lOnlyTcId = 0
+    If UBound(vFilter) < 0 Then
+        pvParseSwitches = vFilter
+        Exit Function
+    End If
+    ReDim aRetVal(0 To UBound(vFilter)) As String
+    For lIdx = 0 To UBound(vFilter)
+        Select Case LCase$(vFilter(lIdx))
+        Case "-v", "--verbose"
+            m_bVerbose = True
+        Case "-id", "--id"
+            If lIdx < UBound(vFilter) Then
+                m_lOnlyTcId = Val(vFilter(lIdx + 1))
+                m_bVerbose = True
+            End If
+        Case Else
+            '--- skip the value that follows -id
+            If lIdx = 0 Then
+                aRetVal(lCount) = vFilter(lIdx)
+                lCount = lCount + 1
+            ElseIf LCase$(vFilter(lIdx - 1)) <> "-id" And LCase$(vFilter(lIdx - 1)) <> "--id" Then
+                aRetVal(lCount) = vFilter(lIdx)
+                lCount = lCount + 1
+            End If
+        End Select
+    Next
+    If lCount = 0 Then
+        pvParseSwitches = Split(vbNullString)
+    Else
+        ReDim Preserve aRetVal(0 To lCount - 1) As String
+        pvParseSwitches = aRetVal
+    End If
+End Function
+
 Private Sub pvResetCounters()
     m_lPass = 0
     m_lFail = 0
@@ -153,6 +199,11 @@ Private Sub pvRunSuite(sFile As String, sKind As String, ByVal lParam As Long)
     Set oJson = JsonParseObject(ReadTextFile(sFile))
     For Each oGroup In JsonValue(oJson, "testGroups")
         For Each oTest In JsonValue(oGroup, "tests")
+            If m_lOnlyTcId <> 0 Then
+                If JsonValue(oTest, "tcId") <> m_lOnlyTcId Then
+                    GoTo NextTest
+                End If
+            End If
             sResult = JsonValue(oTest, "result")
             bValid = (sResult <> "invalid")
             '--- pvTryCase owns the error handling, so a raised error lands
@@ -170,12 +221,41 @@ Private Sub pvRunSuite(sFile As String, sKind As String, ByVal lParam As Long)
                     m_sFirstFail = "tcId " & JsonValue(oTest, "tcId") & " " & JsonValue(oTest, "comment")
                 End If
             End If
+            If m_bVerbose Then
+                If bOk <> bValid Or m_lOnlyTcId <> 0 Then
+                    pvPrintCase oTest, sResult, bOk
+                End If
+            End If
+NextTest:
         Next
     Next
 End Sub
 
+'--- one line per case under -v, plus the inputs when a single tcId is named
+Private Sub pvPrintCase(oTest As Object, sResult As String, ByVal bOk As Boolean)
+    Dim vKey            As Variant
+    Dim sLine           As String
+
+    ConPrintLine "  tcId " & JsonValue(oTest, "tcId") & " expected " & sResult & _
+        ", got " & IIf(bOk, "valid", "invalid") & _
+        IIf(LenB(JsonValue(oTest, "comment")) <> 0, "  -- " & JsonValue(oTest, "comment"), vbNullString)
+    If m_lOnlyTcId = 0 Then
+        Exit Sub
+    End If
+    For Each vKey In Array("key", "iv", "aad", "msg", "ct", "tag", "private", "public", "shared", "sig", "ikm", "salt", "info", "okm")
+        sLine = JsonValue(oTest, CStr(vKey))
+        If LenB(sLine) <> 0 Then
+            ConPrintLine "    " & PadRight(CStr(vKey), 9) & sLine
+        End If
+    Next
+    If LenB(m_sActual) <> 0 Then
+        ConPrintLine "    got       " & m_sActual
+    End If
+End Sub
+
 Private Function pvTryCase(sKind As String, ByVal lParam As Long, oGroup As Object, oTest As Object) As Boolean
     On Error GoTo EH
+    m_sActual = "(call raised)"
     pvTryCase = pvRunCase(sKind, lParam, oGroup, oTest)
     Exit Function
 EH:
@@ -223,6 +303,9 @@ Private Function pvRunCase(sKind As String, ByVal lParam As Long, oGroup As Obje
         Case "chacha"
             CryptoChaCha20Poly1305Encrypt baKey, baOut, baBuf, 0, -1, baNonce, baAad
         End Select
+        If m_bVerbose Then
+            m_sActual = "ct " & ToHex(baBuf) & vbCrLf & "    tag       " & ToHex(baOut)
+        End If
         pvRunCase = pvIsSameBytes(baBuf, baCt) And pvIsSameBytes(baOut, baTag)
     Case "cmac"
         baKey = FromHex(JsonValue(oTest, "key"))
@@ -235,6 +318,9 @@ Private Function pvRunCase(sKind As String, ByVal lParam As Long, oGroup As Obje
         CryptoCmacInit uCmac, baKey
         CryptoCmacUpdate uCmac, baMsg
         CryptoCmacFinalize uCmac, baOut, TagSize:=lTagSize
+        If m_bVerbose Then
+            m_sActual = "out " & ToHex(baOut)
+        End If
         pvRunCase = pvIsSameBytes(baOut, baTag)
     Case "hmac1", "hmac2", "hmac3"
         baKey = FromHex(JsonValue(oTest, "key"))
@@ -249,6 +335,9 @@ Private Function pvRunCase(sKind As String, ByVal lParam As Long, oGroup As Obje
             baOut = CryptoHmacSha3ByteArray(lParam, baKey, baMsg)
         End Select
         '--- Wycheproof truncates the tag, so compare the prefix
+        If m_bVerbose Then
+            m_sActual = "out " & ToHex(baOut)
+        End If
         pvRunCase = pvIsSamePrefix(baOut, baTag)
     Case "hkdf1", "hkdf2"
         baKey = FromHex(JsonValue(oTest, "ikm"))
@@ -260,12 +349,18 @@ Private Function pvRunCase(sKind As String, ByVal lParam As Long, oGroup As Obje
         Else
             baOut = CryptoHkdfSha2ByteArray(lParam, baKey, baNonce, baAad, OutSize:=pvGetSize(baTag))
         End If
+        If m_bVerbose Then
+            m_sActual = "out " & ToHex(baOut)
+        End If
         pvRunCase = pvIsSameBytes(baOut, baTag)
     Case "x25519"
         baKey = FromHex(JsonValue(oTest, "private"))
         baNonce = FromHex(JsonValue(oTest, "public"))
         baTag = FromHex(JsonValue(oTest, "shared"))
         CryptoX25519SharedSecret baOut, baKey, baNonce
+        If m_bVerbose Then
+            m_sActual = "out " & ToHex(baOut)
+        End If
         pvRunCase = pvIsSameBytes(baOut, baTag)
     Case "eddsa"
         '--- key material sits on the group, the signature on the test

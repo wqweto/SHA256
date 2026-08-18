@@ -6,7 +6,8 @@ Every module is self-contained: drop the one you need into an existing project
 and it compiles.
 
 Runs unchanged on VB6, on 64-bit VBA, and on [twinBASIC](https://twinbasic.com),
-where the LLVM backend closes most of the gap to a C implementation. See
+where the 64-bit algorithms speed up by an order of magnitude and the
+table-driven ones currently do not. See
 [Portability and performance](#portability-and-performance).
 
 > **Untested.** This code has not been audited or independently reviewed. The
@@ -271,13 +272,12 @@ Most modules stand alone. Two exceptions:
 The same sources target three compilers, selected by predefined constants at
 compile time. Nothing to configure -- the modules detect their host.
 
-### twinBASIC, LLVM target
+### twinBASIC
 
-This is where the code is meant to run if throughput matters. VB6 has no 32-bit
-shift or rotate operators and traps on integer overflow, so the VB6 path
-emulates both with helper functions and `Long` arithmetic that dodges wrapping.
-Under twinBASIC, 21 of the 29 modules compile the same rounds down to native
-`>>`, `<<` and wrapping adds:
+VB6 has no 32-bit shift or rotate operators and traps on integer overflow, so
+the VB6 path emulates both with helper functions and `Long` arithmetic that
+dodges wrapping. Under twinBASIC, 21 of the 29 modules compile the same rounds
+down to native `>>`, `<<` and wrapping adds:
 
 ```vb
 #If HasOperators Then
@@ -287,12 +287,53 @@ Under twinBASIC, 21 of the 29 modules compile the same rounds down to native
 #End If
 ```
 
-Compiled with twinBASIC's **LLVM** backend rather than the legacy code
-generator, those rounds get real optimisation passes -- register allocation
-across the compression loop, unrolling, constant folding of the round tables --
-and the hash modules land within a small factor of a C build. The bit-sliced
-variants benefit most, since they trade code size for instruction-level
-parallelism that only pays off once the backend schedules it.
+That path had never been compiled until the benchmark forced it, and the
+results are worth reading carefully before assuming twinBASIC is simply
+faster. Measured 64-bit build against VB6 at 64 KB blocks, the split is sharp
+and falls almost exactly along one line -- whether the algorithm's natural word
+size is 64 bits.
+
+Faster under twinBASIC, all of them 64-bit designs that VB6 has to synthesise
+out of `Long` pairs:
+
+| | speedup |
+| --- | ---: |
+| `siphash24` | 47.8x |
+| `argon2id` | 41.0x |
+| `blake2b` | 31.3x |
+| `ed25519-sign` / `x25519` | 4-5x |
+
+Slower under twinBASIC:
+
+| | slowdown | why |
+| --- | ---: | --- |
+| `ghash` | 36.5x | no PCLMULQDQ thunk |
+| `aes-128-gcm` | 14.7x | GHASH bound |
+| `aes-128-gcm-siv` | 13.6x | POLYVAL bound |
+| `aes-128-cbc` / `-ctr` | 5-6x | unexplained |
+| `sha3-256` | 4.9x | unexplained |
+
+A 47x win on SipHash is what the operator path is for. The GHASH family is a
+different story and nothing to do with code generation: `mdAesGcm.bas` carries
+a base64 blob of x86 machine code that it allocates as executable memory and
+calls for the GF(2^128) multiply, using the CPU's PCLMULQDQ instruction. That
+thunk exists only on the 32-bit path -- under `HasPtrSafe` the allocator is an
+empty stub -- so a 64-bit build falls back to multiplying in software, and
+AES-GCM and AES-GCM-SIV inherit the loss because both are dominated by it.
+
+The remaining gaps have no explanation yet. AES-CBC, AES-CTR and SHA-3 use no
+thunk and no 64-bit arithmetic, so a 5x difference on them is unaccounted for,
+and the twinBASIC build's optimisation settings have not been pinned down
+either. Treat that column as provisional rather than as twinBASIC's ceiling.
+
+The same build also fails 11 of the 4375 checks that VB6 passes, all in AES-CCM
+and AES-EAX on messages of 64 bytes or more, and the 64-bit executable exits
+with `STATUS_HEAP_CORRUPTION`. Both point at the same place: `mdAesCcm.bas` and
+`mdAesEax.bas` take a four-block fast path that repoints a local array's
+`SAFEARRAY` descriptor at a stack buffer through `ArrPtr`, declared against
+`vbe7` or `msvbvm60`. Those are VB6 and VBA runtime imports, and the trick does
+not survive being compiled by something else. Nothing below 64 bytes takes that
+branch, which is why only the long-message vectors fail.
 
 ### x64 VBA
 
@@ -316,15 +357,17 @@ Use [`mdCurve25519.bas`](src/mdCurve25519.bas) instead under 64-bit VBA; it is p
 
 ### VB6
 
-Leave **Assume No Aliasing** unchecked under Project Properties / Compile /
-Advanced Optimizations. It miscompiles these modules into an exe that faults on
-the first AES-GCM call, see [What the tool turned up](#what-the-tool-turned-up).
+Every optimisation under Project Properties / Compile is safe to turn on.
+**Remove Integer Overflow Checks** in particular is worth a large constant
+factor on the hash modules, and where the IDE allows it the hot loops also
+carry `[ IntegerOverflowChecks (False) ]` attributes, with a runtime fallback
+for when it does not.
 
-Every other optimisation is safe and worth having. **Remove Integer Overflow
-Checks** in particular is worth a large constant factor on the hash modules,
-and where the IDE allows it the hot loops also carry
-`[ IntegerOverflowChecks (False) ]` attributes, with a runtime fallback for
-when it does not.
+**Assume No Aliasing** used to miscompile the AES modules and is now harmless,
+though it earns nothing either -- measured with and without on identical
+sources, every AES mode landed within 3%, which is inside the run to run
+spread. The projects here leave it off. See
+[What the tool turned up](#what-the-tool-turned-up) for what it used to break.
 
 ### Conditional compilation constants
 
@@ -365,70 +408,71 @@ prints the known names.
 
 ### Throughput
 
-Measured on a 12th Gen Intel Core i9-12900K under Windows 11, compiled native
-with full optimisation, on an otherwise idle machine. Repeat runs varied by a
-few percent, and by rather more when anything else was competing for the CPU,
-so treat these as figures for comparing algorithms against each other rather
-than as absolute numbers.
+Measured on a 12th Gen Intel Core i9-12900K under Windows 11, on an otherwise
+idle machine, at three block sizes: 16 bytes for per-call overhead, 1 KB for a
+realistic message and 64 KB for asymptotic throughput. Repeat runs varied by a
+few percent, and by far more when anything else competed for the CPU, so treat
+these as figures for comparing algorithms against each other rather than as
+absolute numbers.
 
-```
-type                     16 bytes     64 bytes    256 bytes     1K bytes     8K bytes    64K bytes
-md5                       27.2M/s      76.5M/s     153.7M/s     198.3M/s     224.0M/s     226.3M/s
-sha1                      17.1M/s      42.3M/s      76.4M/s      97.4M/s     104.6M/s     103.9M/s
-sha224                     7.6M/s      17.6M/s      30.2M/s      36.7M/s      38.4M/s      38.7M/s
-sha256                     7.7M/s      17.9M/s      29.9M/s      36.1M/s      38.9M/s      38.6M/s
-sha384                     2.0M/s       8.1M/s      17.8M/s      30.9M/s      24.2M/s      23.2M/s
-sha512                     2.0M/s       8.0M/s      17.7M/s      31.0M/s      24.1M/s      23.4M/s
-sha3-256                   6.3M/s      24.9M/s      51.6M/s      53.7M/s      57.3M/s      58.2M/s
-sha3-512                   6.2M/s      24.3M/s      27.1M/s      29.6M/s      31.4M/s      32.3M/s
-shake128                   6.3M/s      24.0M/s      51.0M/s      60.8M/s      70.4M/s      70.9M/s
-ripemd160                283.1k/s       1.1M/s       4.1M/s       9.8M/s      14.4M/s      15.6M/s
-blake2s                   13.8M/s      30.3M/s      51.4M/s      62.0M/s      65.5M/s      66.6M/s
-blake2b                  184.2k/s     738.7k/s     985.0k/s       1.3M/s       1.5M/s       1.5M/s
-blake3                    16.2M/s      65.0M/s      83.8M/s      91.5M/s      88.1M/s      87.9M/s
-ascon-hash                 3.2M/s      10.1M/s      21.8M/s      31.0M/s      35.3M/s      36.0M/s
-siphash24                  1.5M/s       2.8M/s       3.6M/s       3.8M/s       3.8M/s       3.9M/s
-halfsiphash24             40.6M/s     119.9M/s     237.4M/s     307.2M/s     190.3M/s     125.4M/s
-hmac-sha256                2.2M/s       7.1M/s      18.7M/s      31.6M/s      39.3M/s      39.0M/s
-cmac-aes128               17.8M/s      54.6M/s     131.1M/s     202.6M/s     239.8M/s     246.1M/s
-ghash                     95.9M/s     286.3M/s     568.8M/s     765.4M/s     850.4M/s     865.3M/s
-poly1305                  33.0M/s      53.1M/s      62.8M/s      65.7M/s      66.8M/s      66.6M/s
-aes-128-cbc               38.0M/s     109.6M/s     217.3M/s     290.5M/s     323.6M/s     324.5M/s
-aes-128-ctr               38.0M/s     109.0M/s     209.5M/s     274.9M/s     302.9M/s     309.8M/s
-aes-128-gcm                9.1M/s      32.1M/s      89.2M/s     161.2M/s     214.9M/s     225.4M/s
-aes-128-ccm                9.5M/s      30.3M/s      72.2M/s     111.5M/s     132.8M/s     136.5M/s
-aes-128-eax                6.0M/s      20.7M/s      56.6M/s     100.7M/s     131.7M/s     137.4M/s
-aes-128-ocb                4.8M/s      18.0M/s      52.6M/s     113.1M/s     186.2M/s     209.2M/s
-aes-128-gcm-siv            3.9M/s      14.7M/s      49.5M/s     114.4M/s     187.6M/s     202.4M/s
-chacha20                  18.3M/s      69.9M/s      92.2M/s     100.8M/s      47.1M/s      40.3M/s
-chacha20-poly1305          4.4M/s      14.6M/s      28.1M/s      36.8M/s      27.3M/s      25.1M/s
-ascon-aead                 6.0M/s      18.3M/s      37.7M/s      51.6M/s      57.6M/s      58.0M/s
-tea                       22.5M/s      55.4M/s     100.5M/s     110.3M/s     113.0M/s     107.7M/s
-```
+VB6 is compiled native with full optimisation. TB64 is a 64-bit twinBASIC
+build -- read the caveats under [twinBASIC](#twinbasic) before
+drawing conclusions from that column.
 
-Public key and password hashing are measured per operation instead:
+| algorithm | VB6 16 B | VB6 1 KB | VB6 64 KB | TB64 16 B | TB64 1 KB | TB64 64 KB |
+| --------- | --------:| --------:| ---------:| ---------:| ---------:| ----------:|
+| `md5` | 26.7M/s | 193.2M/s | 217.6M/s | 15.8M/s | 75.5M/s | 81.3M/s |
+| `sha1` | 15.8M/s | 89.1M/s | 97.5M/s | 9.0M/s | 42.8M/s | 45.7M/s |
+| `sha224` | 8.3M/s | 39.6M/s | 42.7M/s | 7.2M/s | 33.9M/s | 35.8M/s |
+| `sha256` | 8.6M/s | 39.6M/s | 41.0M/s | 7.3M/s | 33.6M/s | 35.9M/s |
+| `sha384` | 1.9M/s | 27.4M/s | 20.7M/s | 540.1k/s | 4.4M/s | 4.9M/s |
+| `sha512` | 1.9M/s | 27.6M/s | 20.6M/s | 536.2k/s | 4.6M/s | 5.1M/s |
+| `sha3-256` | 6.0M/s | 50.8M/s | 55.7M/s | 1.5M/s | 11.4M/s | 11.4M/s |
+| `sha3-512` | 5.9M/s | 28.0M/s | 30.8M/s | 1.4M/s | 6.3M/s | 6.4M/s |
+| `shake128` | 6.0M/s | 57.9M/s | 68.2M/s | 1.4M/s | 12.6M/s | 13.9M/s |
+| `ripemd160` | 269.6k/s | 9.5M/s | 14.6M/s | 289.0k/s | 12.1M/s | 34.8M/s |
+| `blake2s` | 12.1M/s | 54.5M/s | 57.6M/s | 6.5M/s | 26.6M/s | 28.2M/s |
+| `blake2b` | 181.2k/s | 1.3M/s | 1.5M/s | 5.2M/s | 41.1M/s | 46.9M/s |
+| `blake3` | 15.3M/s | 86.1M/s | 82.8M/s | 9.8M/s | 48.3M/s | 46.0M/s |
+| `ascon-hash` | 3.0M/s | 28.5M/s | 33.8M/s | 1.9M/s | 11.8M/s | 12.2M/s |
+| `siphash24` | 1.5M/s | 3.6M/s | 3.7M/s | 45.3M/s | 169.7M/s | 177.0M/s |
+| `halfsiphash24` | 38.2M/s | 289.2M/s | 117.3M/s | 35.5M/s | 109.7M/s | 113.9M/s |
+| `hmac-sha256` | 2.1M/s | 31.1M/s | 40.2M/s | 1.8M/s | 27.3M/s | 34.3M/s |
+| `cmac-aes128` | 17.1M/s | 199.9M/s | 246.8M/s | 6.4M/s | 47.3M/s | 54.2M/s |
+| `ghash` | 90.3M/s | 717.1M/s | 806.7M/s | 11.2M/s | 21.3M/s | 22.1M/s |
+| `poly1305` | 30.3M/s | 58.8M/s | 63.9M/s | 7.9M/s | 10.8M/s | 10.7M/s |
+| `aes-128-cbc` | 38.1M/s | 282.1M/s | 320.1M/s | 11.5M/s | 51.3M/s | 57.2M/s |
+| `aes-128-ctr` | 37.8M/s | 261.7M/s | 298.0M/s | 11.3M/s | 46.5M/s | 50.0M/s |
+| `aes-128-gcm` | 8.9M/s | 158.2M/s | 217.9M/s | 2.1M/s | 12.6M/s | 14.8M/s |
+| `aes-128-ccm` | 8.9M/s | 111.3M/s | 134.0M/s | 3.8M/s | 23.0M/s | 26.7M/s |
+| `aes-128-eax` | 5.8M/s | 99.5M/s | 135.5M/s | 2.1M/s | 21.1M/s | 25.2M/s |
+| `aes-128-ocb` | 4.6M/s | 113.3M/s | 210.8M/s | 2.8M/s | 33.6M/s | 42.3M/s |
+| `aes-128-gcm-siv` | 3.8M/s | 111.5M/s | 194.8M/s | 1.4M/s | 12.2M/s | 14.3M/s |
+| `chacha20` | 17.2M/s | 90.8M/s | 37.1M/s | 5.4M/s | 21.4M/s | 21.7M/s |
+| `chacha20-poly1305` | 4.1M/s | 34.0M/s | 24.0M/s | 1.1M/s | 6.7M/s | 7.1M/s |
+| `ascon-aead` | 5.9M/s | 50.4M/s | 58.3M/s | 2.7M/s | 15.6M/s | 17.0M/s |
+| `tea` | 21.4M/s | 104.0M/s | 104.1M/s | 16.4M/s | 69.8M/s | 69.2M/s |
 
-```
-type                      ops/sec      usec/op
-x25519-keygen                45.7        21866
-x25519-derive                45.3        22052
-ed25519-sign                8.089       123629
-ed25519-verify              8.022       124659
-pbkdf2-sha256               130.5         7661
-hkdf-sha256                 56201           18
-argon2id                    4.597       217553
-scrypt                       23.4        42725
-```
+Public key and password hashing are measured per operation instead. The KDF
+rows run deliberately small parameters, so they are rates to compare against
+each other rather than settings to copy.
 
-`pbkdf2-sha256` does 1000 iterations per operation, and `argon2id` and `scrypt`
-run with deliberately small parameters, so those three are rates to compare
-against each other rather than settings to copy.
+| operation | VB6 ops/sec | TB64 ops/sec |
+| --------- | -----------:| ------------:|
+| `x25519-keygen` | 43.6 | 168.7 |
+| `x25519-derive` | 43.1 | 171.7 |
+| `ed25519-sign` | 7.654 | 41.3 |
+| `ed25519-verify` | 7.679 | 41.0 |
+| `pbkdf2-sha256` | 129.8 | 111.7 |
+| `hkdf-sha256` | 63796 | 55605 |
+| `argon2id` | 4.619 | 189.5 |
+| `scrypt` | 23.9 | 27.0 |
 
 The benchmark project pulls in the bit-sliced modules, which is where the
-tuning work has gone, and at 8K blocks the gap to their plain counterparts is
-wide: sha3-256 1.0M/s to 57.3M/s, sha512 767k/s to 24.1M/s, ascon-hash 405k/s
-to 35.3M/s. Each pair exports the same names, so a project can hold only one of
-the two.
+tuning work has gone, and under VB6 at 8K blocks the gap to their plain
+counterparts is wide: sha3-256 1.0M/s to 53.8M/s, sha512 767k/s to 21.2M/s,
+ascon-hash 405k/s to 32.8M/s. Each pair exports the same names, so a project
+can hold only one of the two.
 
 ### Test vectors
 
@@ -480,11 +524,28 @@ this code is weakest.
   words, so a counter of 2^128-1 did not wrap. EAX counts over the whole block,
   and the carry now runs as far as the caller asks.
 
-One build setting matters as much as any of them: **"Assume No Aliasing"
-miscompiles this code**. With it on, the compiled exe faults inside
-`CryptoAesGcmInit` -- the modules do alias, `.Counter` is handed to
-`CryptoAesSetNonce` while living inside the very context passed alongside it.
-Every other optimisation is safe and worth having.
+A sixth bug was a build setting away from being invisible. With **Assume No
+Aliasing** on, the compiled exe faulted inside `CryptoAesGcmInit`. That flag
+promises the compiler no storage is reachable under two names, and `pvProcess`
+was called as `pvProcess uCtx, Decrypt, m_aBlock(0), m_aBlock(0)` -- the same
+block bound to both its input and its output `ByRef` parameter. `pvCrypt` had
+always been safe in place, loading the input into locals before writing
+anything back, so the second parameter bought nothing and cost correctness.
+Both now take a single `uBlock`, and the flag no longer breaks the build.
+
+Suspicion first fell on the SAFEARRAY trick these modules use, where
+`m_aBlock`'s descriptor is repointed at the caller's buffer so a block can be
+processed without copying it. That aliases a module-level array onto a
+parameter behind the compiler's back and looks like the more serious
+violation, but removing the duplicate argument alone was enough.
+
+Watch the copies when refactoring this code. Passing one block instead of two
+means the two callers that still need their input afterwards, CBC decrypt and
+CTR, have to copy it first, and writing that copy as `uBlock = uCtx.Nonce`
+cost 16 to 31% on every CTR-derived mode. VB6 compiles a UDT assignment into a
+helper call; four explicit `.Item(n)` assignments give the copy back for
+almost nothing, which is why nothing else in these modules assigns a UDT
+either.
 
 A benchmark can also flatter a broken implementation: Ed25519 verification
 timed at 54 ops/sec while it was bailing out early on the sign-bit bug, against
