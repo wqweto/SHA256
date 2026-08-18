@@ -595,7 +595,7 @@ Public Sub CryptoSha3Update(uCtx As CryptoSha3Context, baBuffer() As Byte, Optio
         Size = UBound(baBuffer) + 1 - Pos
     End If
     With uCtx
-        For lIdx = Pos To Size - 1
+        For lIdx = Pos To Pos + Size - 1
             .Bytes(.Absorbed) = .Bytes(.Absorbed) Xor baBuffer(lIdx)
             If .Absorbed = .Capacity - 1 Then
                 Keccak .State

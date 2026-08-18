@@ -260,7 +260,7 @@ Public Sub CryptoSha3Update(uCtx As CryptoSha3Context, baBuffer() As Byte, Optio
         #Else
             lOffset = PeekByte(uCtx, .Absorbed)
         #End If
-        For lIdx = Pos To Size - 1
+        For lIdx = Pos To Pos + Size - 1
             .Bytes(lOffset) = .Bytes(lOffset) Xor baBuffer(lIdx)
             If .Absorbed = .Capacity - 1 Then
                 Keccak uCtx
