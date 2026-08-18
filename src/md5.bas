@@ -1,4 +1,13 @@
 Attribute VB_Name = "md5"
+'=========================================================================
+'
+'  Pure VB6 Crypto (Untested)
+'  Copyright (c) 2026 wqweto@gmail.com
+'
+'  This project is licensed under the terms of the MIT license
+'  See the LICENSE file in the project root for more information
+'
+'=========================================================================
 '--- md5.bas
 Option Explicit
 DefObj A-Z

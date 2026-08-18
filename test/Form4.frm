@@ -23,6 +23,16 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
+'=========================================================================
+'
+'  Pure VB6 Crypto (Untested)
+'  Copyright (c) 2026 wqweto@gmail.com
+'
+'  This project is licensed under the terms of the MIT license
+'  See the LICENSE file in the project root for more information
+'
+'=========================================================================
+'--- Form4.frm
 Option Explicit
 
 Private Declare Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" (Destination As Any, Source As Any, ByVal Length As Long)
@@ -43,7 +53,7 @@ Private Sub Form_Load()
     pvTestBase64
     pvTestChaCha20
     pvTestPoly1305
-    pvTestChaCha20Poly1305 JsonParseObject(ReadTextFile("C:\Work\Temp\wycheproof\testvectors\chacha20_poly1305_test.json"))
+    pvTestChaCha20Poly1305 JsonParseObject(ReadTextFile(App.Path & "\wycheproof\chacha20_poly1305_test.json"))
 End Sub
 
 Private Sub pvTestSha1()

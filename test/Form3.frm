@@ -15,6 +15,16 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
+'=========================================================================
+'
+'  Pure VB6 Crypto (Untested)
+'  Copyright (c) 2026 wqweto@gmail.com
+'
+'  This project is licensed under the terms of the MIT license
+'  See the LICENSE file in the project root for more information
+'
+'=========================================================================
+'--- Form3.frm
 Option Explicit
 
 Private Sub Form_Load()

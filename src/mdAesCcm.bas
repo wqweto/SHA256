@@ -1,4 +1,13 @@
 Attribute VB_Name = "mdAesCcm"
+'=========================================================================
+'
+'  Pure VB6 Crypto (Untested)
+'  Copyright (c) 2026 wqweto@gmail.com
+'
+'  This project is licensed under the terms of the MIT license
+'  See the LICENSE file in the project root for more information
+'
+'=========================================================================
 '--- mdAesCcm.bas
 Option Explicit
 DefObj A-Z

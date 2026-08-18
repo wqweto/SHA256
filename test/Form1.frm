@@ -23,6 +23,16 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
+'=========================================================================
+'
+'  Pure VB6 Crypto (Untested)
+'  Copyright (c) 2026 wqweto@gmail.com
+'
+'  This project is licensed under the terms of the MIT license
+'  See the LICENSE file in the project root for more information
+'
+'=========================================================================
+'--- Form1.frm
 Option Explicit
 Private Const MODULE_NAME As String = "Form1"
 
@@ -75,23 +85,23 @@ Private Sub Command1_Click()
 End Sub
 
 Private Sub Form_Click()
-    pvTestAesGcm JsonParseObject(ReadTextFile("C:\Work\Temp\wycheproof\testvectors\aes_gcm_test.json"))
-    pvTestAesGcmSiv JsonParseObject(ReadTextFile("C:\Work\Temp\wycheproof\testvectors\aes_gcm_siv_test.json"))
-    pvTestAesCcm JsonParseObject(ReadTextFile("C:\Work\Temp\wycheproof\testvectors\aes_ccm_test.json"))
+    pvTestAesGcm JsonParseObject(ReadTextFile(App.Path & "\wycheproof\aes_gcm_test.json"))
+    pvTestAesGcmSiv JsonParseObject(ReadTextFile(App.Path & "\wycheproof\aes_gcm_siv_test.json"))
+    pvTestAesCcm JsonParseObject(ReadTextFile(App.Path & "\wycheproof\aes_ccm_test.json"))
     Exit Sub
     pvTestScryptKdf
     pvTestSha512
-    pvTestX25519 JsonParseObject(ReadTextFile("C:\Work\Temp\wycheproof\testvectors\x25519_test.json"))
+    pvTestX25519 JsonParseObject(ReadTextFile(App.Path & "\wycheproof\x25519_test.json"))
 
-    pvTestHmacSha2 JsonParseObject(ReadTextFile("C:\Work\Temp\wycheproof\testvectors\hmac_sha512_test.json")), 512
-    pvTestHmacSha2 JsonParseObject(ReadTextFile("C:\Work\Temp\wycheproof\testvectors\hmac_sha384_test.json")), 384
+    pvTestHmacSha2 JsonParseObject(ReadTextFile(App.Path & "\wycheproof\hmac_sha512_test.json")), 512
+    pvTestHmacSha2 JsonParseObject(ReadTextFile(App.Path & "\wycheproof\hmac_sha384_test.json")), 384
 
-    pvTestHmacSha2 JsonParseObject(ReadTextFile("C:\Work\Temp\wycheproof\testvectors\hmac_sha256_test.json")), 256
-    pvTestHmacSha2 JsonParseObject(ReadTextFile("C:\Work\Temp\wycheproof\testvectors\hmac_sha224_test.json")), 224
-    pvTestHmacSha3 JsonParseObject(ReadTextFile("C:\Work\Temp\wycheproof\testvectors\hmac_sha3_224_test.json")), 224
-    pvTestHmacSha3 JsonParseObject(ReadTextFile("C:\Work\Temp\wycheproof\testvectors\hmac_sha3_256_test.json")), 256
-    pvTestHmacSha3 JsonParseObject(ReadTextFile("C:\Work\Temp\wycheproof\testvectors\hmac_sha3_384_test.json")), 384
-    pvTestHmacSha3 JsonParseObject(ReadTextFile("C:\Work\Temp\wycheproof\testvectors\hmac_sha3_512_test.json")), 512
+    pvTestHmacSha2 JsonParseObject(ReadTextFile(App.Path & "\wycheproof\hmac_sha256_test.json")), 256
+    pvTestHmacSha2 JsonParseObject(ReadTextFile(App.Path & "\wycheproof\hmac_sha224_test.json")), 224
+    pvTestHmacSha3 JsonParseObject(ReadTextFile(App.Path & "\wycheproof\hmac_sha3_224_test.json")), 224
+    pvTestHmacSha3 JsonParseObject(ReadTextFile(App.Path & "\wycheproof\hmac_sha3_256_test.json")), 256
+    pvTestHmacSha3 JsonParseObject(ReadTextFile(App.Path & "\wycheproof\hmac_sha3_384_test.json")), 384
+    pvTestHmacSha3 JsonParseObject(ReadTextFile(App.Path & "\wycheproof\hmac_sha3_512_test.json")), 512
 End Sub
 
 Private Sub pvTestX25519(oJson As Object)
@@ -771,8 +781,8 @@ Private Sub Form_Load()
 '    pvTestSha3
 '    pvTestSha512
 '    pvTestCryptoEd25519
-'    pvTestHmacSha2 JsonParseObject(ReadTextFile("C:\Work\Temp\wycheproof\testvectors\hmac_sha512_test.json")), 512
-'    pvTestHmacSha2 JsonParseObject(ReadTextFile("C:\Work\Temp\wycheproof\testvectors\hmac_sha384_test.json")), 384
-'    pvTestHmacSha2 JsonParseObject(ReadTextFile("C:\Work\Temp\wycheproof\testvectors\hmac_sha256_test.json")), 256
+'    pvTestHmacSha2 JsonParseObject(ReadTextFile(App.Path & "\wycheproof\hmac_sha512_test.json")), 512
+'    pvTestHmacSha2 JsonParseObject(ReadTextFile(App.Path & "\wycheproof\hmac_sha384_test.json")), 384
+'    pvTestHmacSha2 JsonParseObject(ReadTextFile(App.Path & "\wycheproof\hmac_sha256_test.json")), 256
 End Sub
 
