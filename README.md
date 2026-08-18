@@ -31,11 +31,14 @@ where the LLVM backend closes most of the gap to a C implementation. See
 | [`md5.bas`](src/md5.bas) | MD5 |
 | [`mdSha1.bas`](src/mdSha1.bas) | SHA-1 |
 | [`mdSha2.bas`](src/mdSha2.bas) | SHA-224/256/384/512 |
-| [`mdSha512.bas`](src/mdSha512.bas), [`mdSha512Sliced.bas`](src/mdSha512Sliced.bas) | SHA-512 |
-| [`mdSha3.bas`](src/mdSha3.bas), [`mdSha3Sliced.bas`](src/mdSha3Sliced.bas) | SHA-3, Keccak, SHAKE128/256 |
+| [`mdSha512.bas`](src/mdSha512.bas) | SHA-512 |
+| [`mdSha512Sliced.bas`](src/mdSha512Sliced.bas) | SHA-512 -- bit-sliced, performance optimized |
+| [`mdSha3.bas`](src/mdSha3.bas) | SHA-3, Keccak, SHAKE128/256 |
+| [`mdSha3Sliced.bas`](src/mdSha3Sliced.bas) | SHA-3, Keccak, SHAKE128/256 -- bit-sliced, performance optimized |
 | [`mdRipeMd160.bas`](src/mdRipeMd160.bas) | RIPEMD-160 |
 | [`mdBlake2s.bas`](src/mdBlake2s.bas), [`mdBlake2b.bas`](src/mdBlake2b.bas), [`mdBlake3.bas`](src/mdBlake3.bas) | BLAKE2s, BLAKE2b, BLAKE3 |
-| [`mdAscon.bas`](src/mdAscon.bas), [`mdAsconSliced.bas`](src/mdAsconSliced.bas) | Ascon-Hash, Ascon-XOF |
+| [`mdAscon.bas`](src/mdAscon.bas) | Ascon-Hash, Ascon-XOF |
+| [`mdAsconSliced.bas`](src/mdAsconSliced.bas) | Ascon-Hash, Ascon-XOF -- bit-sliced, performance optimized |
 
 **MAC and key derivation**
 
@@ -44,6 +47,7 @@ where the LLVM backend closes most of the gap to a C implementation. See
 | [`mdSha1.bas`](src/mdSha1.bas), [`mdSha2.bas`](src/mdSha2.bas), [`mdSha3.bas`](src/mdSha3.bas) | HMAC, PBKDF2, HKDF over the respective hash |
 | [`mdAesEax.bas`](src/mdAesEax.bas) | AES-CMAC |
 | [`mdAesGcm.bas`](src/mdAesGcm.bas) | GHASH, POLYVAL |
+| [`mdChaCha20Poly1305.bas`](src/mdChaCha20Poly1305.bas) | Poly1305 |
 | [`mdArgon2.bas`](src/mdArgon2.bas) | Argon2i, Argon2id |
 | [`mdScryptKdf.bas`](src/mdScryptKdf.bas) | scrypt |
 | [`mdSiphash.bas`](src/mdSiphash.bas), [`mdHalfSiphash.bas`](src/mdHalfSiphash.bas) | SipHash-2-4/1-3, HalfSipHash |
@@ -57,8 +61,9 @@ where the LLVM backend closes most of the gap to a C implementation. See
 | [`mdAesCcm.bas`](src/mdAesCcm.bas) | AES-CCM |
 | [`mdAesEax.bas`](src/mdAesEax.bas) | AES-EAX |
 | [`mdAesOcb.bas`](src/mdAesOcb.bas) | AES-OCB |
-| [`mdChaCha20Poly1305.bas`](src/mdChaCha20Poly1305.bas) | ChaCha20, Poly1305, ChaCha20-Poly1305 |
-| [`mdAscon.bas`](src/mdAscon.bas), [`mdAsconSliced.bas`](src/mdAsconSliced.bas) | Ascon-AEAD |
+| [`mdChaCha20Poly1305.bas`](src/mdChaCha20Poly1305.bas) | ChaCha20, ChaCha20-Poly1305 |
+| [`mdAscon.bas`](src/mdAscon.bas) | Ascon-AEAD |
+| [`mdAsconSliced.bas`](src/mdAsconSliced.bas) | Ascon-AEAD -- bit-sliced, performance optimized |
 | [`mdTea.bas`](src/mdTea.bas) | TEA |
 
 **Key exchange and signatures**
@@ -67,7 +72,7 @@ where the LLVM backend closes most of the gap to a C implementation. See
 | ------ | ---------- |
 | [`mdCurve25519.bas`](src/mdCurve25519.bas) | X25519, Ed25519 -- pure VB6 |
 | [`mdEccX25519.bas`](src/mdEccX25519.bas) | X25519 over Windows CNG |
-| [`mdEcc.bas`](src/mdEcc.bas) | ECDH over CNG for any named curve |
+| [`mdEcc.bas`](src/mdEcc.bas) | ECDH over CNG -- nistP256/384/521, secP256k1, brainpoolP256r1, curve25519, or any named curve |
 | [`mdEccPublicKey.bas`](src/mdEccPublicKey.bas) | Public key recovery, point compression |
 
 **Encoding**
