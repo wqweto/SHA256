@@ -5,3 +5,7 @@
 vb*.tmp
 *.vbw
 **/_del/*
+*.exe
+*.log
+test/benchmark/speed.txt
+test/benchmark/test.txt

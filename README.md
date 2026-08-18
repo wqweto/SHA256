@@ -131,7 +131,7 @@ Use one or the other, not both.
 ```vb
 Debug.Print CryptoHmacSha2Text(256, "key", "message")
 
-baKey = CryptoPbkdf2HmacSha2ByteArray(256, baPass, baSalt, Iterations:=100000, OutSize:=32)
+baKey = CryptoPbkdf2HmacSha2ByteArray(256, baPass, baSalt, OutSize:=32, NumIter:=100000)
 baKey = CryptoHkdfSha2ByteArray(256, baSecret, baSalt, baInfo, OutSize:=32)
 
 '--- password hashing, tune Passes/Memory to your threat model
@@ -316,10 +316,15 @@ Use [`mdCurve25519.bas`](src/mdCurve25519.bas) instead under 64-bit VBA; it is p
 
 ### VB6
 
-Build native code with **Remove Integer Overflow Checks** under Project
-Properties / Compile -- worth a large constant factor on the hash modules. Where
-the IDE allows it the hot loops also carry `[ IntegerOverflowChecks (False) ]`
-attributes, with a runtime fallback for when it does not.
+Leave **Assume No Aliasing** unchecked under Project Properties / Compile /
+Advanced Optimizations. It miscompiles these modules into an exe that faults on
+the first AES-GCM call, see [Known problems](#known-problems).
+
+Every other optimisation is safe and worth having. **Remove Integer Overflow
+Checks** in particular is worth a large constant factor on the hash modules,
+and where the IDE allows it the hot loops also carry
+`[ IntegerOverflowChecks (False) ]` attributes, with a runtime fallback for
+when it does not.
 
 ### Conditional compilation constants
 
@@ -338,8 +343,141 @@ Open [`test/Project1.vbp`](test/Project1.vbp) in the VB6 IDE and run. [`Form4`](
 drives the current test set, [`Form5`](test/Form5.frm) has a button per algorithm, and [`Form1`](test/Form1.frm)
 runs the Wycheproof suites from [`test/wycheproof/`](test/wycheproof/).
 
-Those suites parse JSON through `mdJson.bas`, referenced from a sibling checkout
-outside this repo; nothing else needs it.
+Those suites parse JSON through [`lib/mdJson.bas`](lib/mdJson.bas).
+
+## Benchmarks
+
+[`test/benchmark/Benchmark.vbp`](test/benchmark/Benchmark.vbp) builds `vbcrypto.exe`, a console tool in the shape of
+`openssl speed`. It links with `/SUBSYSTEM:CONSOLE` so output goes to the
+terminal rather than a message box. Build it with [`test/benchmark/make.bat`](test/benchmark/make.bat), which
+drives `VB6.EXE /make` and prints any compile errors:
+
+```
+> cd test\benchmark
+> make.bat
+Compiling Benchmark.vbp ...
+Build OK: ...\vbcrypto.exe
+```
+
+Filters match on substring, so `speed sha` covers every SHA variant and `speed
+aes-128` every AES mode. With no filter everything runs, and `vbcrypto list`
+prints the known names.
+
+### Throughput
+
+Measured on a 12th Gen Intel Core i9-12900K under Windows 11, compiled native
+with full optimisation. Each cell is the better of two runs, since background
+load can only ever slow a measurement down. Treat these as figures for
+comparing algorithms against each other rather than as absolute numbers.
+
+```
+type                     16 bytes     64 bytes    256 bytes     1K bytes     8K bytes    64K bytes
+md5                       27.4M/s      76.5M/s     148.9M/s     198.9M/s     219.5M/s     221.4M/s
+sha1                      16.7M/s      41.8M/s      76.3M/s      94.6M/s     103.0M/s     104.8M/s
+sha224                     8.3M/s      18.7M/s      32.0M/s      38.2M/s      40.5M/s      41.0M/s
+sha256                     8.4M/s      18.7M/s      32.2M/s      38.9M/s      41.4M/s      41.9M/s
+sha384                     1.9M/s       7.7M/s      17.0M/s      28.8M/s      22.0M/s      21.1M/s
+sha512                     1.9M/s       7.6M/s      16.7M/s      28.5M/s      21.7M/s      21.3M/s
+sha3-256                   6.2M/s      24.4M/s      50.3M/s      53.0M/s      56.1M/s      57.5M/s
+sha3-512                   6.1M/s      23.5M/s      26.6M/s      28.7M/s      30.7M/s      31.4M/s
+shake128                   6.2M/s      23.8M/s      49.4M/s      59.3M/s      68.3M/s      71.3M/s
+ripemd160                275.7k/s       1.1M/s       4.1M/s       9.7M/s      13.7M/s      14.8M/s
+blake2s                   13.4M/s      29.9M/s      50.6M/s      61.5M/s      64.4M/s      65.5M/s
+blake2b                  183.0k/s     738.9k/s     974.7k/s       1.3M/s       1.4M/s       1.5M/s
+blake3                    14.6M/s      58.0M/s      75.5M/s      79.9M/s      76.3M/s      76.7M/s
+ascon-hash                 3.1M/s       9.6M/s      21.5M/s      30.5M/s      34.5M/s      34.6M/s
+siphash24                  1.5M/s       2.7M/s       3.4M/s       3.7M/s       3.7M/s       3.7M/s
+halfsiphash24             39.5M/s     118.2M/s     237.9M/s     300.7M/s     186.3M/s     124.0M/s
+hmac-sha256                2.2M/s       7.2M/s      19.1M/s      31.8M/s      39.9M/s      41.3M/s
+cmac-aes128               17.2M/s      53.3M/s     127.6M/s     195.7M/s     233.7M/s     237.2M/s
+ghash                     95.8M/s     285.0M/s     562.3M/s     757.2M/s     831.3M/s     830.7M/s
+poly1305                  31.6M/s      50.5M/s      60.3M/s      62.5M/s      62.9M/s      63.0M/s
+aes-128-cbc               35.7M/s     103.4M/s     209.8M/s     284.0M/s     314.3M/s     311.2M/s
+aes-128-ctr               36.2M/s     105.5M/s     201.7M/s     267.6M/s     290.0M/s     295.6M/s
+aes-128-gcm                8.8M/s      30.8M/s      85.5M/s     155.7M/s     204.2M/s     216.8M/s
+aes-128-ccm                9.0M/s      28.6M/s      68.6M/s     107.0M/s     127.8M/s     130.8M/s
+aes-128-eax                5.8M/s      20.0M/s      54.3M/s      96.0M/s     126.3M/s     130.8M/s
+aes-128-ocb                4.7M/s      17.5M/s      50.2M/s     110.1M/s     180.3M/s     200.6M/s
+aes-128-gcm-siv            3.9M/s      14.4M/s      48.3M/s     110.2M/s     180.6M/s     193.7M/s
+chacha20                  17.5M/s      67.7M/s      87.1M/s      93.3M/s      43.8M/s      37.2M/s
+chacha20-poly1305          4.4M/s      14.2M/s      27.0M/s      35.4M/s      25.9M/s      23.4M/s
+ascon-aead                 5.7M/s      17.2M/s      35.5M/s      49.4M/s      55.5M/s      54.5M/s
+tea                       21.4M/s      53.1M/s      95.1M/s     102.5M/s     106.8M/s     105.4M/s
+```
+
+Public key and password hashing are measured per operation instead:
+
+```
+type                      ops/sec      usec/op
+x25519-keygen                44.6        22401
+x25519-derive                44.7        22353
+ed25519-sign                9.748       102582
+ed25519-verify               54.5        18363
+pbkdf2-sha256               130.0         7692
+hkdf-sha256                 64679           15
+argon2id                    4.651       215025
+scrypt                       24.6        40620
+```
+
+`pbkdf2-sha256` does 1000 iterations per operation, and `argon2id` and `scrypt`
+run with deliberately small parameters, so those three are rates to compare
+against each other rather than settings to copy.
+
+The benchmark project pulls in the bit-sliced modules, which is where the
+tuning work has gone, and at 8K blocks the gap to their plain counterparts is
+wide: sha3-256 1.0M/s to 56.1M/s, sha512 767k/s to 21.7M/s, ascon-hash 405k/s
+to 34.5M/s. Each pair exports the same names, so a project can hold only one of
+the two.
+
+### Test vectors
+
+The same binary verifies the implementations:
+
+```
+> vbcrypto test
+aes_gcm                       256 tests,    256 ok,     0 failed,     0 skipped
+aes_ccm                       510 tests,    510 ok,     0 failed,     0 skipped
+...
+TOTAL                        4375 tests,   4327 ok,    48 failed,     0 skipped
+```
+
+Three kinds of check run under `test`:
+
+- **Wycheproof suites** from [`test/wycheproof/`](test/wycheproof/) -- AEAD modes, HMAC, HKDF,
+  CMAC, X25519 and Ed25519, driven by the JSON vector files
+- **`kat`** -- published known-answer vectors for the raw hashes and for
+  Ed25519 (RFC 8032), which Wycheproof either does not cover or does not
+  isolate into separate steps
+- **`selftest`** -- checks that need no published vectors: a streamed
+  `Init`/`Update`/`Finalize` must equal the one-shot, every cipher must decrypt
+  what it encrypted, and a flipped ciphertext bit must fail authentication
+
+Passing as of this writing: every AEAD, HMAC, HKDF and CMAC suite, x25519
+518/518, and all 16 known-answer tests.
+
+### Known problems
+
+Compiling and running the modules for the first time turned up four things,
+none of them fixed yet:
+
+- **"Assume No Aliasing" breaks the build.** With `NoAliasing=-1` the compiled
+  exe faults inside `CryptoAesGcmInit`. The modules do alias -- `.Counter` is
+  handed to `CryptoAesSetNonce` while living inside the very context passed
+  alongside it -- so the option is not safe here. Every other optimisation is,
+  and is worth keeping: GCM runs at 208M/s optimised against 57M/s
+  unoptimised. Note that [`test/Project1.vbp`](test/Project1.vbp) still carries `NoAliasing=-1`; it
+  has only ever been run in the IDE, never compiled native.
+- **SHA-3 streaming disagrees with the one-shot.** Hashing 333 bytes as
+  77+123+133 through `CryptoSha3Update` does not match `CryptoSha3ByteArray`,
+  which is itself only Init/Update/Finalize. Nine other hashes pass the
+  identical check.
+- **`CryptoEd25519VerifyDetached` ignores `Pos` and `Size`.** It computes
+  `Size` and then builds its buffer from `UBound(baMsg)` regardless, so a slice
+  cannot be verified and an empty message raises. Ed25519 itself is sound --
+  key derivation, signing and verification all match RFC 8032 -- but 44 of 145
+  Wycheproof eddsa cases still fail on edge cases not yet attributed.
+- **AES-EAX** fails 3 of 171 Wycheproof cases, all with an initial counter
+  value of 2^128-1.
 
 ## License
 
