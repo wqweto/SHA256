@@ -541,6 +541,7 @@ End Function
 Public Sub CryptoAesCtrCrypt(uCtx As CryptoAesContext, baBuffer() As Byte, Optional ByVal Pos As Long, Optional ByVal Size As Long = -1, Optional ByVal CounterWords As Long = 2)
     Dim lIdx            As Long
     Dim lJdx            As Long
+    Dim lKdx            As Long
     Dim lFinal          As Long
     Dim uBlock          As AesBlock
     Dim uTemp           As AesBlock
@@ -574,13 +575,17 @@ Public Sub CryptoAesCtrCrypt(uCtx As CryptoAesContext, baBuffer() As Byte, Optio
             End With
         End If
         If CounterWords < 0 Then
-            If pvWrapIncLE(uCtx.Nonce.Item(0)) And CounterWords < -1 Then
-                pvWrapIncLE uCtx.Nonce.Item(1)
-            End If
+            For lKdx = 0 To -CounterWords - 1
+                If Not pvWrapIncLE(uCtx.Nonce.Item(lKdx)) Then
+                    Exit For
+                End If
+            Next
         Else
-            If pvWrapIncBE(uCtx.Nonce.Item(3)) And CounterWords > 1 Then
-                pvWrapIncBE uCtx.Nonce.Item(2)
-            End If
+            For lKdx = 3 To 4 - CounterWords Step -1
+                If Not pvWrapIncBE(uCtx.Nonce.Item(lKdx)) Then
+                    Exit For
+                End If
+            Next
         End If
     Next
 End Sub

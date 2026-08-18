@@ -190,7 +190,7 @@ Public Sub CryptoAesEaxEncrypt(baKey() As Byte, baNonce() As Byte, baAad() As By
     pvMac uCtx, 0, baNonce, baTagNonce
     pvMac uCtx, 1, baAad, baTagAad
     CryptoAesInit uAesCtx, baKey, baTagNonce
-    CryptoAesCtrCrypt uAesCtx, baBuffer
+    CryptoAesCtrCrypt uAesCtx, baBuffer, CounterWords:=4
     pvMac uCtx, 2, baBuffer, baTag
     For lIdx = 0 To LNG_BLOCKSZ - 1
         baTag(lIdx) = baTag(lIdx) Xor baTagNonce(lIdx) Xor baTagAad(lIdx)
@@ -220,7 +220,7 @@ Public Function CryptoAesEaxDecrypt(baKey() As Byte, baNonce() As Byte, baAad() 
         Exit Function
     End If
     CryptoAesInit uAesCtx, baKey, baTagNonce
-    CryptoAesCtrCrypt uAesCtx, baBuffer
+    CryptoAesCtrCrypt uAesCtx, baBuffer, CounterWords:=4
     '--- success
     CryptoAesEaxDecrypt = True
 End Function
