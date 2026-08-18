@@ -47,38 +47,3 @@ Private Sub Form_Load()
     '-> 46b9dd2b0ba88d13233b3feb743eeb243fcd52ea62b81b82b50c27646ed5762fd75dc4ddd8c0f200cb05019d67b592f6fc821c49479ab48640292eacb3b7c4be
 End Sub
 
-Public Function ToHex(baText() As Byte, Optional Delimiter As String) As String
-    Dim aText()         As String
-    Dim lIdx            As Long
-    
-    If LenB(CStr(baText)) <> 0 Then
-        ReDim aText(0 To UBound(baText)) As String
-        For lIdx = 0 To UBound(baText)
-            aText(lIdx) = Right$("0" & Hex$(baText(lIdx)), 2)
-        Next
-        ToHex = LCase$(Join(aText, Delimiter))
-    End If
-End Function
-
-'Public Function FromHex(sText As String) As Byte()
-'    Dim baRetVal()      As Byte
-'    Dim lIdx            As Long
-'
-'    On Error GoTo QH
-'    '--- check for hexdump delimiter
-'    If sText Like "*[!0-9A-Fa-f]*" Then
-'        ReDim baRetVal(0 To Len(sText) \ 3) As Byte
-'        For lIdx = 1 To Len(sText) Step 3
-'            baRetVal(lIdx \ 3) = "&H" & Mid$(sText, lIdx, 2)
-'        Next
-'    ElseIf LenB(sText) <> 0 Then
-'        ReDim baRetVal(0 To Len(sText) \ 2 - 1) As Byte
-'        For lIdx = 1 To Len(sText) Step 2
-'            baRetVal(lIdx \ 2) = "&H" & Mid$(sText, lIdx, 2)
-'        Next
-'    Else
-'        baRetVal = vbNullString
-'    End If
-'    FromHex = baRetVal
-'QH:
-'End Function

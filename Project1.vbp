@@ -40,6 +40,7 @@ Module=mdAesEax; mdAesEax.bas
 Module=mdTea; mdTea.bas
 Module=mdAesOcb; mdAesOcb.bas
 ResFile32="Project1.res"
+Module=mdEccX25519; mdEccX25519.bas
 IconForm="Form1"
 Startup="Form4"
 HelpFile=""

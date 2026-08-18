@@ -33,6 +33,7 @@ Private Sub Command1_Click()
 End Sub
 
 Private Sub Form_Load()
+    pvTestX25518
     pvTestAes
     Exit Sub
     pvTestTea
@@ -523,4 +524,23 @@ Private Sub pvTestTea()
     Debug.Assert ToBase64Array(baBuffer) = "OSUHRBnmvO/YkLclBUSvuA=="
     CryptoTeaDecrypt baKey, baBuffer
     Debug.Print StrConv(baBuffer, vbUnicode)
+End Sub
+
+Private Sub pvTestX25518()
+    Dim baPriv()        As Byte
+    Dim baPub()         As Byte
+    Dim baSecret()      As Byte
+    Dim baPub2()        As Byte
+    Dim baSecret2()     As Byte
+    
+    EccX25519PrivateKey baPriv, FromHex("58199102391d2991ec49acb0c1e7c8b38f7f899a98b2f3d81857b489280d5b56")
+    EccX25519PublicKey baPub, baPriv
+    Debug.Assert ToHex(baPub) = "2bb8794956526cc927e42e5b9707e7f465da2f4e0cb4b3f62755c82e431c4404"
+    EccX25519SharedSecret baSecret, baPriv, baPub
+    Debug.Assert ToHex(baSecret) = "c2479a3239c4b806b5caf1432874d270f754904b4d40ced0052a7c50470b7d2e"
+    
+    CryptoX25519PublicKey baPub2, baPriv
+    Debug.Assert ToHex(baPub2) = "2bb8794956526cc927e42e5b9707e7f465da2f4e0cb4b3f62755c82e431c4404"
+    CryptoX25519SharedSecret baSecret2, baPriv, baPub
+    Debug.Assert ToHex(baSecret2) = "c2479a3239c4b806b5caf1432874d270f754904b4d40ced0052a7c50470b7d2e"
 End Sub

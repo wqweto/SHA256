@@ -112,8 +112,6 @@ Public Sub CryptoMd5Update(uCtx As CryptoMd5Context, baInput() As Byte, Optional
     Dim lS              As Long
     Dim lTemp           As Long
     Dim lBufIdx         As Long
-    Dim lTemp2          As Long
-    Dim lTemp3          As Long
     
     With uCtx
         If Size < 0 Then
@@ -199,7 +197,7 @@ Public Sub CryptoMd5Update(uCtx As CryptoMd5Context, baInput() As Byte, Optional
 End Sub
 
 Public Sub CryptoMd5Finalize(uCtx As CryptoMd5Context, baOutput() As Byte)
-    Dim p(0 To LNG_BLOCKSZ + 9) As Byte
+    Dim P(0 To LNG_BLOCKSZ + 9) As Byte
     Dim lSize           As Long
     
     With uCtx
@@ -207,10 +205,10 @@ Public Sub CryptoMd5Finalize(uCtx As CryptoMd5Context, baOutput() As Byte)
         If lSize < 9 Then
             lSize = lSize + LNG_BLOCKSZ
         End If
-        p(0) = &H80
+        P(0) = &H80
         .NInput = .NInput / 10000@ * 8
-        Call CopyMemory(p(lSize - 8), .NInput, 8)
-        CryptoMd5Update uCtx, p, Size:=lSize
+        Call CopyMemory(P(lSize - 8), .NInput, 8)
+        CryptoMd5Update uCtx, P, Size:=lSize
         Debug.Assert .NPartial = 0
         ReDim baOutput(0 To 15) As Byte
         Call CopyMemory(baOutput(0), .H0, UBound(baOutput) + 1)

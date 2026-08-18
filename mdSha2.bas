@@ -94,11 +94,6 @@ Private Function SmallSigma1(ByVal lX As Long) As Long
     SmallSigma1 = RotR32(lX, 17) Xor RotR32(lX, 19) Xor RShift32(lX, 10)
 End Function
 
-Private Function pvSetTrue(bValue As Boolean) As Boolean
-    bValue = True
-    pvSetTrue = True
-End Function
-
 Private Function pvGetOverflowIgnored(Optional bValue As Boolean = True) As Boolean
     Dim bInIde      As Boolean
     

@@ -37,7 +37,7 @@ Public Type CryptoAesOcbContext
     K1                  As ArrayLong4
     K2                  As ArrayLong4
     L()                 As ArrayLong4
-    lCount              As Long
+    NumLookups          As Long
     Offset              As ArrayLong4
     Checksum            As ArrayLong4
     Sum                 As ArrayLong4
@@ -81,26 +81,29 @@ Private Sub pvDouble(uInput As ArrayLong4, uOutput As ArrayLong4)
     Call CopyMemory(uOutput, baOutput(0), LNG_BLOCKSZ)
 End Sub
 
-Private Function pvLookupL(uCtx As CryptoAesOcbContext, ByVal lBlock As Long, uLookup As ArrayLong4) As Long
-    Dim lNtz            As Long
-    
+Private Function pvNtz(ByVal lBlock As Long) As Long
     '--- find first not-zero bit
     Do While (lBlock And 1) = 0
-        lNtz = lNtz + 1
+        pvNtz = pvNtz + 1
         lBlock = lBlock \ 2
     Loop
+End Function
+
+Private Sub pvLookupL(uCtx As CryptoAesOcbContext, ByVal lBlock As Long, uOutput As ArrayLong4)
+    Dim lNtz            As Long
+    
+    lNtz = pvNtz(lBlock)
     With uCtx
         If lNtz > UBound(.L) Then
             ReDim Preserve .L(0 To lNtz + 3) As ArrayLong4
         End If
-        Do While .lCount < lNtz
-            pvDouble .L(.lCount), .L(.lCount + 1)
-            .lCount = .lCount + 1
+        Do While .NumLookups < lNtz
+            pvDouble .L(.NumLookups), .L(.NumLookups + 1)
+            .NumLookups = .NumLookups + 1
         Loop
-        uLookup = .L(lNtz)
-        pvLookupL = lNtz
+        uOutput = .L(lNtz)
     End With
-End Function
+End Sub
 
 Public Function pvProcess(uCtx As CryptoAesOcbContext, ByVal bDecrypt As Boolean, baBuffer() As Byte, ByVal lPos As Long, ByVal lSize As Long, ByVal lTagSize As Long, Tag As Variant) As Boolean
     Const FADF_AUTO     As Long = 1
@@ -108,11 +111,11 @@ Public Function pvProcess(uCtx As CryptoAesOcbContext, ByVal bDecrypt As Boolean
     Dim uPeekBlock      As SAFEARRAY1D
     Dim lIdx            As Long
     Dim lJdx            As Long
-    Dim uLookup         As ArrayLong4
     Dim uTemp           As ArrayLong4
     Dim baCalcTag()     As Byte
     Dim uPad            As ArrayLong4
     Dim uChecksumPad    As ArrayLong4
+    Dim lNtz            As Long
     
     If lSize < 0 Then
         lSize = UBound(baBuffer) + 1 - lPos
@@ -129,13 +132,25 @@ Public Function pvProcess(uCtx As CryptoAesOcbContext, ByVal bDecrypt As Boolean
             End With
             Call CopyMemory(ByVal ArrPtr(aBlock), VarPtr(uPeekBlock), 4)
         End If
+        lIdx = .NumBlocks + lSize \ LNG_BLOCKSZ
+        Do While lIdx > 0
+            lIdx = lIdx \ 2
+            lNtz = lNtz + 1
+        Loop
+        If lNtz > UBound(.L) Then
+            ReDim Preserve .L(0 To lNtz + 3) As ArrayLong4
+        End If
+        Do While .NumLookups < lNtz
+            pvDouble .L(.NumLookups), .L(.NumLookups + 1)
+            .NumLookups = .NumLookups + 1
+        Loop
         For lJdx = 0 To lSize \ LNG_BLOCKSZ - 1
             .NumBlocks = .NumBlocks + 1
-            pvLookupL uCtx, .NumBlocks, uLookup
-            .Offset.Item(0) = .Offset.Item(0) Xor uLookup.Item(0)
-            .Offset.Item(1) = .Offset.Item(1) Xor uLookup.Item(1)
-            .Offset.Item(2) = .Offset.Item(2) Xor uLookup.Item(2)
-            .Offset.Item(3) = .Offset.Item(3) Xor uLookup.Item(3)
+            lNtz = pvNtz(.NumBlocks)
+            .Offset.Item(0) = .Offset.Item(0) Xor .L(lNtz).Item(0)
+            .Offset.Item(1) = .Offset.Item(1) Xor .L(lNtz).Item(1)
+            .Offset.Item(2) = .Offset.Item(2) Xor .L(lNtz).Item(2)
+            .Offset.Item(3) = .Offset.Item(3) Xor .L(lNtz).Item(3)
             If Not bDecrypt Then
                 .Checksum.Item(0) = .Checksum.Item(0) Xor aBlock(lJdx).Item(0)
                 .Checksum.Item(1) = .Checksum.Item(1) Xor aBlock(lJdx).Item(1)
@@ -239,10 +254,10 @@ Public Sub CryptoAesOcbInit(uCtx As CryptoAesOcbContext, baKey() As Byte, baNonc
         .K1 = uEmpty
         CryptoAesProcessPtr .AesCtx, VarPtr(.K1)
         pvDouble .K1, .K2
-        .lCount = 0
-        ReDim .L(0 To .lCount) As ArrayLong4
+        .NumLookups = 4
+        ReDim .L(0 To .NumLookups) As ArrayLong4
         pvDouble .K2, .L(0)
-        For lIdx = 1 To .lCount
+        For lIdx = 1 To .NumLookups
             pvDouble .L(lIdx - 1), .L(lIdx)
         Next
         .Offset = uEmpty
