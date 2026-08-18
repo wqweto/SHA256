@@ -18,10 +18,15 @@ DefObj A-Z
 #If HasPtrSafe Then
 Private Declare PtrSafe Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" (Destination As Any, Source As Any, ByVal Length As LongPtr)
 Private Declare PtrSafe Function RtlGenRandom Lib "advapi32" Alias "SystemFunction036" (RandomBuffer As Any, ByVal RandomBufferLength As Long) As Long
+Private Declare PtrSafe Function ArrPtr Lib "vbe7" Alias "VarPtr" (Ptr() As Any) As LongPtr
 #Else
-Private Declare Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" (Destination As Any, Source As Any, ByVal Length As Long)
+Private Enum LongPtr
+    [_]
+End Enum
+Private Declare Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" (Destination As Any, Source As Any, ByVal Length As LongPtr)
 Private Declare Function VariantChangeType Lib "oleaut32" (Dest As Variant, Src As Variant, ByVal wFlags As Integer, ByVal vt As VbVarType) As Long
 Private Declare Function RtlGenRandom Lib "advapi32" Alias "SystemFunction036" (RandomBuffer As Any, ByVal RandomBufferLength As Long) As Long
+Private Declare Function ArrPtr Lib "msvbvm60" Alias "VarPtr" (Ptr() As Any) As LongPtr
 #End If
 
 Private Const LNG_ELEMSZ            As Long = 16
@@ -75,6 +80,15 @@ End Type
         Call VariantChangeType(CLngLng, vValue, 0, VT_I8)
     End Function
 #End If
+
+Private Function pvArraySize(baData() As Byte) As Long
+    Dim lPtr            As LongPtr
+
+    Call CopyMemory(lPtr, ByVal ArrPtr(baData), LenB(lPtr))
+    If lPtr <> 0 Then
+        pvArraySize = UBound(baData) + 1
+    End If
+End Function
 
 Private Sub pvInit(Optional ByVal Extended As Boolean)
     Dim lIdx            As Long
@@ -247,6 +261,7 @@ Private Sub pvGF25519Unpack(uRetVal As GF25519Element, baInput() As Byte)
             uRetVal.Item(lIdx) = m_lZero + aTemp(lIdx)
         End If
     Next
+    uRetVal.Item(LNG_ELEMSZ - 1) = uRetVal.Item(LNG_ELEMSZ - 1) And &H7FFF&
 End Sub
 
 Private Sub pvGF25519Pack(baRetVal() As Byte, uA As GF25519Element)
@@ -571,6 +586,17 @@ Public Sub pvEdwardsPublicKey(baRetVal() As Byte, ByVal lOutPos As Long, baPriv(
     pvEdwardsPack baRetVal, lOutPos, uP
 End Sub
 
+Private Function pvEdwardsIsReducedScalar(baData() As Byte, ByVal lPos As Long) As Boolean
+    Dim lIdx            As Long
+
+    For lIdx = LNG_KEYSZ - 1 To 0 Step -1
+        If baData(lPos + lIdx) <> m_aL.Item(lIdx) Then
+            pvEdwardsIsReducedScalar = (baData(lPos + lIdx) < m_aL.Item(lIdx))
+            Exit Function
+        End If
+    Next
+End Function
+
 Public Sub CryptoEd25519PrivateKey(baRetVal() As Byte, Optional Seed As Variant)
     If Not IsMissing(Seed) Then
         baRetVal = Seed
@@ -602,7 +628,7 @@ Public Sub CryptoEd25519Sign(baRetVal() As Byte, baPriv() As Byte, baMsg() As By
     pvEdwardsHash baDelta, baPriv
     pvGF25519Clamp baDelta
     If Size < 0 Then
-        Size = UBound(baMsg) + 1 - Pos
+        Size = pvArraySize(baMsg) - Pos
     End If
     ReDim baRetVal(0 To LNG_HASHSZ + Size - 1) As Byte
     Call CopyMemory(baRetVal(LNG_HALFHASHSZ), baDelta(LNG_HALFHASHSZ), LNG_HALFHASHSZ)
@@ -640,6 +666,9 @@ Public Function CryptoEd25519Open(baRetVal() As Byte, baPub() As Byte, baSigMsg(
         Size = UBound(baSigMsg) + 1 - Pos
     End If
     If Size < LNG_HASHSZ Then
+        GoTo QH
+    End If
+    If Not pvEdwardsIsReducedScalar(baSigMsg, Pos + LNG_HALFHASHSZ) Then
         GoTo QH
     End If
     If Not pvEdwardsUnpackNeg(uQ, baPub) Then
@@ -684,12 +713,15 @@ Public Function CryptoEd25519VerifyDetached(baSig() As Byte, baPub() As Byte, ba
         GoTo QH
     End If
     If Size < 0 Then
-        Size = UBound(baMsg) + 1 - Pos
+        Size = pvArraySize(baMsg) - Pos
     End If
-    ReDim baSigMsg(0 To LNG_HASHSZ + UBound(baMsg)) As Byte
+    If Size < 0 Then
+        GoTo QH
+    End If
+    ReDim baSigMsg(0 To LNG_HASHSZ + Size - 1) As Byte
     Call CopyMemory(baSigMsg(0), baSig(0), LNG_HASHSZ)
-    If UBound(baMsg) >= 0 Then
-        Call CopyMemory(baSigMsg(LNG_HASHSZ), baMsg(0), UBound(baMsg) + 1)
+    If Size > 0 Then
+        Call CopyMemory(baSigMsg(LNG_HASHSZ), baMsg(Pos), Size)
     End If
     CryptoEd25519VerifyDetached = CryptoEd25519Open(baTemp, baPub, baSigMsg)
 QH:
