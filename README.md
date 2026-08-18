@@ -318,7 +318,7 @@ Use [`mdCurve25519.bas`](src/mdCurve25519.bas) instead under 64-bit VBA; it is p
 
 Leave **Assume No Aliasing** unchecked under Project Properties / Compile /
 Advanced Optimizations. It miscompiles these modules into an exe that faults on
-the first AES-GCM call, see [Known problems](#known-problems).
+the first AES-GCM call, see [What the tool turned up](#what-the-tool-turned-up).
 
 Every other optimisation is safe and worth having. **Remove Integer Overflow
 Checks** in particular is worth a large constant factor on the hash modules,
@@ -366,57 +366,58 @@ prints the known names.
 ### Throughput
 
 Measured on a 12th Gen Intel Core i9-12900K under Windows 11, compiled native
-with full optimisation. Each cell is the better of two runs, since background
-load can only ever slow a measurement down. Treat these as figures for
-comparing algorithms against each other rather than as absolute numbers.
+with full optimisation, on an otherwise idle machine. Repeat runs varied by a
+few percent, and by rather more when anything else was competing for the CPU,
+so treat these as figures for comparing algorithms against each other rather
+than as absolute numbers.
 
 ```
 type                     16 bytes     64 bytes    256 bytes     1K bytes     8K bytes    64K bytes
-md5                       27.4M/s      76.5M/s     148.9M/s     198.9M/s     219.5M/s     221.4M/s
-sha1                      16.7M/s      41.8M/s      76.3M/s      94.6M/s     103.0M/s     104.8M/s
-sha224                     8.3M/s      18.7M/s      32.0M/s      38.2M/s      40.5M/s      41.0M/s
-sha256                     8.4M/s      18.7M/s      32.2M/s      38.9M/s      41.4M/s      41.9M/s
-sha384                     1.9M/s       7.7M/s      17.0M/s      28.8M/s      22.0M/s      21.1M/s
-sha512                     1.9M/s       7.6M/s      16.7M/s      28.5M/s      21.7M/s      21.3M/s
-sha3-256                   6.2M/s      24.4M/s      50.3M/s      53.0M/s      56.1M/s      57.5M/s
-sha3-512                   6.1M/s      23.5M/s      26.6M/s      28.7M/s      30.7M/s      31.4M/s
-shake128                   6.2M/s      23.8M/s      49.4M/s      59.3M/s      68.3M/s      71.3M/s
-ripemd160                275.7k/s       1.1M/s       4.1M/s       9.7M/s      13.7M/s      14.8M/s
-blake2s                   13.4M/s      29.9M/s      50.6M/s      61.5M/s      64.4M/s      65.5M/s
-blake2b                  183.0k/s     738.9k/s     974.7k/s       1.3M/s       1.4M/s       1.5M/s
-blake3                    14.6M/s      58.0M/s      75.5M/s      79.9M/s      76.3M/s      76.7M/s
-ascon-hash                 3.1M/s       9.6M/s      21.5M/s      30.5M/s      34.5M/s      34.6M/s
-siphash24                  1.5M/s       2.7M/s       3.4M/s       3.7M/s       3.7M/s       3.7M/s
-halfsiphash24             39.5M/s     118.2M/s     237.9M/s     300.7M/s     186.3M/s     124.0M/s
-hmac-sha256                2.2M/s       7.2M/s      19.1M/s      31.8M/s      39.9M/s      41.3M/s
-cmac-aes128               17.2M/s      53.3M/s     127.6M/s     195.7M/s     233.7M/s     237.2M/s
-ghash                     95.8M/s     285.0M/s     562.3M/s     757.2M/s     831.3M/s     830.7M/s
-poly1305                  31.6M/s      50.5M/s      60.3M/s      62.5M/s      62.9M/s      63.0M/s
-aes-128-cbc               35.7M/s     103.4M/s     209.8M/s     284.0M/s     314.3M/s     311.2M/s
-aes-128-ctr               36.2M/s     105.5M/s     201.7M/s     267.6M/s     290.0M/s     295.6M/s
-aes-128-gcm                8.8M/s      30.8M/s      85.5M/s     155.7M/s     204.2M/s     216.8M/s
-aes-128-ccm                9.0M/s      28.6M/s      68.6M/s     107.0M/s     127.8M/s     130.8M/s
-aes-128-eax                5.8M/s      20.0M/s      54.3M/s      96.0M/s     126.3M/s     130.8M/s
-aes-128-ocb                4.7M/s      17.5M/s      50.2M/s     110.1M/s     180.3M/s     200.6M/s
-aes-128-gcm-siv            3.9M/s      14.4M/s      48.3M/s     110.2M/s     180.6M/s     193.7M/s
-chacha20                  17.5M/s      67.7M/s      87.1M/s      93.3M/s      43.8M/s      37.2M/s
-chacha20-poly1305          4.4M/s      14.2M/s      27.0M/s      35.4M/s      25.9M/s      23.4M/s
-ascon-aead                 5.7M/s      17.2M/s      35.5M/s      49.4M/s      55.5M/s      54.5M/s
-tea                       21.4M/s      53.1M/s      95.1M/s     102.5M/s     106.8M/s     105.4M/s
+md5                       27.2M/s      76.5M/s     153.7M/s     198.3M/s     224.0M/s     226.3M/s
+sha1                      17.1M/s      42.3M/s      76.4M/s      97.4M/s     104.6M/s     103.9M/s
+sha224                     7.6M/s      17.6M/s      30.2M/s      36.7M/s      38.4M/s      38.7M/s
+sha256                     7.7M/s      17.9M/s      29.9M/s      36.1M/s      38.9M/s      38.6M/s
+sha384                     2.0M/s       8.1M/s      17.8M/s      30.9M/s      24.2M/s      23.2M/s
+sha512                     2.0M/s       8.0M/s      17.7M/s      31.0M/s      24.1M/s      23.4M/s
+sha3-256                   6.3M/s      24.9M/s      51.6M/s      53.7M/s      57.3M/s      58.2M/s
+sha3-512                   6.2M/s      24.3M/s      27.1M/s      29.6M/s      31.4M/s      32.3M/s
+shake128                   6.3M/s      24.0M/s      51.0M/s      60.8M/s      70.4M/s      70.9M/s
+ripemd160                283.1k/s       1.1M/s       4.1M/s       9.8M/s      14.4M/s      15.6M/s
+blake2s                   13.8M/s      30.3M/s      51.4M/s      62.0M/s      65.5M/s      66.6M/s
+blake2b                  184.2k/s     738.7k/s     985.0k/s       1.3M/s       1.5M/s       1.5M/s
+blake3                    16.2M/s      65.0M/s      83.8M/s      91.5M/s      88.1M/s      87.9M/s
+ascon-hash                 3.2M/s      10.1M/s      21.8M/s      31.0M/s      35.3M/s      36.0M/s
+siphash24                  1.5M/s       2.8M/s       3.6M/s       3.8M/s       3.8M/s       3.9M/s
+halfsiphash24             40.6M/s     119.9M/s     237.4M/s     307.2M/s     190.3M/s     125.4M/s
+hmac-sha256                2.2M/s       7.1M/s      18.7M/s      31.6M/s      39.3M/s      39.0M/s
+cmac-aes128               17.8M/s      54.6M/s     131.1M/s     202.6M/s     239.8M/s     246.1M/s
+ghash                     95.9M/s     286.3M/s     568.8M/s     765.4M/s     850.4M/s     865.3M/s
+poly1305                  33.0M/s      53.1M/s      62.8M/s      65.7M/s      66.8M/s      66.6M/s
+aes-128-cbc               38.0M/s     109.6M/s     217.3M/s     290.5M/s     323.6M/s     324.5M/s
+aes-128-ctr               38.0M/s     109.0M/s     209.5M/s     274.9M/s     302.9M/s     309.8M/s
+aes-128-gcm                9.1M/s      32.1M/s      89.2M/s     161.2M/s     214.9M/s     225.4M/s
+aes-128-ccm                9.5M/s      30.3M/s      72.2M/s     111.5M/s     132.8M/s     136.5M/s
+aes-128-eax                6.0M/s      20.7M/s      56.6M/s     100.7M/s     131.7M/s     137.4M/s
+aes-128-ocb                4.8M/s      18.0M/s      52.6M/s     113.1M/s     186.2M/s     209.2M/s
+aes-128-gcm-siv            3.9M/s      14.7M/s      49.5M/s     114.4M/s     187.6M/s     202.4M/s
+chacha20                  18.3M/s      69.9M/s      92.2M/s     100.8M/s      47.1M/s      40.3M/s
+chacha20-poly1305          4.4M/s      14.6M/s      28.1M/s      36.8M/s      27.3M/s      25.1M/s
+ascon-aead                 6.0M/s      18.3M/s      37.7M/s      51.6M/s      57.6M/s      58.0M/s
+tea                       22.5M/s      55.4M/s     100.5M/s     110.3M/s     113.0M/s     107.7M/s
 ```
 
 Public key and password hashing are measured per operation instead:
 
 ```
 type                      ops/sec      usec/op
-x25519-keygen                44.6        22401
-x25519-derive                44.7        22353
-ed25519-sign                9.748       102582
-ed25519-verify               54.5        18363
-pbkdf2-sha256               130.0         7692
-hkdf-sha256                 64679           15
-argon2id                    4.651       215025
-scrypt                       24.6        40620
+x25519-keygen                45.7        21866
+x25519-derive                45.3        22052
+ed25519-sign                8.089       123629
+ed25519-verify              8.022       124659
+pbkdf2-sha256               130.5         7661
+hkdf-sha256                 56201           18
+argon2id                    4.597       217553
+scrypt                       23.4        42725
 ```
 
 `pbkdf2-sha256` does 1000 iterations per operation, and `argon2id` and `scrypt`
@@ -425,8 +426,8 @@ against each other rather than settings to copy.
 
 The benchmark project pulls in the bit-sliced modules, which is where the
 tuning work has gone, and at 8K blocks the gap to their plain counterparts is
-wide: sha3-256 1.0M/s to 56.1M/s, sha512 767k/s to 21.7M/s, ascon-hash 405k/s
-to 34.5M/s. Each pair exports the same names, so a project can hold only one of
+wide: sha3-256 1.0M/s to 57.3M/s, sha512 767k/s to 24.1M/s, ascon-hash 405k/s
+to 35.3M/s. Each pair exports the same names, so a project can hold only one of
 the two.
 
 ### Test vectors
@@ -438,7 +439,7 @@ The same binary verifies the implementations:
 aes_gcm                       256 tests,    256 ok,     0 failed,     0 skipped
 aes_ccm                       510 tests,    510 ok,     0 failed,     0 skipped
 ...
-TOTAL                        4375 tests,   4327 ok,    48 failed,     0 skipped
+TOTAL                        4375 tests,   4375 ok,     0 failed,     0 skipped
 ```
 
 Three kinds of check run under `test`:
@@ -452,32 +453,43 @@ Three kinds of check run under `test`:
   `Init`/`Update`/`Finalize` must equal the one-shot, every cipher must decrypt
   what it encrypted, and a flipped ciphertext bit must fail authentication
 
-Passing as of this writing: every AEAD, HMAC, HKDF and CMAC suite, x25519
-518/518, and all 16 known-answer tests.
+All 4375 currently pass.
 
-### Known problems
+### What the tool turned up
 
-Compiling and running the modules for the first time turned up four things,
-none of them fixed yet:
+Compiling and running these modules for the first time found five bugs, all
+since fixed. They are recorded here because each one says something about where
+this code is weakest.
 
-- **"Assume No Aliasing" breaks the build.** With `NoAliasing=-1` the compiled
-  exe faults inside `CryptoAesGcmInit`. The modules do alias -- `.Counter` is
-  handed to `CryptoAesSetNonce` while living inside the very context passed
-  alongside it -- so the option is not safe here. Every other optimisation is,
-  and is worth keeping: GCM runs at 208M/s optimised against 57M/s
-  unoptimised. Note that [`test/Project1.vbp`](test/Project1.vbp) still carries `NoAliasing=-1`; it
-  has only ever been run in the IDE, never compiled native.
-- **SHA-3 streaming disagrees with the one-shot.** Hashing 333 bytes as
-  77+123+133 through `CryptoSha3Update` does not match `CryptoSha3ByteArray`,
-  which is itself only Init/Update/Finalize. Nine other hashes pass the
-  identical check.
-- **`CryptoEd25519VerifyDetached` ignores `Pos` and `Size`.** It computes
-  `Size` and then builds its buffer from `UBound(baMsg)` regardless, so a slice
-  cannot be verified and an empty message raises. Ed25519 itself is sound --
-  key derivation, signing and verification all match RFC 8032 -- but 44 of 145
-  Wycheproof eddsa cases still fail on edge cases not yet attributed.
-- **AES-EAX** fails 3 of 171 Wycheproof cases, all with an initial counter
-  value of 2^128-1.
+- **SHA-3 ignored `Pos`.** `CryptoSha3Update` looped `For lIdx = Pos To Size - 1`
+  rather than `Pos To Pos + Size - 1`, so every streamed chunk after the first
+  hashed the wrong range. It is correct exactly when `Pos` is zero, which is the
+  only way the one-shot wrapper calls it, so nothing noticed. Both
+  [`mdSha3.bas`](src/mdSha3.bas) and [`mdSha3Sliced.bas`](src/mdSha3Sliced.bas) carried it.
+- **Ed25519 rejected half of all valid signatures.** `pvGF25519Unpack` never
+  masked bit 255, which carries the x sign rather than part of y, so any public
+  key with its top bit set failed to decompress. Exactly the 44 of 145
+  Wycheproof cases whose key had that bit set.
+- **Ed25519 accepted malleable signatures.** Nothing checked that S is reduced
+  mod L, so S and S+L verified alike. RFC 8032 5.1.7 requires the check;
+  `pvEdwardsIsReducedScalar` now does it before any point arithmetic.
+- **`CryptoEd25519VerifyDetached` ignored `Pos` and `Size`.** It computed `Size`
+  and then built its buffer from `UBound(baMsg)` regardless, so a slice could
+  not be verified and an empty message raised.
+- **AES-EAX counted to 64 bits.** CTR mode propagated carry across at most two
+  words, so a counter of 2^128-1 did not wrap. EAX counts over the whole block,
+  and the carry now runs as far as the caller asks.
+
+One build setting matters as much as any of them: **"Assume No Aliasing"
+miscompiles this code**. With it on, the compiled exe faults inside
+`CryptoAesGcmInit` -- the modules do alias, `.Counter` is handed to
+`CryptoAesSetNonce` while living inside the very context passed alongside it.
+Every other optimisation is safe and worth having.
+
+A benchmark can also flatter a broken implementation: Ed25519 verification
+timed at 54 ops/sec while it was bailing out early on the sign-bit bug, against
+8 ops/sec once it did the real work. The `speed` runner now checks that
+Ed25519 actually verifies before timing it.
 
 ## License
 

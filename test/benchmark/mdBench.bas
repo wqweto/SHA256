@@ -443,6 +443,11 @@ Private Sub pvRunOps(ByVal eOp As UcsOpEnum, ByVal lBatch As Long)
         CryptoEd25519PrivateKey baPriv, Seed:=m_baKey32
         CryptoEd25519PublicKey baPub, baPriv
         CryptoEd25519SignDetached baSig, baPriv, m_baKey32
+        '--- a failing verify returns early and would be timed as a fast
+        '--- success, so make sure the workload is the real one
+        If Not CryptoEd25519VerifyDetached(baSig, baPub, m_baKey32) Then
+            Err.Raise vbObjectError, , "Ed25519 self check failed"
+        End If
     End Select
     For lIter = 1 To lBatch
         Select Case eOp
