@@ -222,6 +222,10 @@ Public Function pvProcess(uCtx As CryptoAesOcbContext, ByVal bDecrypt As Boolean
     '--- success
     pvProcess = True
 QH:
+    #If TWINBASIC Then
+        uPeekBlock.pvData = 0
+        uPeekBlock.cElements = 0
+    #End If
 End Function
 
 Private Sub pvFinalize(uCtx As CryptoAesOcbContext, ByVal lTagSize As Long, baTag() As Byte)

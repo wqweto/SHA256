@@ -104,6 +104,10 @@ Private Sub pvMac(uCtx As CryptoAesContext, baInput() As Byte, ByVal lPos As Lon
             CryptoAesProcess uCtx, baTag
         Loop
     End If
+    #If TWINBASIC Then
+        uPeekBlock.pvData = 0
+        uPeekBlock.cElements = 0
+    #End If
 End Sub
 
 Private Sub pvComputeTag(uCtx As CryptoAesContext, baNonce() As Byte, baAad() As Byte, baInput() As Byte, ByVal lLengthSize As Long, baTag() As Byte, ByVal lTagSize As Long)

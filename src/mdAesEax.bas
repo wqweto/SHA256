@@ -138,6 +138,10 @@ Public Sub CryptoCmacUpdate(uCtx As CryptoCmacContext, baInput() As Byte, Option
             .NPosition = .NPosition + 1
         Next
     End With
+    #If TWINBASIC Then
+        uPeekBlock.pvData = 0
+        uPeekBlock.cElements = 0
+    #End If
 End Sub
 
 Public Sub CryptoCmacFinalize(uCtx As CryptoCmacContext, baTag() As Byte, Optional ByVal TagSize As Long = LNG_BLOCKSZ)
