@@ -36,6 +36,7 @@ Private Declare PtrSafe Function LocalFree Lib "kernel32" (ByVal hMem As LongPtr
 Private Declare PtrSafe Function CommandLineToArgv Lib "shell32" Alias "CommandLineToArgvW" (ByVal lpCmdLine As LongPtr, pNumArgs As Long) As LongPtr
 Private Declare PtrSafe Function SysReAllocString Lib "oleaut32" (ByVal pBSTR As LongPtr, Optional ByVal pszStrPtr As LongPtr) As Long
 Private Declare PtrSafe Function MultiByteToWideChar Lib "kernel32" (ByVal CodePage As Long, ByVal dwFlags As Long, lpMultiByteStr As Any, ByVal cchMultiByte As Long, ByVal lpWideCharStr As LongPtr, ByVal cchWideChar As Long) As Long
+Private Declare PtrSafe Function WideCharToMultiByte Lib "kernel32" (ByVal CodePage As Long, ByVal dwFlags As Long, ByVal lpWideCharStr As LongPtr, ByVal cchWideChar As Long, lpMultiByteStr As Any, ByVal cchMultiByte As Long, ByVal lpDefaultChar As Long, ByVal lpUsedDefaultChar As Long) As Long
 Private Declare PtrSafe Function QueryPerformanceCounter Lib "kernel32" (lpPerformanceCount As Currency) As Long
 Private Declare PtrSafe Function QueryPerformanceFrequency Lib "kernel32" (lpFrequency As Currency) As Long
 #Else
@@ -50,6 +51,7 @@ Private Declare Function LocalFree Lib "kernel32" (ByVal hMem As LongPtr) As Lon
 Private Declare Function CommandLineToArgv Lib "shell32" Alias "CommandLineToArgvW" (ByVal lpCmdLine As LongPtr, pNumArgs As Long) As LongPtr
 Private Declare Function SysReAllocString Lib "oleaut32" (ByVal pBSTR As LongPtr, Optional ByVal pszStrPtr As LongPtr) As Long
 Private Declare Function MultiByteToWideChar Lib "kernel32" (ByVal CodePage As Long, ByVal dwFlags As Long, lpMultiByteStr As Any, ByVal cchMultiByte As Long, ByVal lpWideCharStr As LongPtr, ByVal cchWideChar As Long) As Long
+Private Declare Function WideCharToMultiByte Lib "kernel32" (ByVal CodePage As Long, ByVal dwFlags As Long, ByVal lpWideCharStr As LongPtr, ByVal cchWideChar As Long, lpMultiByteStr As Any, ByVal cchMultiByte As Long, ByVal lpDefaultChar As Long, ByVal lpUsedDefaultChar As Long) As Long
 Private Declare Function QueryPerformanceCounter Lib "kernel32" (lpPerformanceCount As Currency) As Long
 Private Declare Function QueryPerformanceFrequency Lib "kernel32" (lpFrequency As Currency) As Long
 #End If
@@ -272,6 +274,21 @@ Public Property Get TimerEx() As Double
     Call QueryPerformanceCounter(cValue)
     TimerEx = cValue / cFreq
 End Property
+
+Public Function ToUtf8Array(sText As String) As Byte()
+    Const CP_UTF8       As Long = 65001
+    Dim baRetVal()      As Byte
+    Dim lSize           As Long
+
+    ReDim baRetVal(0 To 4 * Len(sText)) As Byte
+    lSize = WideCharToMultiByte(CP_UTF8, 0, StrPtr(sText), Len(sText), baRetVal(0), UBound(baRetVal) + 1, 0, 0)
+    If lSize > 0 Then
+        ReDim Preserve baRetVal(0 To lSize - 1) As Byte
+    Else
+        baRetVal = vbNullString
+    End If
+    ToUtf8Array = baRetVal
+End Function
 
 Public Function ToHex(baData() As Byte) As String
     Dim lIdx            As Long

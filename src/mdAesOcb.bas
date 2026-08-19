@@ -114,7 +114,7 @@ Private Sub pvLookupL(uCtx As CryptoAesOcbContext, ByVal lBlock As Long, uOutput
     End With
 End Sub
 
-Public Function pvProcess(uCtx As CryptoAesOcbContext, ByVal bDecrypt As Boolean, baBuffer() As Byte, ByVal lPos As Long, ByVal lSize As Long, ByVal lTagSize As Long, Tag As Variant) As Boolean
+Private Function pvProcess(uCtx As CryptoAesOcbContext, ByVal bDecrypt As Boolean, baBuffer() As Byte, ByVal lPos As Long, ByVal lSize As Long, ByVal lTagSize As Long, Tag As Variant) As Boolean
     Const FADF_AUTO     As Long = 1
     Dim aBlock()        As ArrayLong4
     Dim uPeekBlock      As SAFEARRAY1D

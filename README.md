@@ -259,13 +259,18 @@ baData = FromBase64Array("aGVsbG8=")
 
 ## Dependencies between modules
 
-Most modules stand alone. Two exceptions:
+| module | also needs | why |
+| ------ | ---------- | --- |
+| [`mdAesGcm.bas`](src/mdAesGcm.bas), [`mdAesCcm.bas`](src/mdAesCcm.bas), [`mdAesEax.bas`](src/mdAesEax.bas), [`mdAesOcb.bas`](src/mdAesOcb.bas) | [`mdAES.bas`](src/mdAES.bas) | the block cipher itself |
+| [`mdArgon2.bas`](src/mdArgon2.bas) | [`mdBlake2b.bas`](src/mdBlake2b.bas) | Argon2's compression function |
+| [`mdScryptKdf.bas`](src/mdScryptKdf.bas) | [`mdSha2.bas`](src/mdSha2.bas) | PBKDF2-HMAC-SHA256 |
+| [`mdCurve25519.bas`](src/mdCurve25519.bas) | [`mdSha512.bas`](src/mdSha512.bas) | Ed25519 hashes with SHA-512 |
+| [`mdSha2.bas`](src/mdSha2.bas) | [`mdSha512.bas`](src/mdSha512.bas) | only for SHA-384/512, under `CRYPT_HAS_SHA512` |
 
-- The `*Text` wrappers call `ToHex`, which lives in [`test/Module1.bas`](test/Module1.bas). Copy
-  that function along if you use them, or call the `*ByteArray` variants and
-  format the result yourself.
-- `ToUtf8Array` is defined in [`src/md5.bas`](src/md5.bas) and reused by the other hash modules
-  for their `*Text` wrappers.
+Either module of a sliced pair satisfies these -- [`mdSha512Sliced.bas`](src/mdSha512Sliced.bas) exports
+the same names as [`mdSha512.bas`](src/mdSha512.bas) -- but only one of the two can be in a
+project at a time, and the same goes for [`mdSha3.bas`](src/mdSha3.bas) and [`mdAscon.bas`](src/mdAscon.bas) against
+their sliced counterparts.
 
 ## Portability and performance
 
@@ -275,23 +280,11 @@ compile time. Nothing to configure -- the modules detect their host.
 ### twinBASIC
 
 VB6 has no 32-bit shift or rotate operators and traps on integer overflow, so
-the VB6 path emulates both with helper functions and `Long` arithmetic that
-dodges wrapping. Under twinBASIC, 21 of the 29 modules compile the same rounds
-down to native `>>`, `<<` and wrapping adds:
+it has to emulate both. twinBASIC has them natively, and 21 of the 29 modules
+switch to that path automatically.
 
-```vb
-#If HasOperators Then
-    lSigma1 = (lX >> 17 Or lX << 15) Xor (lX >> 19 Or lX << 13) Xor (lX >> 10)
-#Else
-    lSigma1 = RotR32(lX, 17) Xor RotR32(lX, 19) Xor RShift32(lX, 10)
-#End If
-```
-
-That path had never been compiled until the benchmark forced it, and the
-results are worth reading carefully before assuming twinBASIC is simply
-faster. Measured 64-bit build against VB6 at 64 KB blocks, the split is sharp
-and falls almost exactly along one line -- whether the algorithm's natural word
-size is 64 bits.
+Which way that cuts depends almost entirely on the algorithm's natural word
+size. Measured 64-bit build against VB6 at 64 KB blocks.
 
 Faster under twinBASIC, all of them 64-bit designs that VB6 has to synthesise
 out of `Long` pairs:
@@ -313,43 +306,19 @@ Slower under twinBASIC:
 | `aes-128-cbc` / `-ctr` | 5-6x | unexplained |
 | `sha3-256` | 4.9x | unexplained |
 
-A 47x win on SipHash is what the operator path is for. The GHASH family is a
-different story and nothing to do with code generation: `mdAesGcm.bas` carries
-a base64 blob of x86 machine code that it allocates as executable memory and
-calls for the GF(2^128) multiply, using the CPU's PCLMULQDQ instruction. That
-thunk exists only on the 32-bit path -- under `HasPtrSafe` the allocator is an
-empty stub -- so a 64-bit build falls back to multiplying in software, and
-AES-GCM and AES-GCM-SIV inherit the loss because both are dominated by it.
+The GHASH family is not a compiler difference. GHASH multiplies in GF(2^128)
+using the CPU's PCLMULQDQ instruction, and that code path exists only in
+32-bit builds, so any 64-bit build falls back to multiplying in software and
+AES-GCM and AES-GCM-SIV inherit the loss. The same applies to 64-bit VBA.
 
-The remaining gaps have no explanation yet. AES-CBC, AES-CTR and SHA-3 use no
-thunk and no 64-bit arithmetic, so a 5x difference on them is unaccounted for,
-and the twinBASIC build's optimisation settings have not been pinned down
-either. Treat that column as provisional rather than as twinBASIC's ceiling.
-
-The same build also fails 11 of the 4375 checks that VB6 passes, all in AES-CCM
-and AES-EAX on messages of 64 bytes or more, and the 64-bit executable exits
-with `STATUS_HEAP_CORRUPTION`. Both point at the same place: `mdAesCcm.bas` and
-`mdAesEax.bas` take a four-block fast path that repoints a local array's
-`SAFEARRAY` descriptor at a stack buffer through `ArrPtr`, declared against
-`vbe7` or `msvbvm60`. Those are VB6 and VBA runtime imports, and the trick does
-not survive being compiled by something else. Nothing below 64 bytes takes that
-branch, which is why only the long-message vectors fail.
+The AES and SHA-3 gaps have no such explanation, and the twinBASIC build's
+optimisation settings are not pinned down. Treat that column as provisional.
 
 ### x64 VBA
 
-The 26 pure-VB modules carry `PtrSafe` declares behind `#If HasPtrSafe`, derived
-from `VBA7`, and use `LongPtr` for every pointer-width value. They load and run
-unmodified in 64-bit Excel, Word and Access.
-
-```vb
-#If HasPtrSafe Then
-Private Declare PtrSafe Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" ( _
-            Destination As Any, Source As Any, ByVal Length As LongPtr)
-#Else
-Private Declare Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" ( _
-            Destination As Any, Source As Any, ByVal Length As Long)
-#End If
-```
+The 26 pure-VB modules are `PtrSafe` throughout and load unmodified in 64-bit
+Excel, Word and Access. Note that AES-GCM and AES-GCM-SIV lose their
+PCLMULQDQ path in any 64-bit host, as above.
 
 The three CNG wrappers -- [`mdEcc.bas`](src/mdEcc.bas), [`mdEccX25519.bas`](src/mdEccX25519.bas) and
 [`mdEccPublicKey.bas`](src/mdEccPublicKey.bas) -- declare `bcrypt` handles as `Long` and are 32-bit only.
@@ -359,15 +328,11 @@ Use [`mdCurve25519.bas`](src/mdCurve25519.bas) instead under 64-bit VBA; it is p
 
 Every optimisation under Project Properties / Compile is safe to turn on.
 **Remove Integer Overflow Checks** in particular is worth a large constant
-factor on the hash modules, and where the IDE allows it the hot loops also
-carry `[ IntegerOverflowChecks (False) ]` attributes, with a runtime fallback
-for when it does not.
+factor on the hash modules.
 
-**Assume No Aliasing** used to miscompile the AES modules and is now harmless,
-though it earns nothing either -- measured with and without on identical
-sources, every AES mode landed within 3%, which is inside the run to run
-spread. The projects here leave it off. See
-[What the tool turned up](#what-the-tool-turned-up) for what it used to break.
+**Assume No Aliasing** earns nothing here -- measured with and without on
+identical sources, every AES mode landed within 3%, inside the run to run
+spread -- so the projects leave it off.
 
 ### Conditional compilation constants
 
@@ -498,59 +463,6 @@ Three kinds of check run under `test`:
   what it encrypted, and a flipped ciphertext bit must fail authentication
 
 All 4375 currently pass.
-
-### What the tool turned up
-
-Compiling and running these modules for the first time found five bugs, all
-since fixed. They are recorded here because each one says something about where
-this code is weakest.
-
-- **SHA-3 ignored `Pos`.** `CryptoSha3Update` looped `For lIdx = Pos To Size - 1`
-  rather than `Pos To Pos + Size - 1`, so every streamed chunk after the first
-  hashed the wrong range. It is correct exactly when `Pos` is zero, which is the
-  only way the one-shot wrapper calls it, so nothing noticed. Both
-  [`mdSha3.bas`](src/mdSha3.bas) and [`mdSha3Sliced.bas`](src/mdSha3Sliced.bas) carried it.
-- **Ed25519 rejected half of all valid signatures.** `pvGF25519Unpack` never
-  masked bit 255, which carries the x sign rather than part of y, so any public
-  key with its top bit set failed to decompress. Exactly the 44 of 145
-  Wycheproof cases whose key had that bit set.
-- **Ed25519 accepted malleable signatures.** Nothing checked that S is reduced
-  mod L, so S and S+L verified alike. RFC 8032 5.1.7 requires the check;
-  `pvEdwardsIsReducedScalar` now does it before any point arithmetic.
-- **`CryptoEd25519VerifyDetached` ignored `Pos` and `Size`.** It computed `Size`
-  and then built its buffer from `UBound(baMsg)` regardless, so a slice could
-  not be verified and an empty message raised.
-- **AES-EAX counted to 64 bits.** CTR mode propagated carry across at most two
-  words, so a counter of 2^128-1 did not wrap. EAX counts over the whole block,
-  and the carry now runs as far as the caller asks.
-
-A sixth bug was a build setting away from being invisible. With **Assume No
-Aliasing** on, the compiled exe faulted inside `CryptoAesGcmInit`. That flag
-promises the compiler no storage is reachable under two names, and `pvProcess`
-was called as `pvProcess uCtx, Decrypt, m_aBlock(0), m_aBlock(0)` -- the same
-block bound to both its input and its output `ByRef` parameter. `pvCrypt` had
-always been safe in place, loading the input into locals before writing
-anything back, so the second parameter bought nothing and cost correctness.
-Both now take a single `uBlock`, and the flag no longer breaks the build.
-
-Suspicion first fell on the SAFEARRAY trick these modules use, where
-`m_aBlock`'s descriptor is repointed at the caller's buffer so a block can be
-processed without copying it. That aliases a module-level array onto a
-parameter behind the compiler's back and looks like the more serious
-violation, but removing the duplicate argument alone was enough.
-
-Watch the copies when refactoring this code. Passing one block instead of two
-means the two callers that still need their input afterwards, CBC decrypt and
-CTR, have to copy it first, and writing that copy as `uBlock = uCtx.Nonce`
-cost 16 to 31% on every CTR-derived mode. VB6 compiles a UDT assignment into a
-helper call; four explicit `.Item(n)` assignments give the copy back for
-almost nothing, which is why nothing else in these modules assigns a UDT
-either.
-
-A benchmark can also flatter a broken implementation: Ed25519 verification
-timed at 54 ops/sec while it was bailing out early on the sign-bit bug, against
-8 ops/sec once it did the real work. The `speed` runner now checks that
-Ed25519 actually verifies before timing it.
 
 ## License
 
