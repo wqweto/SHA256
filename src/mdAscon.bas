@@ -264,7 +264,7 @@ Private Sub pvPermute(uCtx As CryptoAsconContext, ByVal lRounds As Long)
     Dim lIdx            As Long
 
     With uCtx
-        pvAssign VarPtr(.Bytes(0)), S0, S1, S2, S3, S4
+        pvAssign ByVal VarPtr(.Bytes(0)), S0, S1, S2, S3, S4
         For lIdx = LNG_ROUNDS - lRounds To LNG_ROUNDS - 1
             '--- round constant
             S2 = S2 Xor (&HF0 - lIdx * 15)
@@ -294,7 +294,7 @@ Private Sub pvPermute(uCtx As CryptoAsconContext, ByVal lRounds As Long)
             lTemp = S4 Xor (S4 >> 34 Or S4 << 30)
             S4 = S4 Xor (lTemp >> 7 Or lTemp << 57)
         Next
-        pvUnassign VarPtr(.Bytes(0)), S0, S1, S2, S3, S4
+        pvUnassign ByVal VarPtr(.Bytes(0)), S0, S1, S2, S3, S4
     End With
 End Sub
 #End If

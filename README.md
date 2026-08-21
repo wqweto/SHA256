@@ -124,8 +124,10 @@ baOutput = CryptoShakeByteArray(128, 64, baInput)   '--- SHAKE128, 64 bytes out
 ```
 
 [`mdSha3Sliced.bas`](src/mdSha3Sliced.bas), [`mdSha512Sliced.bas`](src/mdSha512Sliced.bas) and [`mdAsconSliced.bas`](src/mdAsconSliced.bas) are bit-sliced
-rewrites of their plain counterparts -- same public API, faster, much larger.
-Use one or the other, not both.
+rewrites of their plain counterparts, with the same public API and a much
+larger body. They are worth tens of times the throughput under VB6 and can be
+slower under twinBASIC, so see [Choosing a module](#choosing-a-module). Use one
+or the other, not both.
 
 ## MAC and key derivation
 
@@ -287,24 +289,30 @@ Which way that cuts depends almost entirely on the algorithm's natural word
 size. Measured 64-bit build against VB6 at 64 KB blocks.
 
 Faster under twinBASIC, all of them 64-bit designs that VB6 has to synthesise
-out of `Long` pairs:
+out of `Long` pairs. Each side uses whichever module is better for it, so
+SHA-512 compares VB6 bit-sliced against twinBASIC plain:
 
 | | speedup |
 | --- | ---: |
-| `siphash24` | 47.8x |
-| `argon2id` | 41.0x |
-| `blake2b` | 31.3x |
-| `ed25519-sign` / `x25519` | 4-5x |
+| `siphash24` | 48x |
+| `argon2id` | 41x |
+| `blake2b` | 32x |
+| `ed25519-sign` / `-verify` | 5.6x |
+| `x25519-keygen` / `-derive` | 4.0x |
+| `sha512` | 2.1x |
 
-Slower under twinBASIC:
+Slower under twinBASIC, all of them table-driven 32-bit code:
 
-| | slowdown | why |
-| --- | ---: | --- |
-| `ghash` | 36.5x | no PCLMULQDQ thunk |
-| `aes-128-gcm` | 14.7x | GHASH bound |
-| `aes-128-gcm-siv` | 13.6x | POLYVAL bound |
-| `aes-128-cbc` / `-ctr` | 5-6x | unexplained |
-| `sha3-256` | 4.9x | unexplained |
+| | slowdown |
+| --- | ---: |
+| `ghash` | 38x |
+| `aes-128-gcm` | 14x |
+| `aes-128-gcm-siv` | 14x |
+| `aes-128-cbc` | 5.5x |
+| `sha3-256` | 4.9x |
+| `poly1305` | 4.8x |
+| `cmac-aes128` | 4.5x |
+| `md5` | 2.6x |
 
 The GHASH family is not a compiler difference. GHASH multiplies in GF(2^128)
 using the CPU's PCLMULQDQ instruction, and that code path exists only in
@@ -373,71 +381,110 @@ prints the known names.
 
 ### Throughput
 
-Measured on a 12th Gen Intel Core i9-12900K under Windows 11, on an otherwise
-idle machine, at three block sizes: 16 bytes for per-call overhead, 1 KB for a
-realistic message and 64 KB for asymptotic throughput. Repeat runs varied by a
-few percent, and by far more when anything else competed for the CPU, so treat
-these as figures for comparing algorithms against each other rather than as
-absolute numbers.
+Measured on a 12th Gen Intel Core i9-12900K under Windows 11, at 1 MB blocks,
+in MB/s. Four builds of the same sources: VB6 compiled native, VB6 compiled to
+p-code, and twinBASIC targeting 32 and 64 bit.
 
-VB6 is compiled native with full optimisation. TB64 is a 64-bit twinBASIC
-build -- read the caveats under [twinBASIC](#twinbasic) before
-drawing conclusions from that column.
+Take the absolute numbers with salt. This CPU throttles by roughly half under
+sustained load, so every row is the best of three consecutive short runs of
+that algorithm alone rather than one pass over the whole table. That keeps the
+rows comparable with each other, but a cooler machine will beat these figures.
 
-| algorithm | VB6 16 B | VB6 1 KB | VB6 64 KB | TB64 16 B | TB64 1 KB | TB64 64 KB |
-| --------- | --------:| --------:| ---------:| ---------:| ---------:| ----------:|
-| `md5` | 26.7M/s | 193.2M/s | 217.6M/s | 15.8M/s | 75.5M/s | 81.3M/s |
-| `sha1` | 15.8M/s | 89.1M/s | 97.5M/s | 9.0M/s | 42.8M/s | 45.7M/s |
-| `sha224` | 8.3M/s | 39.6M/s | 42.7M/s | 7.2M/s | 33.9M/s | 35.8M/s |
-| `sha256` | 8.6M/s | 39.6M/s | 41.0M/s | 7.3M/s | 33.6M/s | 35.9M/s |
-| `sha384` | 1.9M/s | 27.4M/s | 20.7M/s | 540.1k/s | 4.4M/s | 4.9M/s |
-| `sha512` | 1.9M/s | 27.6M/s | 20.6M/s | 536.2k/s | 4.6M/s | 5.1M/s |
-| `sha3-256` | 6.0M/s | 50.8M/s | 55.7M/s | 1.5M/s | 11.4M/s | 11.4M/s |
-| `sha3-512` | 5.9M/s | 28.0M/s | 30.8M/s | 1.4M/s | 6.3M/s | 6.4M/s |
-| `shake128` | 6.0M/s | 57.9M/s | 68.2M/s | 1.4M/s | 12.6M/s | 13.9M/s |
-| `ripemd160` | 269.6k/s | 9.5M/s | 14.6M/s | 289.0k/s | 12.1M/s | 34.8M/s |
-| `blake2s` | 12.1M/s | 54.5M/s | 57.6M/s | 6.5M/s | 26.6M/s | 28.2M/s |
-| `blake2b` | 181.2k/s | 1.3M/s | 1.5M/s | 5.2M/s | 41.1M/s | 46.9M/s |
-| `blake3` | 15.3M/s | 86.1M/s | 82.8M/s | 9.8M/s | 48.3M/s | 46.0M/s |
-| `ascon-hash` | 3.0M/s | 28.5M/s | 33.8M/s | 1.9M/s | 11.8M/s | 12.2M/s |
-| `siphash24` | 1.5M/s | 3.6M/s | 3.7M/s | 45.3M/s | 169.7M/s | 177.0M/s |
-| `halfsiphash24` | 38.2M/s | 289.2M/s | 117.3M/s | 35.5M/s | 109.7M/s | 113.9M/s |
-| `hmac-sha256` | 2.1M/s | 31.1M/s | 40.2M/s | 1.8M/s | 27.3M/s | 34.3M/s |
-| `cmac-aes128` | 17.1M/s | 199.9M/s | 246.8M/s | 6.4M/s | 47.3M/s | 54.2M/s |
-| `ghash` | 90.3M/s | 717.1M/s | 806.7M/s | 11.2M/s | 21.3M/s | 22.1M/s |
-| `poly1305` | 30.3M/s | 58.8M/s | 63.9M/s | 7.9M/s | 10.8M/s | 10.7M/s |
-| `aes-128-cbc` | 38.1M/s | 282.1M/s | 320.1M/s | 11.5M/s | 51.3M/s | 57.2M/s |
-| `aes-128-ctr` | 37.8M/s | 261.7M/s | 298.0M/s | 11.3M/s | 46.5M/s | 50.0M/s |
-| `aes-128-gcm` | 8.9M/s | 158.2M/s | 217.9M/s | 2.1M/s | 12.6M/s | 14.8M/s |
-| `aes-128-ccm` | 8.9M/s | 111.3M/s | 134.0M/s | 3.8M/s | 23.0M/s | 26.7M/s |
-| `aes-128-eax` | 5.8M/s | 99.5M/s | 135.5M/s | 2.1M/s | 21.1M/s | 25.2M/s |
-| `aes-128-ocb` | 4.6M/s | 113.3M/s | 210.8M/s | 2.8M/s | 33.6M/s | 42.3M/s |
-| `aes-128-gcm-siv` | 3.8M/s | 111.5M/s | 194.8M/s | 1.4M/s | 12.2M/s | 14.3M/s |
-| `chacha20` | 17.2M/s | 90.8M/s | 37.1M/s | 5.4M/s | 21.4M/s | 21.7M/s |
-| `chacha20-poly1305` | 4.1M/s | 34.0M/s | 24.0M/s | 1.1M/s | 6.7M/s | 7.1M/s |
-| `ascon-aead` | 5.9M/s | 50.4M/s | 58.3M/s | 2.7M/s | 15.6M/s | 17.0M/s |
-| `tea` | 21.4M/s | 104.0M/s | 104.1M/s | 16.4M/s | 69.8M/s | 69.2M/s |
+| algorithm | VB6 MB/s | P-code MB/s | TB32 MB/s | TB64 MB/s |
+| --------- | --------: | --------: | --------: | --------: |
+| `md5` | 221.1 | 4.40 | 66.9 | 85.0 |
+| `sha1` | 104.9 | 2.30 | 48.6 | 46.1 |
+| `sha224` | 37.0 | 0.94 | 38.6 | 36.1 |
+| `sha256` | 38.2 | 0.94 | 38.3 | 36.0 |
+| `hmac-sha256` | 37.5 | 0.95 | 38.3 | 35.1 |
+| `sha384` | 0.79 | 0.43 | 27.4 | 44.5 |
+| `sha384` sliced | 21.6 | 1.00 | 5.40 | 4.90 |
+| `sha512` | 0.78 | 0.44 | 27.1 | 44.7 |
+| `sha512` sliced | 21.5 | 1.00 | 5.50 | 4.90 |
+| `sha3-256` | 1.10 | 0.62 | 9.90 | 11.6 |
+| `sha3-256` sliced | 57.8 | 2.00 | 14.2 | 11.8 |
+| `sha3-512` | 0.57 | 0.33 | 5.40 | 6.30 |
+| `sha3-512` sliced | 31.6 | 1.10 | 7.80 | 6.50 |
+| `shake128` | 1.30 | 0.76 | 11.8 | 13.9 |
+| `shake128` sliced | 70.6 | 2.40 | 17.0 | 14.2 |
+| `ripemd160` | 14.7 | 1.50 | 30.5 | 35.5 |
+| `blake2s` | 64.3 | 1.80 | 31.4 | 28.4 |
+| `blake2b` | 1.50 | 0.86 | 35.8 | 48.6 |
+| `blake3` | 84.3 | 2.40 | 48.7 | 47.8 |
+| `ascon-hash` | 0.43 | 0.27 | 9.70 | 16.2 |
+| `ascon-hash` sliced | 34.7 | 1.50 | 19.8 | 12.5 |
+| `siphash24` | 3.70 | 2.30 | 116.1 | 179.4 |
+| `halfsiphash24` | 120.8 | 11.7 | 128.5 | 115.1 |
+| `cmac-aes128` | 251.7 | 9.60 | 56.3 | 56.2 |
+| `ghash` | 825.6 | 56.8 | 204.7 | 21.7 |
+| `poly1305` | 51.4 | 2.80 | 9.20 | 10.8 |
+| `chacha20-poly1305` | 21.1 | 1.60 | 6.30 | 7.20 |
+| `chacha20-poly1305-dec` | 16.7 | 0.55 | 3.10 | 3.60 |
+| `aes-128-cbc` | 319.1 | 9.80 | 58.5 | 57.5 |
+| `aes-128-cbc-dec` | 306.5 | 5.70 | 49.2 | 49.2 |
+| `aes-128-ctr` | 301.9 | 9.20 | 50.3 | 50.6 |
+| `aes-128-gcm` | 220.1 | 7.90 | 40.2 | 15.2 |
+| `aes-128-gcm-siv` | 202.0 | 7.80 | 37.3 | 14.8 |
+| `aes-128-gcm-dec` | 213.9 | 4.70 | 34.9 | 10.9 |
+| `aes-128-gcm-siv-dec` | 196.2 | 3.80 | 31.7 | 10.5 |
+| `aes-128-ccm` | 139.2 | 4.70 | 26.6 | 26.6 |
+| `aes-128-ccm-dec` | 135.4 | 1.60 | 21.5 | 21.4 |
+| `aes-128-eax` | 138.5 | 4.70 | 26.5 | 26.5 |
+| `aes-128-eax-dec` | 135.8 | 1.50 | 21.7 | 21.6 |
+| `aes-128-ocb` | 216.6 | 8.50 | 43.6 | 44.3 |
+| `aes-128-ocb-dec` | 211.8 | 5.00 | 38.3 | 38.0 |
+| `chacha20` | 36.1 | 3.90 | 19.8 | 21.4 |
+| `ascon-aead` | 0.83 | 0.50 | 13.5 | 21.1 |
+| `ascon-aead` sliced | 56.5 | 2.40 | 23.8 | 17.0 |
+| `ascon-aead-dec` | 0.28 | 0.17 | 8.90 | 16.0 |
+| `ascon-aead-dec` sliced | 51.2 | 0.33 | 20.2 | 12.9 |
+| `tea` | 104.0 | 2.40 | 81.7 | 65.4 |
+| `tea-dec` | 98.2 | 0.38 | 77.5 | 58.6 |
+| `aes-256-cbc` | 241.8 | 7.30 | 46.4 | 44.8 |
+| `aes-256-ctr` | 233.5 | 7.00 | 41.5 | 40.1 |
+| `aes-256-gcm` | 181.0 | 6.20 | 34.8 | 14.0 |
+| `aes-256-gcm-dec` | 177.1 | 3.10 | 29.6 | 9.30 |
+
+Rows marked `sliced` use the bit-sliced module in place of the plain one; the
+`-dec` rows decrypt rather than encrypt. Only eight algorithms have a sliced
+variant, and only those get a second row -- everything else is the same source
+in both projects. AES-CTR and ChaCha20 have no `-dec` row because they encrypt
+and decrypt through the same call.
 
 Public key and password hashing are measured per operation instead. The KDF
 rows run deliberately small parameters, so they are rates to compare against
 each other rather than settings to copy.
 
-| operation | VB6 ops/sec | TB64 ops/sec |
-| --------- | -----------:| ------------:|
-| `x25519-keygen` | 43.6 | 168.7 |
-| `x25519-derive` | 43.1 | 171.7 |
-| `ed25519-sign` | 7.654 | 41.3 |
-| `ed25519-verify` | 7.679 | 41.0 |
-| `pbkdf2-sha256` | 129.8 | 111.7 |
-| `hkdf-sha256` | 63796 | 55605 |
-| `argon2id` | 4.619 | 189.5 |
-| `scrypt` | 23.9 | 27.0 |
+| operation | VB6 ops/sec | P-code ops/sec | TB32 ops/sec | TB64 ops/sec |
+| --------- | --------: | --------: | --------: | --------: |
+| `pbkdf2-sha256` | 128.9 | 3.684 | 109.9 | 88.3 |
+| `hkdf-sha256` | 62477 | 1809 | 54316 | 23343 |
+| `x25519-keygen` | 44.4 | 23.5 | 84.2 | 171.8 |
+| `x25519-derive` | 44.2 | 23.5 | 83.3 | 176.7 |
+| `ed25519-sign` | 7.772 | 2.969 | 17.9 | 43.6 |
+| `ed25519-verify` | 7.832 | 2.971 | 18.1 | 43.6 |
+| `argon2id` | 4.669 | 2.597 | 100.4 | 192.1 |
+| `scrypt` | 24.5 | 1.713 | 26.9 | 26.7 |
 
-The benchmark project pulls in the bit-sliced modules, which is where the
-tuning work has gone, and under VB6 at 8K blocks the gap to their plain
-counterparts is wide: sha3-256 1.0M/s to 53.8M/s, sha512 767k/s to 21.2M/s,
-ascon-hash 405k/s to 32.8M/s. Each pair exports the same names, so a project
-can hold only one of the two.
+### Choosing a module
+
+The bit-sliced modules exist to work around what VB6 cannot do, and that makes
+them a compiler-specific choice rather than a straight upgrade.
+
+| | VB6 plain | VB6 sliced | TB64 plain | TB64 sliced |
+| --- | ---: | ---: | ---: | ---: |
+| `sha512` | 0.78 | **21.5** | **44.7** | 4.9 |
+| `sha3-256` | 1.10 | **57.8** | 11.6 | **11.8** |
+| `ascon-hash` | 0.43 | **34.7** | **16.2** | 12.5 |
+
+Under VB6 the sliced modules are worth 28x on SHA-512, 53x on SHA-3 and 81x on
+Ascon, which is the whole reason they exist. Under twinBASIC the picture
+inverts for the 64-bit designs: SHA-512 runs nine times *slower* bit-sliced,
+because twinBASIC has native 64-bit arithmetic and slicing is an elaborate way
+of avoiding arithmetic VB6 lacks. SHA-3 and Ascon are 64-bit designs too but
+sit closer to break-even.
+
+So pick per target: sliced for VB6, plain for twinBASIC and for 64-bit VBA.
 
 ### Test vectors
 

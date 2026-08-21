@@ -114,6 +114,7 @@ Private Sub pvPrintUsage()
     ConPrintLine
     ConPrintLine "Usage:"
     ConPrintLine "  vbcrypto speed [algo ...]   measure throughput, openssl speed style"
+    ConPrintLine "                 [-size N]    use these block sizes, e.g. 1M or 16,1K,1M"
     ConPrintLine "  vbcrypto test  [suite ...]  run test vectors and self checks"
     ConPrintLine "                 [-v]         list every failing case, not just the first"
     ConPrintLine "                 [-id N]      run only test case N and dump its inputs"
@@ -126,6 +127,7 @@ Private Sub pvPrintUsage()
     ConPrintLine "Examples:"
     ConPrintLine "  vbcrypto speed sha256 blake3"
     ConPrintLine "  vbcrypto speed aes-128"
+    ConPrintLine "  vbcrypto speed -size 1M"
     ConPrintLine "  vbcrypto test aes_gcm"
     ConPrintLine "  vbcrypto test kat"
     ConPrintLine "  vbcrypto test aes_ccm -v"

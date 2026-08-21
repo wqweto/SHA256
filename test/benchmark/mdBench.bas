@@ -38,7 +38,7 @@ Private Const STR_SIZES             As String = "16|64|256|1024|8192|65536"
 Private Const DBL_TARGET            As Double = 1#
 Private Const DBL_PROBE             As Double = 0.05
 '--- names in UcsAlgoEnum order, throughput measured in bytes/sec
-Private Const STR_BYTES             As String = "md5|sha1|sha224|sha256|sha384|sha512|sha3-256|sha3-512|shake128|ripemd160|blake2s|blake2b|blake3|ascon-hash|siphash24|halfsiphash24|hmac-sha256|cmac-aes128|ghash|poly1305|aes-128-cbc|aes-128-ctr|aes-128-gcm|aes-128-ccm|aes-128-eax|aes-128-ocb|aes-128-gcm-siv|chacha20|chacha20-poly1305|ascon-aead|tea"
+Private Const STR_BYTES             As String = "md5|sha1|sha224|sha256|sha384|sha512|sha3-256|sha3-512|shake128|ripemd160|blake2s|blake2b|blake3|ascon-hash|siphash24|halfsiphash24|hmac-sha256|cmac-aes128|ghash|poly1305|aes-128-cbc|aes-128-ctr|aes-128-gcm|aes-128-ccm|aes-128-eax|aes-128-ocb|aes-128-gcm-siv|chacha20|chacha20-poly1305|ascon-aead|tea|aes-256-cbc|aes-256-ctr|aes-256-gcm|aes-128-cbc-dec|aes-128-gcm-dec|aes-128-ccm-dec|aes-128-eax-dec|aes-128-ocb-dec|aes-128-gcm-siv-dec|chacha20-poly1305-dec|ascon-aead-dec|tea-dec|aes-256-gcm-dec"
 '--- names in UcsOpEnum order, latency measured in operations/sec
 Private Const STR_OPS               As String = "x25519-keygen|x25519-derive|ed25519-sign|ed25519-verify|pbkdf2-sha256|hkdf-sha256|argon2id|scrypt"
 
@@ -76,6 +76,20 @@ Private Enum UcsAlgoEnum
     ucsAlgoChaCha20Poly1305
     ucsAlgoAsconAead
     ucsAlgoTea
+    ucsAlgoAes256Cbc
+    ucsAlgoAes256Ctr
+    ucsAlgoAes256Gcm
+    '--- decryption from here on, these need a real ciphertext to work on
+    ucsAlgoAesCbcDec
+    ucsAlgoAesGcmDec
+    ucsAlgoAesCcmDec
+    ucsAlgoAesEaxDec
+    ucsAlgoAesOcbDec
+    ucsAlgoAesGcmSivDec
+    ucsAlgoChaCha20Poly1305Dec
+    ucsAlgoAsconAeadDec
+    ucsAlgoTeaDec
+    ucsAlgoAes256GcmDec
 End Enum
 
 Private Enum UcsOpEnum
@@ -119,24 +133,36 @@ Public Sub BenchRun(vFilter As Variant)
     Dim sLine           As String
     Dim dblRate         As Double
     Dim lRan            As Long
+    Dim sSizes          As String
+    Dim lMax            As Long
 
     pvInitKeys
-    vSizes = Split(STR_SIZES, "|")
-    ReDim baBuf(0 To CLng(vSizes(UBound(vSizes))) - 1) As Byte
+    vFilter = pvParseSizeSwitch(vFilter, sSizes)
+    If LenB(sSizes) = 0 Then
+        sSizes = STR_SIZES
+    End If
+    vSizes = Split(sSizes, "|")
+    '--- the sizes can arrive in any order, so find the largest
+    For lIdx = 0 To UBound(vSizes)
+        If CLng(vSizes(lIdx)) > lMax Then
+            lMax = CLng(vSizes(lIdx))
+        End If
+    Next
+    ReDim baBuf(0 To lMax - 1) As Byte
     For lIdx = 0 To UBound(baBuf)
         baBuf(lIdx) = lIdx And &HFF
     Next
     '--- throughput table, one row per algorithm and one column per size
     vNames = Split(STR_BYTES, "|")
     If pvHasAnyMatch(vNames, vFilter) Then
-        sLine = PadRight("type", 20)
+        sLine = PadRight("type", 22)
         For lJdx = 0 To UBound(vSizes)
             sLine = sLine & PadLeft(pvFormatSize(CLng(vSizes(lJdx))) & " bytes", 13)
         Next
         ConPrintLine sLine
         For lIdx = 0 To UBound(vNames)
             If HasFilterMatch(vNames(lIdx), vFilter) Then
-                sLine = PadRight(vNames(lIdx), 20)
+                sLine = PadRight(vNames(lIdx), 22)
                 For lJdx = 0 To UBound(vSizes)
                     dblRate = pvMeasureBytes(lIdx, baBuf, CLng(vSizes(lJdx)))
                     If dblRate < 0 Then
@@ -156,11 +182,11 @@ Public Sub BenchRun(vFilter As Variant)
         If lRan > 0 Then
             ConPrintLine
         End If
-        ConPrintLine PadRight("type", 20) & PadLeft("ops/sec", 13) & PadLeft("usec/op", 13)
+        ConPrintLine PadRight("type", 22) & PadLeft("ops/sec", 13) & PadLeft("usec/op", 13)
         For lIdx = 0 To UBound(vNames)
             If HasFilterMatch(vNames(lIdx), vFilter) Then
                 dblRate = pvMeasureOps(lIdx)
-                sLine = PadRight(vNames(lIdx), 20)
+                sLine = PadRight(vNames(lIdx), 22)
                 If dblRate <= 0 Then
                     sLine = sLine & PadLeft("n/a", 13) & PadLeft("n/a", 13)
                 Else
@@ -176,6 +202,78 @@ Public Sub BenchRun(vFilter As Variant)
     End If
 End Sub
 
+'--- pulls "-size 1M" or "-size 16,1K,1M" out of the filter list and returns
+'--- what is left, so the rest still matches algorithm names as before
+Private Function pvParseSizeSwitch(vFilter As Variant, sSizes As String) As Variant
+    Dim aRetVal()       As String
+    Dim lIdx            As Long
+    Dim lCount          As Long
+    Dim vItem           As Variant
+    Dim lSize           As Long
+
+    sSizes = vbNullString
+    If UBound(vFilter) < 0 Then
+        pvParseSizeSwitch = vFilter
+        Exit Function
+    End If
+    ReDim aRetVal(0 To UBound(vFilter)) As String
+    For lIdx = 0 To UBound(vFilter)
+        Select Case LCase$(vFilter(lIdx))
+        Case "-size", "-sizes", "-bytes"
+            If lIdx < UBound(vFilter) Then
+                For Each vItem In Split(Replace(vFilter(lIdx + 1), ",", "|"), "|")
+                    lSize = pvParseSize(CStr(vItem))
+                    If lSize > 0 Then
+                        sSizes = sSizes & IIf(LenB(sSizes) <> 0, "|", vbNullString) & lSize
+                    End If
+                Next
+            End If
+        Case Else
+            '--- skip the value that follows the switch
+            If lIdx = 0 Then
+                aRetVal(lCount) = vFilter(lIdx)
+                lCount = lCount + 1
+            ElseIf Not pvIsSizeSwitch(CStr(vFilter(lIdx - 1))) Then
+                aRetVal(lCount) = vFilter(lIdx)
+                lCount = lCount + 1
+            End If
+        End Select
+    Next
+    If lCount = 0 Then
+        pvParseSizeSwitch = Split(vbNullString)
+    Else
+        ReDim Preserve aRetVal(0 To lCount - 1) As String
+        pvParseSizeSwitch = aRetVal
+    End If
+End Function
+
+Private Function pvIsSizeSwitch(sText As String) As Boolean
+    Select Case LCase$(sText)
+    Case "-size", "-sizes", "-bytes"
+        pvIsSizeSwitch = True
+    End Select
+End Function
+
+'--- accepts a plain byte count or a K or M suffix
+Private Function pvParseSize(sText As String) As Long
+    Dim sTemp           As String
+    Dim lMult           As Long
+
+    sTemp = Trim$(sText)
+    lMult = 1
+    Select Case UCase$(Right$(sTemp, 1))
+    Case "K"
+        lMult = 1024
+        sTemp = Left$(sTemp, Len(sTemp) - 1)
+    Case "M"
+        lMult = 1048576
+        sTemp = Left$(sTemp, Len(sTemp) - 1)
+    End Select
+    If IsNumeric(sTemp) Then
+        pvParseSize = CLng(sTemp) * lMult
+    End If
+End Function
+
 Private Sub pvPrintNames(sList As String)
     Dim vNames          As Variant
     Dim lIdx            As Long
@@ -183,7 +281,7 @@ Private Sub pvPrintNames(sList As String)
 
     vNames = Split(sList, "|")
     For lIdx = 0 To UBound(vNames)
-        sLine = sLine & PadRight(vNames(lIdx), 20)
+        sLine = sLine & PadRight(vNames(lIdx), 22)
         If (lIdx + 1) Mod 4 = 0 Then
             ConPrintLine "  " & RTrim$(sLine)
             sLine = vbNullString
@@ -330,6 +428,8 @@ End Function
 
 Private Sub pvRunBytes(ByVal eAlgo As UcsAlgoEnum, baBuf() As Byte, ByVal lSize As Long, ByVal lBatch As Long)
     Dim baWork()        As Byte
+    Dim baCipher()      As Byte
+    Dim baDecTag()      As Byte
     Dim lIter           As Long
     Dim baOut()         As Byte
     Dim baTag()         As Byte
@@ -340,11 +440,17 @@ Private Sub pvRunBytes(ByVal eAlgo As UcsAlgoEnum, baBuf() As Byte, ByVal lSize 
     Dim uGcm            As CryptoAesGcmContext
     Dim uOcb            As CryptoAesOcbContext
     Dim uChaCha         As CryptoChaCha20Context
+    Dim bOk             As Boolean
 
     '--- ciphers work in place, so hand them a scratch copy
     If eAlgo >= ucsAlgoAesCbc Then
         ReDim baWork(0 To lSize - 1) As Byte
         Call CopyMemory(baWork(0), baBuf(0), lSize)
+    End If
+    '--- decryption needs a ciphertext that authenticates, as a failing tag
+    '--- check returns early and would time a fraction of the real work
+    If eAlgo >= ucsAlgoAesCbcDec Then
+        pvBuildCipherText eAlgo, baBuf, lSize, baCipher, baDecTag
     End If
     For lIter = 1 To lBatch
         Select Case eAlgo
@@ -422,10 +528,125 @@ Private Sub pvRunBytes(ByVal eAlgo As UcsAlgoEnum, baBuf() As Byte, ByVal lSize 
         Case ucsAlgoTea
             '--- TEA works on whole 8 byte blocks only
             CryptoTeaEncrypt m_baKey16, baWork, Pos:=0, Size:=(lSize \ 8) * 8
+        Case ucsAlgoAes256Cbc
+            CryptoAesInit uAes, m_baKey32, Nonce:=m_baNonce16
+            CryptoAesCbcEncrypt uAes, baWork, Pos:=0, Size:=lSize, Final:=False
+        Case ucsAlgoAes256Ctr
+            CryptoAesInit uAes, m_baKey32, Nonce:=m_baNonce16
+            CryptoAesCtrCrypt uAes, baWork, Pos:=0, Size:=lSize
+        Case ucsAlgoAes256Gcm
+            CryptoAesGcmInit uGcm, m_baKey32, m_baNonce12, m_baAad
+            CryptoAesGcmEncrypt uGcm, baWork, Pos:=0, Size:=lSize, TagSize:=16, Tag:=baTag
+        Case ucsAlgoAesCbcDec
+            Call CopyMemory(baWork(0), baCipher(0), lSize)
+            CryptoAesInit uAes, m_baKey16, Nonce:=m_baNonce16
+            bOk = CryptoAesCbcDecrypt(uAes, baWork, Pos:=0, Size:=lSize, Final:=False)
+        Case ucsAlgoAesGcmDec
+            Call CopyMemory(baWork(0), baCipher(0), lSize)
+            CryptoAesGcmInit uGcm, m_baKey16, m_baNonce12, m_baAad
+            bOk = CryptoAesGcmDecrypt(uGcm, baWork, Pos:=0, Size:=lSize, Tag:=baDecTag)
+        Case ucsAlgoAesCcmDec
+            Call CopyMemory(baWork(0), baCipher(0), lSize)
+            bOk = CryptoAesCcmDecrypt(m_baKey16, m_baNonce12, m_baAad, baWork, baDecTag)
+        Case ucsAlgoAesEaxDec
+            Call CopyMemory(baWork(0), baCipher(0), lSize)
+            bOk = CryptoAesEaxDecrypt(m_baKey16, m_baNonce16, m_baAad, baWork, baDecTag)
+        Case ucsAlgoAesOcbDec
+            Call CopyMemory(baWork(0), baCipher(0), lSize)
+            CryptoAesOcbInit uOcb, m_baKey16, m_baNonce12, m_baAad, TagSize:=16
+            bOk = CryptoAesOcbDecrypt(uOcb, baWork, Pos:=0, Size:=lSize, Tag:=baDecTag)
+        Case ucsAlgoAesGcmSivDec
+            Call CopyMemory(baWork(0), baCipher(0), lSize)
+            bOk = CryptoAesGcmSivDecrypt(m_baKey16, m_baNonce12, m_baAad, baWork, baDecTag)
+        Case ucsAlgoChaCha20Poly1305Dec
+            Call CopyMemory(baWork(0), baCipher(0), lSize)
+            bOk = CryptoChaCha20Poly1305Decrypt(m_baKey32, baDecTag, baWork, 0, lSize, m_baNonce12, m_baAad)
+        Case ucsAlgoAsconAeadDec
+            Call CopyMemory(baWork(0), baCipher(0), lSize)
+            bOk = CryptoAsconDecrypt(m_baKey16, baDecTag, baWork, 0, lSize, m_baNonce16, m_baAad)
+        Case ucsAlgoTeaDec
+            Call CopyMemory(baWork(0), baCipher(0), lSize)
+            CryptoTeaDecrypt m_baKey16, baWork, Pos:=0, Size:=(lSize \ 8) * 8
+        Case ucsAlgoAes256GcmDec
+            Call CopyMemory(baWork(0), baCipher(0), lSize)
+            CryptoAesGcmInit uGcm, m_baKey32, m_baNonce12, m_baAad
+            bOk = CryptoAesGcmDecrypt(uGcm, baWork, Pos:=0, Size:=lSize, Tag:=baDecTag)
         Case Else
             Err.Raise vbObjectError, , "Unknown algorithm " & eAlgo
         End Select
     Next
+End Sub
+
+'--- encrypts the sample once and checks the result decrypts, so a broken
+'--- or rejected ciphertext shows up as n/a rather than a flattering number
+Private Sub pvBuildCipherText(ByVal eAlgo As UcsAlgoEnum, baBuf() As Byte, ByVal lSize As Long, baCipher() As Byte, baDecTag() As Byte)
+    Dim baProbe()       As Byte
+    Dim bOk             As Boolean
+    Dim uAes            As CryptoAesContext
+    Dim uGcm            As CryptoAesGcmContext
+    Dim uOcb            As CryptoAesOcbContext
+
+    ReDim baCipher(0 To lSize - 1) As Byte
+    Call CopyMemory(baCipher(0), baBuf(0), lSize)
+    Select Case eAlgo
+    Case ucsAlgoAesCbcDec
+        CryptoAesInit uAes, m_baKey16, Nonce:=m_baNonce16
+        CryptoAesCbcEncrypt uAes, baCipher, Pos:=0, Size:=lSize, Final:=False
+    Case ucsAlgoAesGcmDec
+        CryptoAesGcmInit uGcm, m_baKey16, m_baNonce12, m_baAad
+        CryptoAesGcmEncrypt uGcm, baCipher, Pos:=0, Size:=lSize, TagSize:=16, Tag:=baDecTag
+    Case ucsAlgoAesCcmDec
+        CryptoAesCcmEncrypt m_baKey16, m_baNonce12, m_baAad, baCipher, baDecTag, TagSize:=16
+    Case ucsAlgoAesEaxDec
+        CryptoAesEaxEncrypt m_baKey16, m_baNonce16, m_baAad, baCipher, baDecTag, TagSize:=16
+    Case ucsAlgoAesOcbDec
+        CryptoAesOcbInit uOcb, m_baKey16, m_baNonce12, m_baAad, TagSize:=16
+        CryptoAesOcbEncrypt uOcb, baCipher, Pos:=0, Size:=lSize, TagSize:=16, Tag:=baDecTag
+    Case ucsAlgoAesGcmSivDec
+        CryptoAesGcmSivEncrypt m_baKey16, m_baNonce12, m_baAad, baCipher, baDecTag
+    Case ucsAlgoChaCha20Poly1305Dec
+        CryptoChaCha20Poly1305Encrypt m_baKey32, baDecTag, baCipher, 0, lSize, m_baNonce12, m_baAad
+    Case ucsAlgoAsconAeadDec
+        CryptoAsconEncrypt m_baKey16, baDecTag, baCipher, 0, lSize, m_baNonce16, m_baAad
+    Case ucsAlgoTeaDec
+        CryptoTeaEncrypt m_baKey16, baCipher, Pos:=0, Size:=(lSize \ 8) * 8
+    Case ucsAlgoAes256GcmDec
+        CryptoAesGcmInit uGcm, m_baKey32, m_baNonce12, m_baAad
+        CryptoAesGcmEncrypt uGcm, baCipher, Pos:=0, Size:=lSize, TagSize:=16, Tag:=baDecTag
+    End Select
+    '--- prove the ciphertext round trips before any of it is timed
+    ReDim baProbe(0 To lSize - 1) As Byte
+    Call CopyMemory(baProbe(0), baCipher(0), lSize)
+    Select Case eAlgo
+    Case ucsAlgoAesCbcDec
+        CryptoAesInit uAes, m_baKey16, Nonce:=m_baNonce16
+        bOk = CryptoAesCbcDecrypt(uAes, baProbe, Pos:=0, Size:=lSize, Final:=False)
+    Case ucsAlgoAesGcmDec
+        CryptoAesGcmInit uGcm, m_baKey16, m_baNonce12, m_baAad
+        bOk = CryptoAesGcmDecrypt(uGcm, baProbe, Pos:=0, Size:=lSize, Tag:=baDecTag)
+    Case ucsAlgoAesCcmDec
+        bOk = CryptoAesCcmDecrypt(m_baKey16, m_baNonce12, m_baAad, baProbe, baDecTag)
+    Case ucsAlgoAesEaxDec
+        bOk = CryptoAesEaxDecrypt(m_baKey16, m_baNonce16, m_baAad, baProbe, baDecTag)
+    Case ucsAlgoAesOcbDec
+        CryptoAesOcbInit uOcb, m_baKey16, m_baNonce12, m_baAad, TagSize:=16
+        bOk = CryptoAesOcbDecrypt(uOcb, baProbe, Pos:=0, Size:=lSize, Tag:=baDecTag)
+    Case ucsAlgoAesGcmSivDec
+        bOk = CryptoAesGcmSivDecrypt(m_baKey16, m_baNonce12, m_baAad, baProbe, baDecTag)
+    Case ucsAlgoChaCha20Poly1305Dec
+        bOk = CryptoChaCha20Poly1305Decrypt(m_baKey32, baDecTag, baProbe, 0, lSize, m_baNonce12, m_baAad)
+    Case ucsAlgoAsconAeadDec
+        bOk = CryptoAsconDecrypt(m_baKey16, baDecTag, baProbe, 0, lSize, m_baNonce16, m_baAad)
+    Case ucsAlgoTeaDec
+        CryptoTeaDecrypt m_baKey16, baProbe, Pos:=0, Size:=(lSize \ 8) * 8
+        bOk = True
+    Case ucsAlgoAes256GcmDec
+        CryptoAesGcmInit uGcm, m_baKey32, m_baNonce12, m_baAad
+        bOk = CryptoAesGcmDecrypt(uGcm, baProbe, Pos:=0, Size:=lSize, Tag:=baDecTag)
+    End Select
+    If Not bOk Then
+        Err.Raise vbObjectError, , "Decryption self check failed for " & eAlgo
+    End If
 End Sub
 
 Private Sub pvRunOps(ByVal eOp As UcsOpEnum, ByVal lBatch As Long)
