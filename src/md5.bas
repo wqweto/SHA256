@@ -106,8 +106,8 @@ Public Sub CryptoMd5Init(uCtx As CryptoMd5Context)
     End With
 End Sub
 
-#If HasOperators Then
-[ IntegerOverflowChecks (False) ]
+#If TWINBASIC And Not Win64 Then
+    [CompilerOptions("+llvm,+optimize,+optimizesize")]
 #End If
 Public Sub CryptoMd5Update(uCtx As CryptoMd5Context, baInput() As Byte, Optional ByVal Pos As Long, Optional ByVal Size As Long = -1)
     Static B(0 To 15)   As Long

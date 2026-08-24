@@ -398,7 +398,11 @@ Public Sub CryptoAesSetNonce(uCtx As CryptoAesContext, Nonce As Variant, Optiona
         End If
         If CounterWords > 0 Then
             If pvWrapIncBE(uCtx.Nonce.Item(3)) And CounterWords > 1 Then
-                pvWrapIncBE uCtx.Nonce.Item(2)
+                If pvWrapIncBE(uCtx.Nonce.Item(2)) And CounterWords > 2 Then
+                    If pvWrapIncBE(uCtx.Nonce.Item(1)) And CounterWords > 3 Then
+                        pvWrapIncBE uCtx.Nonce.Item(0)
+                    End If
+                End If
             End If
         End If
     End With
