@@ -136,7 +136,7 @@ Public Sub CryptoTeaEncrypt(baKey() As Byte, baBuffer() As Byte, Optional ByVal 
         For lIdx = 0 To lN - 1
             lY = aBuffer((lIdx + 1) Mod lN)
             #If HasOperators Then
-                lMx = (((lZ >> 5) Xor (lY << 2)) + ((lY >> 3) Xor (lZ << 4))) Xor ((lSum Xor lY) + (aKey((lIdx And 3) Xor lE) Xor lZ))
+                lMx = ((((lZ >> 5) And &H7FFFFFF) Xor (lY << 2)) + (((lY >> 3) And &H1FFFFFFF) Xor (lZ << 4))) Xor ((lSum Xor lY) + (aKey((lIdx And 3) Xor lE) Xor lZ))
                 lZ = aBuffer(lIdx) + lMx
             #Else
                 If m_bNoIntegerOverflowChecks Then
@@ -202,7 +202,7 @@ Public Sub CryptoTeaDecrypt(baKey() As Byte, baBuffer() As Byte, Optional ByVal 
         For lIdx = lN - 1 To 0 Step -1
             lZ = aBuffer((lIdx + lN - 1) Mod lN)
             #If HasOperators Then
-                lMx = (((lZ >> 5) Xor (lY << 2)) + ((lY >> 3) Xor (lZ << 4))) Xor ((lSum Xor lY) + (aKey((lIdx And 3) Xor lE) Xor lZ))
+                lMx = ((((lZ >> 5) And &H7FFFFFF) Xor (lY << 2)) + (((lY >> 3) And &H1FFFFFFF) Xor (lZ << 4))) Xor ((lSum Xor lY) + (aKey((lIdx And 3) Xor lE) Xor lZ))
                 lY = aBuffer(lIdx) - lMx
             #Else
                 If m_bNoIntegerOverflowChecks Then

@@ -96,7 +96,7 @@ Private Function BSwap32(ByVal lX As Long) As Long
         Return ((lX And &H000000FF&) << 24) Or _
                ((lX And &H0000FF00&) << 8) Or _
                ((lX And &H00FF0000&) >> 8) Or _
-               ((lX And &HFF000000&) >> 24)
+               ((lX >> 24) And &HFF)
     #End If
 End Function
 
@@ -151,7 +151,7 @@ Private Sub pvAdd64(lAL As Long, lAH As Long, ByVal lBL As Long, ByVal lBH As Lo
     #Else
         lAL += lBL
         lAH += lBH
-        lSign = (lAL >> 31) - (lBL >> 31)
+        lSign = ((lAL >> 31) And &H1) - ((lBL >> 31) And &H1)
         If lSign < 0 Or lSign = 0 And (lAL And &H7FFFFFFF) < (lBL And &H7FFFFFFF) Then
             lAH += 1
         End If
@@ -167,7 +167,7 @@ Private Function pvSum0L(ByVal lX As Long, ByVal lY As Long) As Long
             Xor ((lY And &H7FFFFFFF) \ LNG_POW2_2 Or -(lY < 0) * LNG_POW2_29) _
             Xor ((lY And (LNG_POW2_27 - 1)) * LNG_POW2_4 Or -((lY And LNG_POW2_27) <> 0) * &H80000000)
     #Else
-        Return (lX << 25) Xor (lX << 30) Xor (lX >> 28) Xor (lY >> 7) Xor (lY >> 2) Xor (lY << 4)
+        Return (lX << 25) Xor (lX << 30) Xor ((lX >> 28) And &HF) Xor ((lY >> 7) And &H1FFFFFF) Xor ((lY >> 2) And &H3FFFFFFF) Xor (lY << 4)
     #End If
 End Function
 
@@ -180,7 +180,7 @@ Private Function pvSum1L(ByVal lX As Long, ByVal lY As Long) As Long
             Xor ((lY And (LNG_POW2_13 - 1)) * LNG_POW2_18 Or -((lY And LNG_POW2_13) <> 0) * &H80000000) _
             Xor ((lY And (LNG_POW2_17 - 1)) * LNG_POW2_14 Or -((lY And LNG_POW2_17) <> 0) * &H80000000)
     #Else
-        Return (lX << 23) Xor (lX >> 14) Xor (lX >> 18) Xor (lY >> 9) Xor (lY << 18) Xor (lY << 14)
+        Return (lX << 23) Xor ((lX >> 14) And &H3FFFF) Xor ((lX >> 18) And &H3FFF) Xor ((lY >> 9) And &H7FFFFF) Xor (lY << 18) Xor (lY << 14)
     #End If
 End Function
 
@@ -193,7 +193,7 @@ Private Function pvSig0L(ByVal lX As Long, ByVal lY As Long) As Long
             Xor ((lY And (LNG_POW2_6 - 1)) * LNG_POW2_25 Or -((lY And LNG_POW2_6) <> 0) * &H80000000) _
             Xor ((lY And (LNG_POW2_7 - 1)) * LNG_POW2_24 Or -((lY And LNG_POW2_7) <> 0) * &H80000000)
     #Else
-        Return (lX >> 1) Xor (lX >> 7) Xor (lX >> 8) Xor (lY << 31) Xor (lY << 25) Xor (lY << 24)
+        Return ((lX >> 1) And &H7FFFFFFF) Xor ((lX >> 7) And &H1FFFFFF) Xor ((lX >> 8) And &HFFFFFF) Xor (lY << 31) Xor (lY << 25) Xor (lY << 24)
     #End If
 End Function
   
@@ -205,7 +205,7 @@ Private Function pvSig0H(ByVal lX As Long, ByVal lY As Long) As Long
             Xor ((lY And 0) * LNG_POW2_31 Or -((lY And 1) <> 0) * &H80000000) _
             Xor ((lY And (LNG_POW2_7 - 1)) * LNG_POW2_24 Or -((lY And LNG_POW2_7) <> 0) * &H80000000)
     #Else
-        Return (lX >> 1) Xor (lX >> 7) Xor (lX >> 8) Xor (lY << 31) Xor (lY << 24)
+        Return ((lX >> 1) And &H7FFFFFFF) Xor ((lX >> 7) And &H1FFFFFF) Xor ((lX >> 8) And &HFFFFFF) Xor (lY << 31) Xor (lY << 24)
     #End If
 End Function
 
@@ -218,7 +218,7 @@ Private Function pvSig1L(ByVal lX As Long, ByVal lY As Long) As Long
             Xor ((lY And (LNG_POW2_5 - 1)) * LNG_POW2_26 Or -((lY And LNG_POW2_5) <> 0) * &H80000000) _
             Xor ((lY And (LNG_POW2_18 - 1)) * LNG_POW2_13 Or -((lY And LNG_POW2_18) <> 0) * &H80000000)
     #Else
-        Return (lX << 3) Xor (lX >> 6) Xor (lX >> 19) Xor (lY >> 29) Xor (lY << 26) Xor (lY << 13)
+        Return (lX << 3) Xor ((lX >> 6) And &H3FFFFFF) Xor ((lX >> 19) And &H1FFF) Xor ((lY >> 29) And &H7) Xor (lY << 26) Xor (lY << 13)
     #End If
 End Function
 
@@ -230,7 +230,7 @@ Private Function pvSig1H(ByVal lX As Long, ByVal lY As Long) As Long
             Xor ((lY And &H7FFFFFFF) \ LNG_POW2_29 Or -(lY < 0) * LNG_POW2_2) _
             Xor ((lY And (LNG_POW2_18 - 1)) * LNG_POW2_13 Or -((lY And LNG_POW2_18) <> 0) * &H80000000)
     #Else
-        Return (lX << 3) Xor (lX >> 6) Xor (lX >> 19) Xor (lY >> 29) Xor (lY << 13)
+        Return (lX << 3) Xor ((lX >> 6) And &H3FFFFFF) Xor ((lX >> 19) And &H1FFF) Xor ((lY >> 29) And &H7) Xor (lY << 13)
     #End If
 End Function
 

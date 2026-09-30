@@ -153,7 +153,7 @@ Public Sub CryptoSha1Update(uCtx As CryptoSha1Context, baInput() As Byte, Option
                 Else
                     #If HasOperators Then
                         lTemp = W(lIdx - 3) Xor W(lIdx - 8) Xor W(lIdx - 14) Xor W(lIdx - 16)
-                        W(lIdx) = (lTemp << 1 Or lTemp >> 31)
+                        W(lIdx) = ((lTemp << 1) Or ((lTemp >> 31) And &H1))
                     #Else
                         W(lIdx) = RotL32(W(lIdx - 3) Xor W(lIdx - 8) Xor W(lIdx - 14) Xor W(lIdx - 16), 1)
                     #End If
@@ -173,7 +173,7 @@ Public Sub CryptoSha1Update(uCtx As CryptoSha1Context, baInput() As Byte, Option
                     lK = &HCA62C1D6
                 End Select
                 #If HasOperators Then
-                    lTemp += (lA << 5 or lA >> 27) + lE + lK + W(lIdx)
+                    lTemp += ((lA << 5) or ((lA >> 27) And &H1F)) + lE + lK + W(lIdx)
                 #Else
                     If m_bNoIntegerOverflowChecks Then
                         lTemp = lTemp + RotL32(lA, 5) + lE + lK + W(lIdx)
@@ -184,7 +184,7 @@ Public Sub CryptoSha1Update(uCtx As CryptoSha1Context, baInput() As Byte, Option
                 lE = lD
                 lD = lC
                 #If HasOperators Then
-                    lC = (lB << 30 Or lB >> 2)
+                    lC = ((lB << 30) Or ((lB >> 2) And &H3FFFFFFF))
                 #Else
                     lC = RotL32(lB, 30)
                 #End If

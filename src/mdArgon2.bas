@@ -136,16 +136,16 @@ Private Sub pvQuarter64(lA As LongLong, lB As LongLong, lC As LongLong, lD As Lo
     
     lX = (lA And LNG_UINT_MAX) * (lB And LNG_UINT_MAX)
     lA = lA + lB + lX + lX
-    lD = (lD Xor lA) >> 32 Or (lD Xor lA) << 32
+    lD = (((lD Xor lA) >> 32) And &HFFFFFFFF^) Or ((lD Xor lA) << 32)
     lX = (lC And LNG_UINT_MAX) * (lD And LNG_UINT_MAX)
     lC = lC + lD + lX + lX
-    lB = (lB Xor lC) >> 24 Or (lB Xor lC) << 40
+    lB = (((lB Xor lC) >> 24) And &HFFFFFFFFFF^) Or ((lB Xor lC) << 40)
     lX = (lA And LNG_UINT_MAX) * (lB And LNG_UINT_MAX)
     lA = lA + lB + lX + lX
-    lD = (lD Xor lA) >> 16 Or (lD Xor lA) << 48
+    lD = (((lD Xor lA) >> 16) And &HFFFFFFFFFFFF^) Or ((lD Xor lA) << 48)
     lX = (lC And LNG_UINT_MAX) * (lD And LNG_UINT_MAX)
     lC = lC + lD + lX + lX
-    lB = (lB Xor lC) >> 63 Or (lB Xor lC) << 1
+    lB = (((lB Xor lC) >> 63) And &H1^) Or ((lB Xor lC) << 1)
 End Sub
 #End If
 
@@ -211,7 +211,7 @@ Private Function pvIndexAlpha(lRandom As Variant, ByVal lLanes As Long, ByVal lS
     Dim lS              As Long
     
     #If HasOperators Then
-        lRefLane = CLng((lRandom >> 32) Mod lThreads)
+        lRefLane = CLng(((lRandom >> 32) And &HFFFFFFFF^) Mod lThreads)
     #Else
         lRefLane = CLng(RShift64(lRandom, 32) Mod lThreads)
     #End If
@@ -236,8 +236,8 @@ Private Function pvIndexAlpha(lRandom As Variant, ByVal lLanes As Long, ByVal lS
     '--- phi
     #If HasOperators Then
         lP = lRandom And LNG_UINT_MAX
-        lP = (lP * lP) >> 32
-        lP = (lP * lM) >> 32
+        lP = (((lP * lP) >> 32) And &HFFFFFFFF^)
+        lP = (((lP * lM) >> 32) And &HFFFFFFFF^)
     #Else
         lP = RShift64(UMul64(lRandom, lRandom), 32)
         lP = RShift64(UMul64(lP, lM), 32)

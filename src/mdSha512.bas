@@ -307,16 +307,16 @@ Public Sub CryptoSha512Update(uCtx As CryptoSha512Context, baInput() As Byte, Op
                     #End If
                 Else
                     #If HasOperators Then
-                        lX = W(lIdx - 2): lSigma1 = (lX >> 19 Or lX << 45) Xor (lX >> 61 Or lX << 3) Xor (lX >> 6)
-                        lX = W(lIdx - 15): lSigma0 = (lX >> 1 Or lX << 63) Xor (lX >> 8 Or lX << 56) Xor (lX >> 7)
+                        lX = W(lIdx - 2): lSigma1 = (((lX >> 19) And &H1FFFFFFFFFFF^) Or (lX << 45)) Xor (((lX >> 61) And &H7^) Or (lX << 3)) Xor ((lX >> 6) And &H3FFFFFFFFFFFFFF^)
+                        lX = W(lIdx - 15): lSigma0 = (((lX >> 1) And &H7FFFFFFFFFFFFFFF^) Or (lX << 63)) Xor (((lX >> 8) And &HFFFFFFFFFFFFFF^) Or (lX << 56)) Xor ((lX >> 7) And &H1FFFFFFFFFFFFFF^)
                         W(lIdx) = lSigma1 + W(lIdx - 7) + lSigma0 + W(lIdx - 16)
                     #Else
                         W(lIdx) = UAdd64(UAdd64(UAdd64(SmallSigma1(W(lIdx - 2)), W(lIdx - 7)), SmallSigma0(W(lIdx - 15))), W(lIdx - 16))
                     #End If
                 End If
                 #If HasOperators Then
-                    lSigma1 = (lE >> 14 Or lE << 50) Xor (lE >> 18 Or lE << 46) Xor (lE >> 41 Or lE << 23)
-                    lSigma0 = (lA >> 28 Or lA << 36) Xor (lA >> 34 Or lA << 30) Xor (lA >> 39 Or lA << 25)
+                    lSigma1 = (((lE >> 14) And &H3FFFFFFFFFFFF^) Or (lE << 50)) Xor (((lE >> 18) And &H3FFFFFFFFFFF^) Or (lE << 46)) Xor (((lE >> 41) And &H7FFFFF^) Or (lE << 23))
+                    lSigma0 = (((lA >> 28) And &HFFFFFFFFF^) Or (lA << 36)) Xor (((lA >> 34) And &H3FFFFFFF^) Or (lA << 30)) Xor (((lA >> 39) And &H1FFFFFF^) Or (lA << 25))
                     lCh = (lE And (lF Xor lG)) Xor lG
                     lMaj = (lA And (lB Or lC)) Or (lB And lC)
                     lT1 = lH + lSigma1 + lCh + LNG_K(lIdx) + W(lIdx)
@@ -362,7 +362,7 @@ Private Function pvToLong(ByVal lX As Variant, lHi As Long, lLo As Long) As Long
 #End If
     #If HasOperators Then
         Const LNG_POW2_31 As LongLong = 2 ^ 31
-        lA = BSwap64(lX >> 32)
+        lA = BSwap64((lX >> 32) And &HFFFFFFFF^)
         lHi = CLng(lA And &H7FFFFFFF) Or -((lA And LNG_POW2_31) <> 0) * &H80000000
         lA = BSwap64(lX)
         lLo = CLng(lA And &H7FFFFFFF) Or -((lA And LNG_POW2_31) <> 0) * &H80000000

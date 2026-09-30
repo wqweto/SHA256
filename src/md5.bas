@@ -182,7 +182,7 @@ Public Sub CryptoMd5Update(uCtx As CryptoMd5Context, baInput() As Byte, Optional
                 lD = lC
                 lC = lB
                 #If HasOperators Then
-                    lB += (lE << lS) Or (lE >> (32 - lS))
+                    lB += (lE << lS) Or ((lE >> (32 - lS)) And ((1& << lS) - 1))
                 #Else
                     If m_bNoIntegerOverflowChecks Then
                         lB = lB + RotL32(lE, lS)

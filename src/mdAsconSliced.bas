@@ -104,7 +104,7 @@ Private Function BSwap32(ByVal lX As Long) As Long
         Return ((lX And &H000000FF&) << 24) Or _
                ((lX And &H0000FF00&) << 8) Or _
                ((lX And &H00FF0000&) >> 8) Or _
-               ((lX And &HFF000000&) >> 24)
+               ((lX >> 24) And &HFF)
     #End If
 End Function
 
@@ -121,13 +121,13 @@ Private Function pvSeparate(ByVal lX As Long) As Long
         lTemp = (((lX And &H7FFFFFFF) \ LNG_POW2_8 Or -(lX < 0) * LNG_POW2_23) Xor lX) And &HFF00&
         pvSeparate = (lX Xor lTemp) Xor ((lTemp And (LNG_POW2_23 - 1)) * LNG_POW2_8 Or -((lTemp And LNG_POW2_23) <> 0) * &H80000000)
     #Else
-        lTemp = ((lX >> 1) Xor lX) And &H22222222
+        lTemp = (((lX >> 1) And &H7FFFFFFF) Xor lX) And &H22222222
         lX = (lX Xor lTemp) Xor (lTemp << 1)
-        lTemp = ((lX >> 2) Xor lX) And &HC0C0C0C
+        lTemp = (((lX >> 2) And &H3FFFFFFF) Xor lX) And &HC0C0C0C
         lX = (lX Xor lTemp) Xor (lTemp << 2)
-        lTemp = ((lX >> 4) Xor lX) And &HF000F0
+        lTemp = (((lX >> 4) And &HFFFFFFF) Xor lX) And &HF000F0
         lX = (lX Xor lTemp) Xor (lTemp << 4)
-        lTemp = ((lX >> 8) Xor lX) And &HFF00&
+        lTemp = (((lX >> 8) And &HFFFFFF) Xor lX) And &HFF00&
         pvSeparate = (lX Xor lTemp) Xor (lTemp << 8)
     #End If
 End Function
@@ -145,13 +145,13 @@ Private Function pvCombine(ByVal lX As Long) As Long
         lTemp = (((lX And &H7FFFFFFF) \ LNG_POW2_8 Or -(lX < 0) * LNG_POW2_23) Xor lX) And &HFF00&
         pvCombine = (lX Xor lTemp) Xor ((lTemp And (LNG_POW2_23 - 1)) * LNG_POW2_8 Or -((lTemp And LNG_POW2_23) <> 0) * &H80000000)
     #Else
-        lTemp = ((lX >> 15) Xor lX) And &HAAAA&
+        lTemp = (((lX >> 15) And &H1FFFF) Xor lX) And &HAAAA&
         lX = (lX Xor lTemp) Xor (lTemp << 15)
-        lTemp = ((lX >> 14) Xor lX) And &HCCCC&
+        lTemp = (((lX >> 14) And &H3FFFF) Xor lX) And &HCCCC&
         lX = (lX Xor lTemp) Xor (lTemp << 14)
-        lTemp = ((lX >> 12) Xor lX) And &HF0F0&
+        lTemp = (((lX >> 12) And &HFFFFF) Xor lX) And &HF0F0&
         lX = (lX Xor lTemp) Xor (lTemp << 12)
-        lTemp = ((lX >> 8) Xor lX) And &HFF00&
+        lTemp = (((lX >> 8) And &HFFFFFF) Xor lX) And &HFF00&
         pvCombine = (lX Xor lTemp) Xor (lTemp << 8)
     #End If
 End Function
@@ -170,7 +170,7 @@ Private Sub pvToSliced(uState As ArrayLong10)
                 .Item(lIdx + 1) = (lHigh And &HFFFF0000) Or ((lLow And &H7FFFFFFF) \ LNG_POW2_16 Or -(lLow < 0) * LNG_POW2_15)
             #Else
                 .Item(lIdx) = (lHigh << 16) Or (lLow And &HFFFF&)
-                .Item(lIdx + 1) = (lHigh And &HFFFF0000) Or (lLow >> 16)
+                .Item(lIdx + 1) = (lHigh And &HFFFF0000) Or ((lLow >> 16) And &HFFFF&)
             #End If
         Next
     End With
@@ -187,7 +187,7 @@ Private Sub pvFromSliced(uState As ArrayLong10)
                 lHigh = ((.Item(lIdx) And &H7FFFFFFF) \ LNG_POW2_16 Or -(.Item(lIdx) < 0) * LNG_POW2_15) Or (.Item(lIdx + 1) And &HFFFF0000)
                 lLow = (.Item(lIdx) And &HFFFF&) Or ((.Item(lIdx + 1) And (LNG_POW2_15 - 1)) * LNG_POW2_16 Or -((.Item(lIdx + 1) And LNG_POW2_15) <> 0) * &H80000000)
             #Else
-                lHigh = (.Item(lIdx) >> 16) Or (.Item(lIdx + 1) And &HFFFF0000)
+                lHigh = ((.Item(lIdx) >> 16) And &HFFFF&) Or (.Item(lIdx + 1) And &HFFFF0000)
                 lLow = (.Item(lIdx) And &HFFFF&) Or (.Item(lIdx + 1) << 16)
             #End If
             .Item(lIdx) = BSwap32(pvCombine(lHigh))
@@ -210,7 +210,7 @@ Private Sub pvAbsorbSliced(uState As ArrayLong10, ByVal lHigh As Long, ByVal lLo
             .Item(lOffset + 1) = .Item(lOffset + 1) Xor ((lHigh And &HFFFF0000) Or ((lLow And &H7FFFFFFF) \ LNG_POW2_16 Or -(lLow < 0) * LNG_POW2_15))
         #Else
             .Item(lOffset) = .Item(lOffset) Xor ((lHigh << 16) Or (lLow And &HFFFF&))
-            .Item(lOffset + 1) = .Item(lOffset + 1) Xor ((lHigh And &HFFFF0000) Or (lLow >> 16))
+            .Item(lOffset + 1) = .Item(lOffset + 1) Xor ((lHigh And &HFFFF0000) Or ((lLow >> 16) And &HFFFF&))
         #End If
     End With
     #If DebugState Then
@@ -225,7 +225,7 @@ Private Sub pvSqueezeSliced(uState As ArrayLong10, lHigh As Long, lLow As Long, 
             lHigh = ((.Item(lOffset) And &H7FFFFFFF) \ LNG_POW2_16 Or -(.Item(lOffset) < 0) * LNG_POW2_15) Or (.Item(lOffset + 1) And &HFFFF0000)
             lLow = (.Item(lOffset) And &HFFFF&) Or ((.Item(lOffset + 1) And (LNG_POW2_15 - 1)) * LNG_POW2_16 Or -((.Item(lOffset + 1) And LNG_POW2_15) <> 0) * &H80000000)
         #Else
-            lHigh = (.Item(lOffset) >> 16) Or (.Item(lOffset + 1) And &HFFFF0000)
+            lHigh = ((.Item(lOffset) >> 16) And &HFFFF&) Or (.Item(lOffset + 1) And &HFFFF0000)
             lLow = (.Item(lOffset) And &HFFFF&) Or (.Item(lOffset + 1) << 16)
         #End If
         lHigh = BSwap32(pvCombine(lHigh))
@@ -245,7 +245,7 @@ Private Sub pvDecryptSliced(uState As ArrayLong10, lHigh As Long, lLow As Long, 
             lHigh = lHigh2 Xor ((.Item(lOffset) And &H7FFFFFFF) \ LNG_POW2_16 Or -(.Item(lOffset) < 0) * LNG_POW2_15) Or (.Item(lOffset + 1) And &HFFFF0000)
             lLow = lLow2 Xor (.Item(lOffset) And &HFFFF&) Or ((.Item(lOffset + 1) And (LNG_POW2_15 - 1)) * LNG_POW2_16 Or -((.Item(lOffset + 1) And LNG_POW2_15) <> 0) * &H80000000)
         #Else
-            lHigh = lHigh2 Xor (.Item(lOffset) >> 16) Or (.Item(lOffset + 1) And &HFFFF0000)
+            lHigh = lHigh2 Xor ((.Item(lOffset) >> 16) And &HFFFF&) Or (.Item(lOffset + 1) And &HFFFF0000)
             lLow = lLow2 Xor (.Item(lOffset) And &HFFFF&) Or (.Item(lOffset + 1) << 16)
         #End If
         lHigh = BSwap32(pvCombine(lHigh))
@@ -255,7 +255,7 @@ Private Sub pvDecryptSliced(uState As ArrayLong10, lHigh As Long, lLow As Long, 
             .Item(lOffset + 1) = ((lHigh2 And &HFFFF0000) Or ((lLow2 And &H7FFFFFFF) \ LNG_POW2_16 Or -(lLow2 < 0) * LNG_POW2_15))
         #Else
             .Item(lOffset) = ((lHigh2 << 16) Or (lLow2 And &HFFFF&))
-            .Item(lOffset + 1) = ((lHigh2 And &HFFFF0000) Or (lLow2 >> 16))
+            .Item(lOffset + 1) = ((lHigh2 And &HFFFF0000) Or ((lLow2 >> 16) And &HFFFF&))
         #End If
     End With
     #If DebugState Then
@@ -363,26 +363,26 @@ Private Sub pvPermuteSliced(uState As ArrayLong10, ByVal lRounds As Long)
                 S4_o = ((lTemp0 And &H7FFFFFFF) \ LNG_POW2_4 - (lTemp0 < 0) * LNG_POW2_27) Or _
                         ((lTemp0 And (LNG_POW2_3 - 1)) * LNG_POW2_28 Or -((lTemp0 And LNG_POW2_3) <> 0) * &H80000000) Xor S4_o
             #Else
-                lTemp0 = S0_e Xor (S0_o >> 4 Or S0_o << 28)
-                lTemp1 = S0_o Xor (S0_e >> 5 Or S0_e << 27)
-                S0_e = S0_e Xor (lTemp1 >> 9 Or lTemp1 << 23)
-                S0_o = S0_o Xor (lTemp0 >> 10 Or lTemp0 << 22)
-                lTemp0 = S1_e Xor (S1_e >> 11 Or S1_e << 21)
-                lTemp1 = S1_o Xor (S1_o >> 11 Or S1_o << 21)
-                S1_e = S1_e Xor (lTemp1 >> 19 Or lTemp1 << 13)
-                S1_o = S1_o Xor (lTemp0 >> 20 Or lTemp0 << 12)
-                lTemp0 = S2_e Xor (S2_o >> 2 Or S2_o << 30)
-                lTemp1 = S2_o Xor (S2_e >> 3 Or S2_e << 29)
+                lTemp0 = S0_e Xor (((S0_o >> 4) And &HFFFFFFF) Or (S0_o << 28))
+                lTemp1 = S0_o Xor (((S0_e >> 5) And &H7FFFFFF) Or (S0_e << 27))
+                S0_e = S0_e Xor (((lTemp1 >> 9) And &H7FFFFF) Or (lTemp1 << 23))
+                S0_o = S0_o Xor (((lTemp0 >> 10) And &H3FFFFF) Or (lTemp0 << 22))
+                lTemp0 = S1_e Xor (((S1_e >> 11) And &H1FFFFF) Or (S1_e << 21))
+                lTemp1 = S1_o Xor (((S1_o >> 11) And &H1FFFFF) Or (S1_o << 21))
+                S1_e = S1_e Xor (((lTemp1 >> 19) And &H1FFF) Or (lTemp1 << 13))
+                S1_o = S1_o Xor (((lTemp0 >> 20) And &HFFF) Or (lTemp0 << 12))
+                lTemp0 = S2_e Xor (((S2_o >> 2) And &H3FFFFFFF) Or (S2_o << 30))
+                lTemp1 = S2_o Xor (((S2_e >> 3) And &H1FFFFFFF) Or (S2_e << 29))
                 S2_e = S2_e Xor lTemp1
-                S2_o = S2_o Xor (lTemp0 >> 1 Or lTemp0 << 31)
-                lTemp0 = S3_e Xor (S3_o >> 3 Or S3_o << 29)
-                lTemp1 = S3_o Xor (S3_e >> 4 Or S3_e << 28)
-                S3_e = S3_e Xor (lTemp0 >> 5 Or lTemp0 << 27)
-                S3_o = S3_o Xor (lTemp1 >> 5 Or lTemp1 << 27)
-                lTemp0 = S4_e Xor (S4_e >> 17 Or S4_e << 15)
-                lTemp1 = S4_o Xor (S4_o >> 17 Or S4_o << 15)
-                S4_e = S4_e Xor (lTemp1 >> 3 Or lTemp1 << 29)
-                S4_o = S4_o Xor (lTemp0 >> 4 Or lTemp0 << 28)
+                S2_o = S2_o Xor (((lTemp0 >> 1) And &H7FFFFFFF) Or (lTemp0 << 31))
+                lTemp0 = S3_e Xor (((S3_o >> 3) And &H1FFFFFFF) Or (S3_o << 29))
+                lTemp1 = S3_o Xor (((S3_e >> 4) And &HFFFFFFF) Or (S3_e << 28))
+                S3_e = S3_e Xor (((lTemp0 >> 5) And &H7FFFFFF) Or (lTemp0 << 27))
+                S3_o = S3_o Xor (((lTemp1 >> 5) And &H7FFFFFF) Or (lTemp1 << 27))
+                lTemp0 = S4_e Xor (((S4_e >> 17) And &H7FFF) Or (S4_e << 15))
+                lTemp1 = S4_o Xor (((S4_o >> 17) And &H7FFF) Or (S4_o << 15))
+                S4_e = S4_e Xor (((lTemp1 >> 3) And &H1FFFFFFF) Or (lTemp1 << 29))
+                S4_o = S4_o Xor (((lTemp0 >> 4) And &HFFFFFFF) Or (lTemp0 << 28))
             #End If
         Next
         .Item(0) = S0_e

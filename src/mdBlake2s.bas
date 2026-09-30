@@ -109,13 +109,13 @@ End Sub
 [ IntegerOverflowChecks (False) ]
 Private Sub pvQuarter32(lA As Long, lB As Long, lC As Long, lD As Long, ByVal lX As Long, ByVal lY As Long)
     lA = lA + lB + lX
-    lD = (lD Xor lA) >> 16 Or (lD Xor lA) << 16
+    lD = (((lD Xor lA) >> 16) And &HFFFF&) Or ((lD Xor lA) << 16)
     lC = lC + lD
-    lB = (lB Xor lC) >> 12 or (lB Xor lC) << 20
+    lB = (((lB Xor lC) >> 12) And &HFFFFF) or ((lB Xor lC) << 20)
     lA = lA + lB + lY
-    lD = (lD Xor lA) >> 8 or (lD Xor lA) << 24
+    lD = (((lD Xor lA) >> 8) And &HFFFFFF) or ((lD Xor lA) << 24)
     lC = lC + lD
-    lB = (lB Xor lC) >> 7 or (lB Xor lC) << 25
+    lB = (((lB Xor lC) >> 7) And &H1FFFFFF) or ((lB Xor lC) << 25)
 End Sub
 #End If
 

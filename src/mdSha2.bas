@@ -223,8 +223,8 @@ Public Sub CryptoSha2Update(uCtx As CryptoSha2Context, baInput() As Byte, Option
                     W(lIdx) = BSwap32(B(lIdx))
                 Else
                     #If HasOperators Then
-                        lX = W(lIdx - 2): lSigma1 = (lX >> 17 Or lX << 15) Xor (lX >> 19 Or lX << 13) Xor (lX >> 10)
-                        lX = W(lIdx - 15): lSigma0 = (lX >> 7 Or lX << 25) Xor (lX >> 18 Or lX << 14) Xor (lX >> 3)
+                        lX = W(lIdx - 2): lSigma1 = (((lX >> 17) And &H7FFF) Or (lX << 15)) Xor (((lX >> 19) And &H1FFF) Or (lX << 13)) Xor ((lX >> 10) And &H3FFFFF)
+                        lX = W(lIdx - 15): lSigma0 = (((lX >> 7) And &H1FFFFFF) Or (lX << 25)) Xor (((lX >> 18) And &H3FFF) Or (lX << 14)) Xor ((lX >> 3) And &H1FFFFFFF)
                         W(lIdx) = lSigma1 + W(lIdx - 7) + lSigma0 + W(lIdx - 16)
                     #Else
                         If m_bNoIntegerOverflowChecks Then
@@ -235,8 +235,8 @@ Public Sub CryptoSha2Update(uCtx As CryptoSha2Context, baInput() As Byte, Option
                     #End If
                 End If
                 #If HasOperators Then
-                    lSigma1 = (lE >> 6 Or lE << 26) Xor (lE >> 11 Or lE << 21) Xor (lE >> 25 Or lE << 7)
-                    lSigma0 = (lA >> 2 Or lA << 30) Xor (lA >> 13 Or lA << 19) Xor (lA >> 22 Or lA << 10)
+                    lSigma1 = (((lE >> 6) And &H3FFFFFF) Or (lE << 26)) Xor (((lE >> 11) And &H1FFFFF) Or (lE << 21)) Xor (((lE >> 25) And &H7F) Or (lE << 7))
+                    lSigma0 = (((lA >> 2) And &H3FFFFFFF) Or (lA << 30)) Xor (((lA >> 13) And &H7FFFF) Or (lA << 19)) Xor (((lA >> 22) And &H3FF) Or (lA << 10))
                     lCh = (lE And (lF Xor lG)) Xor lG
                     lMaj = (lA And (lB Or lC)) Or (lB And lC)
                     lT1 = lH + lSigma1 + lCh + LNG_K(lIdx) + W(lIdx)

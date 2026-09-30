@@ -79,7 +79,7 @@ Private Function BSwap32(ByVal lX As Long) As Long
         Return ((lX And &H000000FF&) << 24) Or _
                ((lX And &H0000FF00&) << 8) Or _
                ((lX And &H00FF0000&) >> 8) Or _
-               ((lX And &HFF000000&) >> 24)
+               ((lX >> 24) And &HFF)
     #End If
 End Function
 
@@ -220,10 +220,10 @@ Private Sub pvPrecompute(baKey() As Byte, uKeyTable As ShoupTable)
                 With uTemp
                     lCarry = .Item(0) And 1
                     #If HasOperators Then
-                        .Item(0) = (.Item(0) >> 1) Or (.Item(1) << 31)
-                        .Item(1) = (.Item(1) >> 1) Or (.Item(2) << 31)
-                        .Item(2) = (.Item(2) >> 1) Or (.Item(3) << 31)
-                        .Item(3) = (.Item(3) >> 1) Xor lCarry * m_aReduce(m_aReverse(1))
+                        .Item(0) = ((.Item(0) >> 1) And &H7FFFFFFF) Or (.Item(1) << 31)
+                        .Item(1) = ((.Item(1) >> 1) And &H7FFFFFFF) Or (.Item(2) << 31)
+                        .Item(2) = ((.Item(2) >> 1) And &H7FFFFFFF) Or (.Item(3) << 31)
+                        .Item(3) = ((.Item(3) >> 1) And &H7FFFFFFF) Xor lCarry * m_aReduce(m_aReverse(1))
                     #Else
                         .Item(0) = (.Item(0) And &H7FFFFFFF) \ LNG_POW2_1 Or -(.Item(0) < 0) * LNG_POW2_30 Or (.Item(1) And 1) * LNG_POW2_31
                         .Item(1) = (.Item(1) And &H7FFFFFFF) \ LNG_POW2_1 Or -(.Item(1) < 0) * LNG_POW2_30 Or (.Item(2) And 1) * LNG_POW2_31
@@ -255,10 +255,10 @@ Private Sub pvMult(ByVal Pfn As LongPtr, uKeyTable As ShoupTable, uArray As Arra
                 '--- mul 16
                 lCarry = .Item(0) And &HF
                 #If HasOperators Then
-                    .Item(0) = (.Item(0) >> 4) Or (.Item(1) << 28)
-                    .Item(1) = (.Item(1) >> 4) Or (.Item(2) << 28)
-                    .Item(2) = (.Item(2) >> 4) Or (.Item(3) << 28)
-                    .Item(3) = (.Item(3) >> 4) Xor m_aReduce(lCarry)
+                    .Item(0) = ((.Item(0) >> 4) And &HFFFFFFF) Or (.Item(1) << 28)
+                    .Item(1) = ((.Item(1) >> 4) And &HFFFFFFF) Or (.Item(2) << 28)
+                    .Item(2) = ((.Item(2) >> 4) And &HFFFFFFF) Or (.Item(3) << 28)
+                    .Item(3) = ((.Item(3) >> 4) And &HFFFFFFF) Xor m_aReduce(lCarry)
                 #Else
                     .Item(0) = (.Item(0) And &H7FFFFFFF) \ LNG_POW2_4 Or -(.Item(0) < 0) * LNG_POW2_27 _
                         Or (.Item(1) And (LNG_POW2_3 - 1)) * LNG_POW2_28 Or -((.Item(1) And LNG_POW2_3) <> 0) * LNG_POW2_31
@@ -279,10 +279,10 @@ Private Sub pvMult(ByVal Pfn As LongPtr, uKeyTable As ShoupTable, uArray As Arra
             '--- mul 16
             lCarry = .Item(0) And &HF
             #If HasOperators Then
-                .Item(0) = (.Item(0) >> 4) Or (.Item(1) << 28)
-                .Item(1) = (.Item(1) >> 4) Or (.Item(2) << 28)
-                .Item(2) = (.Item(2) >> 4) Or (.Item(3) << 28)
-                .Item(3) = (.Item(3) >> 4) Xor m_aReduce(lCarry)
+                .Item(0) = ((.Item(0) >> 4) And &HFFFFFFF) Or (.Item(1) << 28)
+                .Item(1) = ((.Item(1) >> 4) And &HFFFFFFF) Or (.Item(2) << 28)
+                .Item(2) = ((.Item(2) >> 4) And &HFFFFFFF) Or (.Item(3) << 28)
+                .Item(3) = ((.Item(3) >> 4) And &HFFFFFFF) Xor m_aReduce(lCarry)
             #Else
                 .Item(0) = (.Item(0) And &H7FFFFFFF) \ LNG_POW2_4 Or -(.Item(0) < 0) * LNG_POW2_27 _
                     Or (.Item(1) And (LNG_POW2_3 - 1)) * LNG_POW2_28 Or -((.Item(1) And LNG_POW2_3) <> 0) * LNG_POW2_31
@@ -522,10 +522,10 @@ Private Function pvMulX(baInput() As Byte) As Byte()
     With uTemp
         lCarry = .Item(0) And 1
         #If HasOperators Then
-            .Item(0) = (.Item(0) >> 1) Or (.Item(1) << 31)
-            .Item(1) = (.Item(1) >> 1) Or (.Item(2) << 31)
-            .Item(2) = (.Item(2) >> 1) Or (.Item(3) << 31)
-            .Item(3) = (.Item(3) >> 1) Xor lCarry * m_aReduce(m_aReverse(1))
+            .Item(0) = ((.Item(0) >> 1) And &H7FFFFFFF) Or (.Item(1) << 31)
+            .Item(1) = ((.Item(1) >> 1) And &H7FFFFFFF) Or (.Item(2) << 31)
+            .Item(2) = ((.Item(2) >> 1) And &H7FFFFFFF) Or (.Item(3) << 31)
+            .Item(3) = ((.Item(3) >> 1) And &H7FFFFFFF) Xor lCarry * m_aReduce(m_aReverse(1))
         #Else
             .Item(0) = (.Item(0) And &H7FFFFFFF) \ LNG_POW2_1 Or -(.Item(0) < 0) * LNG_POW2_30 Or (.Item(1) And 1) * LNG_POW2_31
             .Item(1) = (.Item(1) And &H7FFFFFFF) \ LNG_POW2_1 Or -(.Item(1) < 0) * LNG_POW2_30 Or (.Item(2) And 1) * LNG_POW2_31

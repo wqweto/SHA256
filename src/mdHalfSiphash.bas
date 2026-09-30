@@ -124,16 +124,16 @@ Private Sub pvCompress(uCtx As CryptoHalfSiphashContext, ByVal lRounds As Long)
     With uCtx
         Do While lRounds > 0
             .V0 += .V1
-            .V1 = ((.V1 << 5) Or (.V1 >> 27)) Xor .V0
+            .V1 = ((.V1 << 5) Or ((.V1 >> 27) And &H1F)) Xor .V0
             .V2 += .V3
-            .V3 = ((.V3 << 8) Or (.V3 >> 24)) Xor .V2
-            .V0 = (.V0 << 16) Or (.V0 >> 16)
+            .V3 = ((.V3 << 8) Or ((.V3 >> 24) And &HFF)) Xor .V2
+            .V0 = (.V0 << 16) Or ((.V0 >> 16) And &HFFFF&)
             
             .V2 += .V1
-            .V1 = ((.V1 << 13) Or (.V1 >> 19)) Xor .V2
+            .V1 = ((.V1 << 13) Or ((.V1 >> 19) And &H1FFF)) Xor .V2
             .V0 += .V3
-            .V3 = ((.V3 << 7) Or (.V3 >> 25)) Xor .V0
-            .V2 = (.V2 << 16) Or (.V2 >> 16)
+            .V3 = ((.V3 << 7) Or ((.V3 >> 25) And &H7F)) Xor .V0
+            .V2 = (.V2 << 16) Or ((.V2 >> 16) And &HFFFF&)
             
             lRounds -= 1
         Loop

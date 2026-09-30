@@ -176,9 +176,9 @@ Public Sub CryptoRipeMd160Update(uCtx As CryptoRipeMd160Context, baInput() As By
                 End Select
                 #If HasOperators Then
                     lTemp0 += lA0 + B(LNG_R0(lIdx)) + lK0
-                    lTemp0 = (lTemp0 << LNG_S0(lIdx) Or lTemp0 >> (32 - LNG_S0(lIdx))) + lE0
+                    lTemp0 = ((lTemp0 << LNG_S0(lIdx)) Or ((lTemp0 >> (32 - LNG_S0(lIdx))) And ((1& << LNG_S0(lIdx)) - 1))) + lE0
                     lTemp1 += lA1 + B(LNG_R1(lIdx)) + lK1
-                    lTemp1 = (lTemp1 << LNG_S1(lIdx) Or lTemp1 >> (32 - LNG_S1(lIdx))) + lE1
+                    lTemp1 = ((lTemp1 << LNG_S1(lIdx)) Or ((lTemp1 >> (32 - LNG_S1(lIdx))) And ((1& << LNG_S1(lIdx)) - 1))) + lE1
                 #Else
                     lTemp0 = UAdd32(RotL32(UAdd32(UAdd32(UAdd32(lTemp0, lA0), B(LNG_R0(lIdx))), lK0), LNG_S0(lIdx)), lE0)
                     lTemp1 = UAdd32(RotL32(UAdd32(UAdd32(UAdd32(lTemp1, lA1), B(LNG_R1(lIdx))), lK1), LNG_S1(lIdx)), lE1)
@@ -186,7 +186,7 @@ Public Sub CryptoRipeMd160Update(uCtx As CryptoRipeMd160Context, baInput() As By
                 lA0 = lE0: lA1 = lE1
                 lE0 = lD0: lE1 = lD1
                 #If HasOperators Then
-                    lD0 = (lC0 << 10 Or lC0 >> 22): lD1 = (lC1 << 10 Or lC1 >> 22)
+                    lD0 = ((lC0 << 10) Or ((lC0 >> 22) And &H3FF)): lD1 = ((lC1 << 10) Or ((lC1 >> 22) And &H3FF))
                 #Else
                     lD0 = RotL32(lC0, 10): lD1 = RotL32(lC1, 10)
                 #End If

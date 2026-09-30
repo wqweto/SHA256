@@ -18,7 +18,7 @@ DefObj A-Z
 ' API
 '=========================================================================
 
-#If Win64 Then
+#If WIN64 Then
     Private Const PTR_SIZE                  As Long = 8
 #Else
     Private Const PTR_SIZE                  As Long = 4
@@ -134,10 +134,19 @@ Private Sub pvPrintUsage()
     ConPrintLine "  vbcrypto test aes_ccm -id 9"
 End Sub
 
+Public Function SetTrue(bValue As Boolean) As Boolean
+    bValue = True
+    SetTrue = True
+End Function
+
 Public Sub ConPrint(sText As String)
     Dim baText()        As Byte
     Dim lWritten        As Long
+    Dim bInIde          As Boolean: Debug.Assert SetTrue(bInIde)
 
+    If bInIde Then
+        m_bNoConsole = True
+    End If
     If m_hStdOut = 0 And Not m_bNoConsole Then
         m_hStdOut = GetStdHandle(STD_OUTPUT_HANDLE)
         '--- no console attached when running in the IDE, ask for one

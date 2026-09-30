@@ -100,13 +100,13 @@ Private Function pvSeparate(ByVal lX As Long) As Long
         lTemp = (((lX And &H7FFFFFFF) \ LNG_POW2_8 Or -(lX < 0) * LNG_POW2_23) Xor lX) And &HFF00&
         pvSeparate = (lX Xor lTemp) Xor ((lTemp And (LNG_POW2_23 - 1)) * LNG_POW2_8 Or -((lTemp And LNG_POW2_23) <> 0) * &H80000000)
     #Else
-        lTemp = ((lX >> 1) Xor lX) And &H22222222
+        lTemp = (((lX >> 1) And &H7FFFFFFF) Xor lX) And &H22222222
         lX = (lX Xor lTemp) Xor (lTemp << 1)
-        lTemp = ((lX >> 2) Xor lX) And &HC0C0C0C
+        lTemp = (((lX >> 2) And &H3FFFFFFF) Xor lX) And &HC0C0C0C
         lX = (lX Xor lTemp) Xor (lTemp << 2)
-        lTemp = ((lX >> 4) Xor lX) And &HF000F0
+        lTemp = (((lX >> 4) And &HFFFFFFF) Xor lX) And &HF000F0
         lX = (lX Xor lTemp) Xor (lTemp << 4)
-        lTemp = ((lX >> 8) Xor lX) And &HFF00&
+        lTemp = (((lX >> 8) And &HFFFFFF) Xor lX) And &HFF00&
         pvSeparate = (lX Xor lTemp) Xor (lTemp << 8)
     #End If
 End Function
@@ -124,13 +124,13 @@ Private Function pvCombine(ByVal lX As Long) As Long
         lTemp = (((lX And &H7FFFFFFF) \ LNG_POW2_8 Or -(lX < 0) * LNG_POW2_23) Xor lX) And &HFF00&
         pvCombine = (lX Xor lTemp) Xor ((lTemp And (LNG_POW2_23 - 1)) * LNG_POW2_8 Or -((lTemp And LNG_POW2_23) <> 0) * &H80000000)
     #Else
-        lTemp = ((lX >> 15) Xor lX) And &HAAAA&
+        lTemp = (((lX >> 15) And &H1FFFF) Xor lX) And &HAAAA&
         lX = (lX Xor lTemp) Xor (lTemp << 15)
-        lTemp = ((lX >> 14) Xor lX) And &HCCCC&
+        lTemp = (((lX >> 14) And &H3FFFF) Xor lX) And &HCCCC&
         lX = (lX Xor lTemp) Xor (lTemp << 14)
-        lTemp = ((lX >> 12) Xor lX) And &HF0F0&
+        lTemp = (((lX >> 12) And &HFFFFF) Xor lX) And &HF0F0&
         lX = (lX Xor lTemp) Xor (lTemp << 12)
-        lTemp = ((lX >> 8) Xor lX) And &HFF00&
+        lTemp = (((lX >> 8) And &HFFFFFF) Xor lX) And &HFF00&
         pvCombine = (lX Xor lTemp) Xor (lTemp << 8)
     #End If
 End Function
@@ -149,7 +149,7 @@ Private Sub pvToSliced(uState As ArrayLong50)
             .Item(lIdx + 1) = (lT1 And &HFFFF0000) Or ((lT0 And &H7FFFFFFF) \ LNG_POW2_16 Or -(lT0 < 0) * LNG_POW2_15)
         #Else
             .Item(lIdx) = (lT0 And &HFFFF&) Or (lT1 << 16)
-            .Item(lIdx + 1) = (lT1 And &HFFFF0000) Or (lT0 >> 16)
+            .Item(lIdx + 1) = (lT1 And &HFFFF0000) Or ((lT0 >> 16) And &HFFFF&)
         #End If
     Next
     End With
@@ -172,7 +172,7 @@ Private Sub pvFromSliced(uState As ArrayLong50)
             .Item(lIdx + 1) = ((lX And &H7FFFFFFF) \ LNG_POW2_1 Or -(lX < 0) * LNG_POW2_30) Or (lT1 And &HAAAAAAAA)
         #Else
             .Item(lIdx) = ((lT1 And &H55555555) << 1) Or (lT0 And &H55555555)
-            .Item(lIdx + 1) = ((lT0 And &HAAAAAAAA) >> 1) Or (lT1 And &HAAAAAAAA)
+            .Item(lIdx + 1) = ((lT0 >> 1) And &H55555555) Or (lT1 And &HAAAAAAAA)
         #End If
     Next
     End With
@@ -240,15 +240,15 @@ Private Sub Keccak(uState As ArrayLong50)
                     ((lU1 And (LNG_POW2_30 - 1)) * LNG_POW2_1 Or -((lU1 And LNG_POW2_30) <> 0) * &H80000000) Xor lT6
                 lT7 = lT7 Xor lU0
             #Else
-                lT0 = lU0 Xor (lT5 >> 31 Or lT5 << 1)
+                lT0 = lU0 Xor (((lT5 >> 31) And &H1) Or (lT5 << 1))
                 lT1 = lU1 Xor lT4
-                lT4 = lT4 Xor (lT9 >> 31 Or lT9 << 1)
+                lT4 = lT4 Xor (((lT9 >> 31) And &H1) Or (lT9 << 1))
                 lT5 = lT5 Xor lT8
-                lT8 = lT8 Xor (lT3 >> 31 Or lT3 << 1)
+                lT8 = lT8 Xor (((lT3 >> 31) And &H1) Or (lT3 << 1))
                 lT9 = lT9 Xor lT2
-                lT2 = lT2 Xor (lT7 >> 31 Or lT7 << 1)
+                lT2 = lT2 Xor (((lT7 >> 31) And &H1) Or (lT7 << 1))
                 lT3 = lT3 Xor lT6
-                lT6 = lT6 Xor (lU1 >> 31 Or lU1 << 1)
+                lT6 = lT6 Xor (((lU1 >> 31) And &H1) Or (lU1 << 1))
                 lT7 = lT7 Xor lU0
             #End If
             
@@ -267,8 +267,8 @@ Private Sub Keccak(uState As ArrayLong50)
                 .Item(3) = ((lU1 And &H7FFFFFFF) \ LNG_POW2_10 - (lU1 < 0) * LNG_POW2_21) Or _
                     ((lU1 And (LNG_POW2_9 - 1)) * LNG_POW2_22 Or -((lU1 And LNG_POW2_9) <> 0) * &H80000000)
             #Else
-                .Item(2) = (lU0 >> 10 Or lU0 << 22)
-                .Item(3) = (lU1 >> 10 Or lU1 << 22)
+                .Item(2) = (((lU0 >> 10) And &H3FFFFF) Or (lU0 << 22))
+                .Item(3) = (((lU1 >> 10) And &H3FFFFF) Or (lU1 << 22))
             #End If
             lU0 = .Item(18) Xor lT6
             lU1 = .Item(19) Xor lT7
@@ -278,8 +278,8 @@ Private Sub Keccak(uState As ArrayLong50)
                 .Item(13) = ((lU1 And &H7FFFFFFF) \ LNG_POW2_22 - (lU1 < 0) * LNG_POW2_9) Or _
                     ((lU1 And (LNG_POW2_21 - 1)) * LNG_POW2_10 Or -((lU1 And LNG_POW2_21) <> 0) * &H80000000)
             #Else
-                .Item(12) = (lU0 >> 22 Or lU0 << 10)
-                .Item(13) = (lU1 >> 22 Or lU1 << 10)
+                .Item(12) = (((lU0 >> 22) And &H3FF) Or (lU0 << 10))
+                .Item(13) = (((lU1 >> 22) And &H3FF) Or (lU1 << 10))
             #End If
             lU0 = .Item(44) Xor lT2
             lU1 = .Item(45) Xor lT3
@@ -289,8 +289,8 @@ Private Sub Keccak(uState As ArrayLong50)
                 .Item(19) = ((lU0 And &H7FFFFFFF) \ LNG_POW2_2 - (lU0 < 0) * LNG_POW2_29) Or _
                     ((lU0 And (LNG_POW2_1 - 1)) * LNG_POW2_30 Or -((lU0 And LNG_POW2_1) <> 0) * &H80000000)
             #Else
-                .Item(18) = (lU1 >> 1 Or lU1 << 31)
-                .Item(19) = (lU0 >> 2 Or lU0 << 30)
+                .Item(18) = (((lU1 >> 1) And &H7FFFFFFF) Or (lU1 << 31))
+                .Item(19) = (((lU0 >> 2) And &H3FFFFFFF) Or (lU0 << 30))
             #End If
             lU0 = .Item(28) Xor lT6
             lU1 = .Item(29) Xor lT7
@@ -300,8 +300,8 @@ Private Sub Keccak(uState As ArrayLong50)
                 .Item(45) = ((lU0 And &H7FFFFFFF) \ LNG_POW2_13 - (lU0 < 0) * LNG_POW2_18) Or _
                     ((lU0 And (LNG_POW2_12 - 1)) * LNG_POW2_19 Or -((lU0 And LNG_POW2_12) <> 0) * &H80000000)
             #Else
-                .Item(44) = (lU1 >> 12 Or lU1 << 20)
-                .Item(45) = (lU0 >> 13 Or lU0 << 19)
+                .Item(44) = (((lU1 >> 12) And &HFFFFF) Or (lU1 << 20))
+                .Item(45) = (((lU0 >> 13) And &H7FFFF) Or (lU0 << 19))
             #End If
             lU0 = .Item(40) Xor lT8
             lU1 = .Item(41) Xor lT9
@@ -311,8 +311,8 @@ Private Sub Keccak(uState As ArrayLong50)
                 .Item(29) = ((lU1 And &H7FFFFFFF) \ LNG_POW2_23 - (lU1 < 0) * LNG_POW2_8) Or _
                     ((lU1 And (LNG_POW2_22 - 1)) * LNG_POW2_9 Or -((lU1 And LNG_POW2_22) <> 0) * &H80000000)
             #Else
-                .Item(28) = (lU0 >> 23 Or lU0 << 9)
-                .Item(29) = (lU1 >> 23 Or lU1 << 9)
+                .Item(28) = (((lU0 >> 23) And &H1FF) Or (lU0 << 9))
+                .Item(29) = (((lU1 >> 23) And &H1FF) Or (lU1 << 9))
             #End If
             lU0 = .Item(4) Xor lT2
             lU1 = .Item(5) Xor lT3
@@ -322,8 +322,8 @@ Private Sub Keccak(uState As ArrayLong50)
                 .Item(41) = ((lU1 And &H7FFFFFFF) \ LNG_POW2_1 - (lU1 < 0) * LNG_POW2_30) Or _
                     ((lU1 And 0) * LNG_POW2_31 Or -((lU1 And 1) <> 0) * &H80000000)
             #Else
-                .Item(40) = (lU0 >> 1 Or lU0 << 31)
-                .Item(41) = (lU1 >> 1 Or lU1 << 31)
+                .Item(40) = (((lU0 >> 1) And &H7FFFFFFF) Or (lU0 << 31))
+                .Item(41) = (((lU1 >> 1) And &H7FFFFFFF) Or (lU1 << 31))
             #End If
             lU0 = .Item(24) Xor lT2
             lU1 = .Item(25) Xor lT3
@@ -333,8 +333,8 @@ Private Sub Keccak(uState As ArrayLong50)
                 .Item(5) = ((lU0 And &H7FFFFFFF) \ LNG_POW2_11 - (lU0 < 0) * LNG_POW2_20) Or _
                     ((lU0 And (LNG_POW2_10 - 1)) * LNG_POW2_21 Or -((lU0 And LNG_POW2_10) <> 0) * &H80000000)
             #Else
-                .Item(4) = (lU1 >> 10 Or lU1 << 22)
-                .Item(5) = (lU0 >> 11 Or lU0 << 21)
+                .Item(4) = (((lU1 >> 10) And &H3FFFFF) Or (lU1 << 22))
+                .Item(5) = (((lU0 >> 11) And &H1FFFFF) Or (lU0 << 21))
             #End If
             lU0 = .Item(26) Xor lT4
             lU1 = .Item(27) Xor lT5
@@ -344,8 +344,8 @@ Private Sub Keccak(uState As ArrayLong50)
                 .Item(25) = ((lU0 And &H7FFFFFFF) \ LNG_POW2_20 - (lU0 < 0) * LNG_POW2_11) Or _
                     ((lU0 And (LNG_POW2_19 - 1)) * LNG_POW2_12 Or -((lU0 And LNG_POW2_19) <> 0) * &H80000000)
             #Else
-                .Item(24) = (lU1 >> 19 Or lU1 << 13)
-                .Item(25) = (lU0 >> 20 Or lU0 << 12)
+                .Item(24) = (((lU1 >> 19) And &H1FFF) Or (lU1 << 13))
+                .Item(25) = (((lU0 >> 20) And &HFFF) Or (lU0 << 12))
             #End If
             lU0 = .Item(38) Xor lT6
             lU1 = .Item(39) Xor lT7
@@ -355,8 +355,8 @@ Private Sub Keccak(uState As ArrayLong50)
                 .Item(27) = ((lU1 And &H7FFFFFFF) \ LNG_POW2_28 - (lU1 < 0) * LNG_POW2_3) Or _
                     ((lU1 And (LNG_POW2_27 - 1)) * LNG_POW2_4 Or -((lU1 And LNG_POW2_27) <> 0) * &H80000000)
             #Else
-                .Item(26) = (lU0 >> 28 Or lU0 << 4)
-                .Item(27) = (lU1 >> 28 Or lU1 << 4)
+                .Item(26) = (((lU0 >> 28) And &HF) Or (lU0 << 4))
+                .Item(27) = (((lU1 >> 28) And &HF) Or (lU1 << 4))
             #End If
             lU0 = .Item(46) Xor lT4
             lU1 = .Item(47) Xor lT5
@@ -366,8 +366,8 @@ Private Sub Keccak(uState As ArrayLong50)
                 .Item(39) = ((lU1 And &H7FFFFFFF) \ LNG_POW2_4 - (lU1 < 0) * LNG_POW2_27) Or _
                     ((lU1 And (LNG_POW2_3 - 1)) * LNG_POW2_28 Or -((lU1 And LNG_POW2_3) <> 0) * &H80000000)
             #Else
-                .Item(38) = (lU0 >> 4 Or lU0 << 28)
-                .Item(39) = (lU1 >> 4 Or lU1 << 28)
+                .Item(38) = (((lU0 >> 4) And &HFFFFFFF) Or (lU0 << 28))
+                .Item(39) = (((lU1 >> 4) And &HFFFFFFF) Or (lU1 << 28))
             #End If
             lU0 = .Item(30) Xor lT8
             lU1 = .Item(31) Xor lT9
@@ -377,8 +377,8 @@ Private Sub Keccak(uState As ArrayLong50)
                 .Item(47) = ((lU0 And &H7FFFFFFF) \ LNG_POW2_12 - (lU0 < 0) * LNG_POW2_19) Or _
                     ((lU0 And (LNG_POW2_11 - 1)) * LNG_POW2_20 Or -((lU0 And LNG_POW2_11) <> 0) * &H80000000)
             #Else
-                .Item(46) = (lU1 >> 11 Or lU1 << 21)
-                .Item(47) = (lU0 >> 12 Or lU0 << 20)
+                .Item(46) = (((lU1 >> 11) And &H1FFFFF) Or (lU1 << 21))
+                .Item(47) = (((lU0 >> 12) And &HFFFFF) Or (lU0 << 20))
             #End If
             lU0 = .Item(8) Xor lT6
             lU1 = .Item(9) Xor lT7
@@ -388,8 +388,8 @@ Private Sub Keccak(uState As ArrayLong50)
                 .Item(31) = ((lU0 And &H7FFFFFFF) \ LNG_POW2_19 - (lU0 < 0) * LNG_POW2_12) Or _
                     ((lU0 And (LNG_POW2_18 - 1)) * LNG_POW2_13 Or -((lU0 And LNG_POW2_18) <> 0) * &H80000000)
             #Else
-                .Item(30) = (lU1 >> 18 Or lU1 << 14)
-                .Item(31) = (lU0 >> 19 Or lU0 << 13)
+                .Item(30) = (((lU1 >> 18) And &H3FFF) Or (lU1 << 14))
+                .Item(31) = (((lU0 >> 19) And &H1FFF) Or (lU0 << 13))
             #End If
             lU0 = .Item(48) Xor lT6
             lU1 = .Item(49) Xor lT7
@@ -399,8 +399,8 @@ Private Sub Keccak(uState As ArrayLong50)
                 .Item(9) = ((lU1 And &H7FFFFFFF) \ LNG_POW2_25 - (lU1 < 0) * LNG_POW2_6) Or _
                     ((lU1 And (LNG_POW2_24 - 1)) * LNG_POW2_7 Or -((lU1 And LNG_POW2_24) <> 0) * &H80000000)
             #Else
-                .Item(8) = (lU0 >> 25 Or lU0 << 7)
-                .Item(9) = (lU1 >> 25 Or lU1 << 7)
+                .Item(8) = (((lU0 >> 25) And &H7F) Or (lU0 << 7))
+                .Item(9) = (((lU1 >> 25) And &H7F) Or (lU1 << 7))
             #End If
             lU0 = .Item(42) Xor lT0
             lU1 = .Item(43) Xor lT1
@@ -410,8 +410,8 @@ Private Sub Keccak(uState As ArrayLong50)
                 .Item(49) = ((lU1 And &H7FFFFFFF) \ LNG_POW2_31 - (lU1 < 0)) Or _
                     ((lU1 And (LNG_POW2_30 - 1)) * LNG_POW2_1 Or -((lU1 And LNG_POW2_30) <> 0) * &H80000000)
             #Else
-                .Item(48) = (lU0 >> 31 Or lU0 << 1)
-                .Item(49) = (lU1 >> 31 Or lU1 << 1)
+                .Item(48) = (((lU0 >> 31) And &H1) Or (lU0 << 1))
+                .Item(49) = (((lU1 >> 31) And &H1) Or (lU1 << 1))
             #End If
             lU0 = .Item(16) Xor lT4
             lU1 = .Item(17) Xor lT5
@@ -421,8 +421,8 @@ Private Sub Keccak(uState As ArrayLong50)
                 .Item(43) = ((lU0 And &H7FFFFFFF) \ LNG_POW2_5 - (lU0 < 0) * LNG_POW2_26) Or _
                     ((lU0 And (LNG_POW2_4 - 1)) * LNG_POW2_27 Or -((lU0 And LNG_POW2_4) <> 0) * &H80000000)
             #Else
-                .Item(42) = (lU1 >> 4 Or lU1 << 28)
-                .Item(43) = (lU0 >> 5 Or lU0 << 27)
+                .Item(42) = (((lU1 >> 4) And &HFFFFFFF) Or (lU1 << 28))
+                .Item(43) = (((lU0 >> 5) And &H7FFFFFF) Or (lU0 << 27))
             #End If
             lU0 = .Item(32) Xor lT0
             lU1 = .Item(33) Xor lT1
@@ -432,8 +432,8 @@ Private Sub Keccak(uState As ArrayLong50)
                 .Item(17) = ((lU0 And &H7FFFFFFF) \ LNG_POW2_10 - (lU0 < 0) * LNG_POW2_21) Or _
                     ((lU0 And (LNG_POW2_9 - 1)) * LNG_POW2_22 Or -((lU0 And LNG_POW2_9) <> 0) * &H80000000)
             #Else
-                .Item(16) = (lU1 >> 9 Or lU1 << 23)
-                .Item(17) = (lU0 >> 10 Or lU0 << 22)
+                .Item(16) = (((lU1 >> 9) And &H7FFFFF) Or (lU1 << 23))
+                .Item(17) = (((lU0 >> 10) And &H3FFFFF) Or (lU0 << 22))
             #End If
             lU0 = .Item(10) Xor lT8
             lU1 = .Item(11) Xor lT9
@@ -443,8 +443,8 @@ Private Sub Keccak(uState As ArrayLong50)
                 .Item(33) = ((lU1 And &H7FFFFFFF) \ LNG_POW2_14 - (lU1 < 0) * LNG_POW2_17) Or _
                     ((lU1 And (LNG_POW2_13 - 1)) * LNG_POW2_18 Or -((lU1 And LNG_POW2_13) <> 0) * &H80000000)
             #Else
-                .Item(32) = (lU0 >> 14 Or lU0 << 18)
-                .Item(33) = (lU1 >> 14 Or lU1 << 18)
+                .Item(32) = (((lU0 >> 14) And &H3FFFF) Or (lU0 << 18))
+                .Item(33) = (((lU1 >> 14) And &H3FFFF) Or (lU1 << 18))
             #End If
             lU0 = .Item(6) Xor lT4
             lU1 = .Item(7) Xor lT5
@@ -454,8 +454,8 @@ Private Sub Keccak(uState As ArrayLong50)
                 .Item(11) = ((lU1 And &H7FFFFFFF) \ LNG_POW2_18 - (lU1 < 0) * LNG_POW2_13) Or _
                     ((lU1 And (LNG_POW2_17 - 1)) * LNG_POW2_14 Or -((lU1 And LNG_POW2_17) <> 0) * &H80000000)
             #Else
-                .Item(10) = (lU0 >> 18 Or lU0 << 14)
-                .Item(11) = (lU1 >> 18 Or lU1 << 14)
+                .Item(10) = (((lU0 >> 18) And &H3FFF) Or (lU0 << 14))
+                .Item(11) = (((lU1 >> 18) And &H3FFF) Or (lU1 << 14))
             #End If
             lU0 = .Item(36) Xor lT4
             lU1 = .Item(37) Xor lT5
@@ -465,8 +465,8 @@ Private Sub Keccak(uState As ArrayLong50)
                 .Item(7) = ((lU0 And &H7FFFFFFF) \ LNG_POW2_22 - (lU0 < 0) * LNG_POW2_9) Or _
                     ((lU0 And (LNG_POW2_21 - 1)) * LNG_POW2_10 Or -((lU0 And LNG_POW2_21) <> 0) * &H80000000)
             #Else
-                .Item(6) = (lU1 >> 21 Or lU1 << 11)
-                .Item(7) = (lU0 >> 22 Or lU0 << 10)
+                .Item(6) = (((lU1 >> 21) And &H7FF) Or (lU1 << 11))
+                .Item(7) = (((lU0 >> 22) And &H3FF) Or (lU0 << 10))
             #End If
             lU0 = .Item(34) Xor lT2
             lU1 = .Item(35) Xor lT3
@@ -476,8 +476,8 @@ Private Sub Keccak(uState As ArrayLong50)
                 .Item(37) = ((lU0 And &H7FFFFFFF) \ LNG_POW2_25 - (lU0 < 0) * LNG_POW2_6) Or _
                     ((lU0 And (LNG_POW2_24 - 1)) * LNG_POW2_7 Or -((lU0 And LNG_POW2_24) <> 0) * &H80000000)
             #Else
-                .Item(36) = (lU1 >> 24 Or lU1 << 8)
-                .Item(37) = (lU0 >> 25 Or lU0 << 7)
+                .Item(36) = (((lU1 >> 24) And &HFF) Or (lU1 << 8))
+                .Item(37) = (((lU0 >> 25) And &H7F) Or (lU0 << 7))
             #End If
             lU0 = .Item(22) Xor lT0
             lU1 = .Item(23) Xor lT1
@@ -487,8 +487,8 @@ Private Sub Keccak(uState As ArrayLong50)
                 .Item(35) = ((lU1 And &H7FFFFFFF) \ LNG_POW2_27 - (lU1 < 0) * LNG_POW2_4) Or _
                     ((lU1 And (LNG_POW2_26 - 1)) * LNG_POW2_5 Or -((lU1 And LNG_POW2_26) <> 0) * &H80000000)
             #Else
-                .Item(34) = (lU0 >> 27 Or lU0 << 5)
-                .Item(35) = (lU1 >> 27 Or lU1 << 5)
+                .Item(34) = (((lU0 >> 27) And &H1F) Or (lU0 << 5))
+                .Item(35) = (((lU1 >> 27) And &H1F) Or (lU1 << 5))
             #End If
             lU0 = .Item(14) Xor lT2
             lU1 = .Item(15) Xor lT3
@@ -498,8 +498,8 @@ Private Sub Keccak(uState As ArrayLong50)
                 .Item(23) = ((lU1 And &H7FFFFFFF) \ LNG_POW2_29 - (lU1 < 0) * LNG_POW2_2) Or _
                     ((lU1 And (LNG_POW2_28 - 1)) * LNG_POW2_3 Or -((lU1 And LNG_POW2_28) <> 0) * &H80000000)
             #Else
-                .Item(22) = (lU0 >> 29 Or lU0 << 3)
-                .Item(23) = (lU1 >> 29 Or lU1 << 3)
+                .Item(22) = (((lU0 >> 29) And &H7) Or (lU0 << 3))
+                .Item(23) = (((lU1 >> 29) And &H7) Or (lU1 << 3))
             #End If
             lU0 = .Item(20) Xor lT8
             lU1 = .Item(21) Xor lT9
@@ -511,9 +511,9 @@ Private Sub Keccak(uState As ArrayLong50)
                 .Item(20) = ((lU3 And &H7FFFFFFF) \ LNG_POW2_31 - (lU3 < 0)) Or _
                     ((lU3 And (LNG_POW2_30 - 1)) * LNG_POW2_1 Or -((lU3 And LNG_POW2_30) <> 0) * &H80000000)
             #Else
-                .Item(14) = (lU1 >> 30 Or lU1 << 2)
-                .Item(15) = (lU0 >> 31 Or lU0 << 1)
-                .Item(20) = (lU3 >> 31 Or lU3 << 1)
+                .Item(14) = (((lU1 >> 30) And &H3) Or (lU1 << 2))
+                .Item(15) = (((lU0 >> 31) And &H1) Or (lU0 << 1))
+                .Item(20) = (((lU3 >> 31) And &H1) Or (lU3 << 1))
             #End If
             .Item(21) = lU2
             

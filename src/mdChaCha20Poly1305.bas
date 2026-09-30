@@ -107,10 +107,10 @@ End Sub
 #Else
 [ IntegerOverflowChecks (False) ]
 Private Sub pvChaCha20Quarter(lA As Long, lB As Long, lC As Long, lD As Long)
-    lA += lB: lD = ((lD Xor lA) << 16) Or ((lD Xor lA) >> 16)
-    lC += lD: lB = ((lB Xor lC) << 12) Or ((lB Xor lC) >> 20)
-    lA += lB: lD = ((lD Xor lA) << 8) Or ((lD Xor lA) >> 24)
-    lC += lD: lB = ((lB Xor lC) << 7) Or ((lB Xor lC) >> 25)
+    lA += lB: lD = ((lD Xor lA) << 16) Or (((lD Xor lA) >> 16) And &HFFFF&)
+    lC += lD: lB = ((lB Xor lC) << 12) Or (((lB Xor lC) >> 20) And &HFFF)
+    lA += lB: lD = ((lD Xor lA) << 8) Or (((lD Xor lA) >> 24) And &HFF)
+    lC += lD: lB = ((lB Xor lC) << 7) Or (((lB Xor lC) >> 25) And &H7F)
 End Sub
 #End If
 

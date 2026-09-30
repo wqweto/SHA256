@@ -84,7 +84,7 @@ Private Function BSwap32(ByVal lX As Long) As Long
         Return ((lX And &H000000FF&) << 24) Or _
                ((lX And &H0000FF00&) << 8) Or _
                ((lX And &H00FF0000&) >> 8) Or _
-               ((lX And &HFF000000&) >> 24)
+               ((lX >> 24) And &HFF)
     #End If
 End Function
 
@@ -166,8 +166,8 @@ Private Sub pvInit(uEncTable As AesTables, uDecTable As AesTables)
         #End If
         For lIdx = 0 To 3
             #If HasOperators Then
-                lEnc = (lEnc << 8) Xor (lEnc >> 24)
-                lDec = (lDec << 8) Xor (lDec >> 24)
+                lEnc = (lEnc << 8) Xor ((lEnc >> 24) And &HFF)
+                lDec = (lDec << 8) Xor ((lDec >> 24) And &HFF)
             #Else
                 lEnc = ((lEnc And (LNG_POW2_23 - 1)) * LNG_POW2_8 Or -((lEnc And LNG_POW2_23) <> 0) * &H80000000) _
                     Xor ((lEnc And &H7FFFFFFF) \ LNG_POW2_24 Or -(lEnc < 0) * LNG_POW2_7)
@@ -229,7 +229,7 @@ Private Function pvKeySchedule(baKey() As Byte, uSbox As ArrayLong256, uDecTable
         '--- sbox
         If lIdx Mod lKeyLen = 0 Then
             #If HasOperators Then
-                lPrev = (lPrev << 24) Or (lPrev >> 8)
+                lPrev = (lPrev << 24) Or ((lPrev >> 8) And &HFFFFFF)
                 lPrev = (uSbox.Item(lPrev And &HFF&) And &HFF&) _
                     Xor (uSbox.Item((lPrev >> 8) And &HFF&) And &HFF00&) _
                     Xor (uSbox.Item((lPrev >> 16) And &HFF&) And &HFF0000) _
@@ -249,7 +249,7 @@ Private Function pvKeySchedule(baKey() As Byte, uSbox As ArrayLong256, uDecTable
                 lPrev = (uSbox.Item(lPrev And 255) And &HFF&) _
                     Xor (uSbox.Item((lPrev >> 8) And 255) And &HFF00&) _
                     Xor (uSbox.Item((lPrev >> 16) And 255) And &HFF0000) _
-                    Xor (uSbox.Item(lPrev >> 24) And &HFF000000)
+                    Xor (uSbox.Item((lPrev >> 24) And 255) And &HFF000000)
             #Else
                 lPrev = (uSbox.Item(lPrev And &HFF&) And &HFF&) _
                     Xor (uSbox.Item((lPrev And &HFF00&) \ LNG_POW2_8) And &HFF00&) _
@@ -274,7 +274,7 @@ Private Function pvKeySchedule(baKey() As Byte, uSbox As ArrayLong256, uDecTable
                 uDecKey.Item(lJdx) = uDecTable.Item(0).Item(uSbox.Item(lPrev And 255) And &HFF&) _
                     Xor uDecTable.Item(1).Item(uSbox.Item((lPrev >> 8) And 255) And &HFF&) _
                     Xor uDecTable.Item(2).Item(uSbox.Item((lPrev >> 16) And 255) And &HFF&) _
-                    Xor uDecTable.Item(3).Item(uSbox.Item(lPrev >> 24) And &HFF&)
+                    Xor uDecTable.Item(3).Item(uSbox.Item((lPrev >> 24) And 255) And &HFF&)
             #Else
                 lTemp = (lPrev And &H7FFFFFFF) \ LNG_POW2_24 Or -(lPrev < 0) * LNG_POW2_7
                 uDecKey.Item(lJdx) = uDecTable.Item(0).Item(uSbox.Item(lPrev And &HFF&) And &HFF&) _
@@ -309,10 +309,10 @@ Private Sub pvCrypt(uBlock As AesBlock, ByVal bDecrypt As Boolean, uKey As Array
     lKdx = 4
     For lIdx = 1 To lKeyLen \ 4 - 2
         #If HasOperators Then
-            lTemp1 = uT0.Item(lA And 255) Xor uT1.Item((lB >> 8) And 255) Xor uT2.Item((lC >> 16) And 255) Xor uT3.Item(lD >> 24) Xor uKey.Item(lKdx + 0)
-            lTemp2 = uT0.Item(lB And 255) Xor uT1.Item((lC >> 8) And 255) Xor uT2.Item((lD >> 16) And 255) Xor uT3.Item(lA >> 24) Xor uKey.Item(lKdx + 1)
-            lTemp3 = uT0.Item(lC And 255) Xor uT1.Item((lD >> 8) And 255) Xor uT2.Item((lA >> 16) And 255) Xor uT3.Item(lB >> 24) Xor uKey.Item(lKdx + 2)
-            lD = uT0.Item(lD And 255) Xor uT1.Item((lA >> 8) And 255) Xor uT2.Item((lB >> 16) And 255) Xor uT3.Item(lC >> 24) Xor uKey.Item(lKdx + 3)
+            lTemp1 = uT0.Item(lA And 255) Xor uT1.Item((lB >> 8) And 255) Xor uT2.Item((lC >> 16) And 255) Xor uT3.Item((lD >> 24) And &HFF) Xor uKey.Item(lKdx + 0)
+            lTemp2 = uT0.Item(lB And 255) Xor uT1.Item((lC >> 8) And 255) Xor uT2.Item((lD >> 16) And 255) Xor uT3.Item((lA >> 24) And &HFF) Xor uKey.Item(lKdx + 1)
+            lTemp3 = uT0.Item(lC And 255) Xor uT1.Item((lD >> 8) And 255) Xor uT2.Item((lA >> 16) And 255) Xor uT3.Item((lB >> 24) And &HFF) Xor uKey.Item(lKdx + 2)
+            lD = uT0.Item(lD And 255) Xor uT1.Item((lA >> 8) And 255) Xor uT2.Item((lB >> 16) And 255) Xor uT3.Item((lC >> 24) And &HFF) Xor uKey.Item(lKdx + 3)
         #Else
             lTemp1 = uT0.Item(lA And 255) _
                 Xor uT1.Item((lB And &HFF00&) \ LNG_POW2_8) _
@@ -349,7 +349,7 @@ Private Sub pvCrypt(uBlock As AesBlock, ByVal bDecrypt As Boolean, uKey As Array
             uBlock.Item(lJdx) = (uSbox.Item(lA And 255) And &HFF&) _
                 Xor (uSbox.Item((lB >> 8) And 255) And &HFF00&) _
                 Xor (uSbox.Item((lC >> 16) And 255) And &HFF0000) _
-                Xor (uSbox.Item(lD >> 24) And &HFF000000) Xor uKey.Item(lKdx)
+                Xor (uSbox.Item((lD >> 24) And 255) And &HFF000000) Xor uKey.Item(lKdx)
         #Else
             uBlock.Item(lJdx) = (uSbox.Item(lA And 255) And &HFF&) _
                 Xor (uSbox.Item((lB And &HFF00&) \ LNG_POW2_8) And &HFF00&) _

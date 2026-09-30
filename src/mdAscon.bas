@@ -231,7 +231,7 @@ Private Function BSwap64(ByVal lX As LongLong) As LongLong
            ((lX And &H000000FF00000000^) >> 8) Or _
            ((lX And &H0000FF0000000000^) >> 24) Or _
            ((lX And &H00FF000000000000^) >> 40) Or _
-           ((lX And &HFF00000000000000^) >> 56)
+           ((lX >> 56) And &HFF^)
 End Function
 
 Private Sub pvAssign(uArray As ArrayLongLong5, S0 As LongLong, S1 As LongLong, S2 As LongLong, S3 As LongLong, S4 As LongLong)
@@ -283,16 +283,16 @@ Private Sub pvPermute(uCtx As CryptoAsconContext, ByVal lRounds As Long)
             S3 = S3 Xor S2
             S2 = Not S2
             '--- linear diffusion layer
-            lTemp = S0 Xor (S0 >> 9 Or S0 << 55)
-            S0 = S0 Xor (lTemp >> 19 Or lTemp << 45)
-            lTemp = S1 Xor (S1 >> 22 Or S1 << 42)
-            S1 = S1 Xor (lTemp >> 39 Or lTemp << 25)
-            lTemp = S2 Xor (S2 >> 5 Or S2 << 59)
-            S2 = S2 Xor (lTemp >> 1 Or lTemp << 63)
-            lTemp = S3 Xor (S3 >> 7 Or S3 << 57)
-            S3 = S3 Xor (lTemp >> 10 Or lTemp << 54)
-            lTemp = S4 Xor (S4 >> 34 Or S4 << 30)
-            S4 = S4 Xor (lTemp >> 7 Or lTemp << 57)
+            lTemp = S0 Xor (((S0 >> 9) And &H7FFFFFFFFFFFFF^) Or (S0 << 55))
+            S0 = S0 Xor (((lTemp >> 19) And &H1FFFFFFFFFFF^) Or (lTemp << 45))
+            lTemp = S1 Xor (((S1 >> 22) And &H3FFFFFFFFFF^) Or (S1 << 42))
+            S1 = S1 Xor (((lTemp >> 39) And &H1FFFFFF^) Or (lTemp << 25))
+            lTemp = S2 Xor (((S2 >> 5) And &H7FFFFFFFFFFFFFF^) Or (S2 << 59))
+            S2 = S2 Xor (((lTemp >> 1) And &H7FFFFFFFFFFFFFFF^) Or (lTemp << 63))
+            lTemp = S3 Xor (((S3 >> 7) And &H1FFFFFFFFFFFFFF^) Or (S3 << 57))
+            S3 = S3 Xor (((lTemp >> 10) And &H3FFFFFFFFFFFFF^) Or (lTemp << 54))
+            lTemp = S4 Xor (((S4 >> 34) And &H3FFFFFFF^) Or (S4 << 30))
+            S4 = S4 Xor (((lTemp >> 7) And &H1FFFFFFFFFFFFFF^) Or (lTemp << 57))
         Next
         pvUnassign ByVal VarPtr(.Bytes(0)), S0, S1, S2, S3, S4
     End With
